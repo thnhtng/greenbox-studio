@@ -1,0 +1,6 @@
+# macOS metadata created on external drives
+._*
+.DS_Store
+
+# Exact duplicate of model-1-4.js; not required by the application
+model-1-4 (1).js
