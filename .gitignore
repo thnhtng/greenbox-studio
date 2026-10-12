@@ -4,3 +4,6 @@
 
 # Exact duplicate of model-1-4.js; not required by the application
 model-1-4 (1).js
+
+# Local source snapshot used to refresh the published cockpit entrypoint
+Greenbox-Cockpit_7.html
