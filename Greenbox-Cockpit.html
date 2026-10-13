@@ -2297,9 +2297,12 @@ $('exportBtn').onclick = runExport;
 
 async function movSave(blob,name,msg){
   const M=window.__gbMov; const u8=new Uint8Array(await blob.arrayBuffer());
-  if(!downloads){ msg.className='msg err'; msg.textContent='Chế độ xem này không cho lưu file — mở artifact trực tiếp trên claude.ai.'; return; }
   msg.textContent='Đang đóng gói .zip…'; const z=await M.zipStore(name,u8), zn=name.replace(/\.mov$/,'.zip');
-  try{ await downloads.save({filename:zn,data:z}); msg.className='msg'; msg.textContent='Đã lưu '+zn+' ('+(blob.size/1048576).toFixed(1)+' MB) — giải nén ra .mov, kéo thẳng vào AE.'; }
+  try{
+    if(downloads){ await downloads.save({filename:zn,data:z}); }
+    else { const url=URL.createObjectURL(z), a=document.createElement('a'); a.href=url; a.download=zn; a.rel='noopener'; a.style.display='none'; document.body.appendChild(a); a.click(); setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},1000); }
+    msg.className='msg'; msg.textContent='Đã lưu '+zn+' ('+(blob.size/1048576).toFixed(1)+' MB) — giải nén ra .mov, kéo thẳng vào AE.';
+  }
   catch(e){ msg.className='msg'+(e&&e.code==='declined'?'':' err'); msg.textContent= e&&e.code==='declined' ? 'Đã đóng hộp lưu — bấm lại.' : 'Không lưu được: '+((e&&(e.code||e.message))||e); } }
 async function movRender(dur,fps,paint,msg,btn){
   const M=window.__gbMov; if(!M){ msg.className='msg err'; msg.textContent='Bộ ghi MOV chưa sẵn sàng.'; return null; }
@@ -2334,10 +2337,21 @@ let downloads=null;
 (async()=>{ try{ downloads = window.claude && window.claude.use ? await window.claude.use('downloads') : null; }catch(e){ downloads=null; } })();
 async function saveVideo(){
   if(!exBlob) return false;
-  if(!downloads){ $('saveMsg').className='msg err'; $('saveMsg').textContent='Chế độ xem này không cho lưu file. Mở artifact trực tiếp trên claude.ai để lưu.'; return false; }
   const d=new Date(), stamp=`${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}${String(d.getSeconds()).padStart(2,'0')}`;
   const name=`${(videoName||'gameplay').replace(/[^\w\-]+/g,'_')}_joystick_${S.aspect.replace('x','-')}_${S.exMode==='green'?'green':S.exMode}_${S.fps}fps_${stamp}.${exExt}`;
-  try{ await downloads.save({filename:name, data:exBlob}); $('saveMsg').className='msg'; $('saveMsg').textContent='Đã lưu: '+name; return true; }
+  try{
+    if(downloads){
+      await downloads.save({filename:name, data:exBlob});
+    }else{
+      // GitHub Pages and normal browsers do not expose the Claude artifact API.
+      // Use the native download contract so generated files are saved locally.
+      const url=URL.createObjectURL(exBlob), a=document.createElement('a');
+      a.href=url; a.download=name; a.rel='noopener'; a.style.display='none';
+      document.body.appendChild(a); a.click();
+      setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); },1000);
+    }
+    $('saveMsg').className='msg'; $('saveMsg').textContent='Đã lưu: '+name; return true;
+  }
   catch(e){ $('saveMsg').className='msg'+(e&&e.code==='declined'?'':' err'); $('saveMsg').textContent = e&&e.code==='declined' ? 'Hộp xác nhận lưu đã bị đóng — bấm “Lưu file về máy” lại và chọn Lưu/Save trong hộp thoại.' : 'Không lưu được ('+(e&&e.code||'lỗi')+').'; return false; }
 }
 $('saveBtn').onclick=saveVideo;
