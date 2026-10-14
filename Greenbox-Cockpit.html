@@ -5950,18 +5950,22 @@ const sz={pw:+(LS('gbc.pw')||65), qw:+(LS('gbc.qw')||86), ph:+(LS('gbc.ph')||56)
 function applySz(){ root.style.setProperty('--pw',sz.pw+'%'); root.style.setProperty('--qw',sz.qw+'%'); root.style.setProperty('--ph',sz.ph+'vh'); $id('gbc-pw').value=sz.pw; $id('gbc-qw').value=sz.qw; }
 $id('gbc-pw').oninput=e=>{ sz.pw=+e.target.value; LS('gbc.pw',sz.pw); applySz(); }; $id('gbc-qw').oninput=e=>{ sz.qw=+e.target.value; LS('gbc.qw',sz.qw); applySz(); };
 for(const app of document.querySelectorAll('#appJoy,#appDrive,#appGacha')){ const st=app.querySelector('.stagecol'); if(!st) continue; const g=document.createElement('div'); g.className='gbc-grip'; g.title='Kéo để đổi chiều cao preview'; g.setAttribute('data-gbc','1'); st.after(g);
-  g.onpointerdown=e=>{ e.preventDefault(); g.setPointerCapture(e.pointerId); const y0=e.clientY, h0=sz.ph; g.onpointermove=ev=>{ sz.ph=Math.max(25,Math.min(90,h0+(ev.clientY-y0)/innerHeight*100)); applySz(); }; g.onpointerup=()=>{ g.onpointermove=null; LS('gbc.ph',sz.ph); }; }; }
+  g.onpointerdown=e=>{ e.preventDefault(); e.stopPropagation(); g.setPointerCapture?.(e.pointerId); const y0=e.clientY, h0=sz.ph;
+    const move=ev=>{ sz.ph=Math.max(25,Math.min(90,h0+(ev.clientY-y0)/innerHeight*100)); applySz(); };
+    const end=()=>{ removeEventListener('pointermove',move,true); removeEventListener('pointerup',end,true); removeEventListener('pointercancel',end,true); LS('gbc.ph',sz.ph); };
+    addEventListener('pointermove',move,true); addEventListener('pointerup',end,true); addEventListener('pointercancel',end,true); }; }
 
 /* edge / corner drag to resize (stack layout) */
 for(const app of document.querySelectorAll('#appJoy,#appDrive,#appGacha')){
   for(const [sel,wk,hk] of [['.stagecol','pw','ph'],['.panel','qw',null]]){ const el=app.querySelector(sel); if(!el) continue;
     for(const ed of (hk?['e','w','s','se','sw','ne','nw']:['e','w','ne','nw'])){ const hd=document.createElement('div'); hd.className='gbc-h '+ed; hd.setAttribute('data-gbc','1'); el.appendChild(hd);
       hd.onpointerdown=e=>{ e.preventDefault(); e.stopPropagation(); hd.setPointerCapture(e.pointerId); const x0=e.clientX,y0=e.clientY, w0=sz[wk], h0=hk?sz[hk]:0, aw=app.clientWidth||innerWidth;
-        hd.onpointermove=ev=>{ const dx=ev.clientX-x0, dy=ev.clientY-y0;
+        const move=ev=>{ const dx=ev.clientX-x0, dy=ev.clientY-y0;
           if(/[ew]/.test(ed)){ const sg=ed.includes('e')?1:-1; sz[wk]=Math.max(25,Math.min(100,w0+sg*dx*2/aw*100)); }
           if(hk && /[sn]/.test(ed)){ const sg=ed.includes('s')?1:-1; sz[hk]=Math.max(25,Math.min(92,h0+sg*dy/innerHeight*100)); }
           applySz(); };
-        hd.onpointerup=()=>{ hd.onpointermove=null; LS('gbc.'+wk,sz[wk]); if(hk) LS('gbc.'+hk,sz[hk]); }; }; } } }
+        const end=()=>{ removeEventListener('pointermove',move,true); removeEventListener('pointerup',end,true); removeEventListener('pointercancel',end,true); LS('gbc.'+wk,sz[wk]); if(hk) LS('gbc.'+hk,sz[hk]); };
+        addEventListener('pointermove',move,true); addEventListener('pointerup',end,true); addEventListener('pointercancel',end,true); }; } } }
 
 /* masonry: every panel child gets a row span from its real height */
 const GAP=12, ROW=4;
