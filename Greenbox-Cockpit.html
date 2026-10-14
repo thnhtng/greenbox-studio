@@ -29,6 +29,9 @@ body{background:var(--ground);color:var(--text);font:14px/1.5 var(--f-body);padd
 #appJoy .status.review i{background:var(--cue)}
 #appJoy .status.export{color:var(--text);border-color:var(--text)}
 #appJoy .status.export i{background:var(--text)}
+#appJoy .status.error{color:#ff8b7a;border-color:#ff8b7a}
+#appJoy .status.error i{background:#ff8b7a}
+#appJoy .status small,#appDrive .status small{font:500 10px var(--f-hud);letter-spacing:.04em;text-transform:none;white-space:nowrap;color:inherit;opacity:.8}
 @keyframes blink{50%{opacity:.2}}
 #appJoy .wrap{display:grid;grid-template-columns:minmax(0,auto) minmax(300px,380px);gap:24px;align-items:start;justify-content:center}
 @media (max-width:860px){#appJoy .wrap{grid-template-columns:minmax(0,1fr)}}
@@ -176,6 +179,8 @@ body{background:var(--ground);color:var(--text);font:14px/1.5 var(--f-body);padd
 #appDrive .status.review i{background:var(--cue)}
 #appDrive .status.export{color:var(--text);border-color:var(--text)}
 #appDrive .status.export i{background:var(--text)}
+#appDrive .status.error{color:#ff8b7a;border-color:#ff8b7a}
+#appDrive .status.error i{background:#ff8b7a}
 @keyframes blink{50%{opacity:.2}}
 #appDrive .wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,380px);gap:24px;align-items:start}
 @media (max-width:860px){#appDrive .wrap{grid-template-columns:minmax(0,1fr)}}
@@ -321,7 +326,7 @@ body{background:var(--ground);color:var(--text);font:14px/1.5 var(--f-body);padd
 <div id="appJoy">
 <header class="top">
   <div class="brand"><b></b>Joystick Greenbox<small id="brandSub">quăng video · chơi theo · xuất màn hình xanh 1080×1920</small></div>
-  <div class="status" id="status"><i></i><span id="statusTxt">Tập</span></div>
+  <div class="status" id="status" aria-live="polite"><i></i><span id="statusTxt">Tập</span><small id="statusHint">Sẵn sàng</small></div>
 </header>
 
 <div class="wrap">
@@ -1564,7 +1569,7 @@ function hideHint(){ if(!hasVideo) $('drophint').querySelector('em').textContent
 
 /* ---------- transport / recording ---------- */
 const fmt = t => { t=Math.max(0,t||0); const m=Math.floor(t/60), s=t-m*60; return String(m).padStart(2,'0')+':'+s.toFixed(2).padStart(5,'0'); };
-function togglePlay(){ if(!hasVideo || counting) return; if(video.paused){ if(video.ended) video.currentTime=0; video.play().catch(()=>{}); } else video.pause(); }
+function togglePlay(){ if(!hasVideo || counting) return; if(video.paused){ if(video.ended) video.currentTime=0; const p=video.play(); if(p&&p.catch) p.catch(()=>{ refreshUI(); setStatus('blocked'); }); } else video.pause(); }
 $('playBtn').onclick = togglePlay;
 video.addEventListener('play', refreshUI); video.addEventListener('pause', refreshUI);
 video.addEventListener('ended', ()=>{ if(recording) stopRecord(); refreshUI(); });
@@ -1578,6 +1583,7 @@ $('mReview').onclick=()=>{ if(samples.length) setMode('review'); };
 
 function startRecord(fromStart){
   if(!hasVideo || recording || counting) return;
+  if(countTimer){ clearInterval(countTimer); countTimer=null; }
   if(editMode) setEdit(false);
   video.pause();
   let t0 = fromStart ? 0 : video.currentTime; if(t0 >= video.duration-0.05) t0=0;
@@ -1587,7 +1593,8 @@ function startRecord(fromStart){
   liveTr.stones = pressTimes(samples, samples.length-1, 5).map(()=>-1e9);
   { const tmp=new Tracker(); tmp.fu=pressIv(samples,samples.length-1,6); tmp.fd=pressIv(samples,samples.length-1,7); liveTr.fu=[]; liveTr.fd=[]; liveTr.flBase = samples.length ? flKeyLevel(tmp, t0).v : null; }
   video.playbackRate=+$('speed').value;
-  const go = ()=>{ counting=false; $('count').hidden=true; recording=true; setMode('practice'); video.play().catch(()=>{}); refreshUI(); };
+  const go = ()=>{ counting=false; countTimer=null; $('count').hidden=true; recording=true; setMode('practice');
+    const p=video.play(); if(p&&p.catch) p.catch(()=>{ recording=false; video.pause(); refreshUI(); setStatus('blocked'); }); refreshUI(); };
   if($('countdown').checked){
     counting=true; let n=3; $('count').hidden=false; $('count').textContent=n; refreshUI();
     countTimer=setInterval(()=>{ n--; if(n<=0){ clearInterval(countTimer); go(); } else $('count').textContent=n; }, 1000);
@@ -1595,6 +1602,7 @@ function startRecord(fromStart){
 }
 function stopRecord(){
   if(counting){ clearInterval(countTimer); counting=false; $('count').hidden=true; }
+  countTimer=null;
   if(recording){ recording=false; video.pause(); if(samples.length) setMode('review'); }
   tlDirty=true; refreshUI();
 }
@@ -1603,13 +1611,14 @@ $('recHere').onclick=()=>startRecord(false);
 $('recStop').onclick=stopRecord;
 $('clearTake').onclick=()=>{ liveTr.stones=[]; samples=[]; reviewTr=new Tracker(); tlDirty=true; setMode('practice'); };
 
-function setStatus(){
+function setStatus(override){
   const st=$('status'); st.className='status';
-  if(exporting){ st.classList.add('export'); $('statusTxt').textContent='Đang xuất'; }
-  else if(recording){ st.classList.add('rec'); $('statusTxt').textContent='REC'; }
-  else if(counting){ st.classList.add('rec'); $('statusTxt').textContent='Chuẩn bị'; }
-  else if(viewMode==='review'){ st.classList.add('review'); $('statusTxt').textContent='Xem take'; }
-  else $('statusTxt').textContent='Tập';
+  if(override==='blocked'){ st.classList.add('error'); $('statusTxt').textContent='Cần bấm Phát'; $('statusHint').textContent='Trình duyệt chặn tự phát — bấm Phát rồi ghi lại'; }
+  else if(exporting){ st.classList.add('export'); $('statusTxt').textContent='Đang xuất'; $('statusHint').textContent='Không đổi panel trong lúc xuất'; }
+  else if(recording){ st.classList.add('rec'); $('statusTxt').textContent='REC'; $('statusHint').textContent='Đang ghi — bấm Dừng để kết thúc'; }
+  else if(counting){ st.classList.add('rec'); $('statusTxt').textContent='Chuẩn bị'; $('statusHint').textContent='Đang đếm ngược — bấm Dừng để hủy'; }
+  else if(viewMode==='review'){ st.classList.add('review'); $('statusTxt').textContent='Xem take'; $('statusHint').textContent=samples.length+' mẫu đã ghi · có thể xem lại hoặc ghi đè'; }
+  else { $('statusTxt').textContent='Tập'; $('statusHint').textContent=hasVideo?'Sẵn sàng thao tác':'Chọn video để bắt đầu'; }
 }
 function refreshUI(){
   const busy = recording||counting||exporting;
@@ -2448,7 +2457,7 @@ requestAnimationFrame(frame);
 
 <header class="top">
   <div class="brand"><b></b>Drive Greenbox<small>quăng video game đua xe, lái theo, xuất màn hình xanh</small></div>
-  <div class="status" id="dr-status"><i></i><span id="dr-statusTxt">Tập</span></div>
+  <div class="status" id="dr-status" aria-live="polite"><i></i><span id="dr-statusTxt">Tập</span><small id="dr-statusHint">Sẵn sàng</small></div>
 </header>
 
 <div class="wrap">
@@ -3090,7 +3099,7 @@ $('oLand').onclick=()=>{ if(!recording&&!exporting) setOrient('landscape'); };
 
 /* ---------- transport / recording ---------- */
 const fmt=t=>{ t=Math.max(0,t||0); const m=Math.floor(t/60), s=t-m*60; return String(m).padStart(2,'0')+':'+s.toFixed(2).padStart(5,'0'); };
-function togglePlay(){ if(!hasVideo||counting) return; if(video.paused){ if(video.ended) video.currentTime=0; video.play().catch(()=>{}); } else video.pause(); }
+function togglePlay(){ if(!hasVideo||counting) return; if(video.paused){ if(video.ended) video.currentTime=0; const p=video.play(); if(p&&p.catch) p.catch(()=>{ refreshUI(); setStatus('blocked'); }); } else video.pause(); }
 $('playBtn').onclick=togglePlay;
 video.addEventListener('play',refreshUI); video.addEventListener('pause',refreshUI);
 video.addEventListener('ended',()=>{ if(recording) stopRecord(); refreshUI(); });
@@ -3102,6 +3111,7 @@ $('mPractice').onclick=()=>setMode('practice');
 $('mReview').onclick=()=>{ if(samples.length) setMode('review'); };
 function startRecord(fromStart){
   if(!hasVideo||recording||counting) return;
+  if(countTimer){ clearInterval(countTimer); countTimer=null; }
   if(editMode) setEdit(false);
   video.pause();
   let t0=fromStart?0:video.currentTime; if(t0>=video.duration-.05) t0=0;
@@ -3109,13 +3119,14 @@ function startRecord(fromStart){
   samples=samples.filter(s=>s.t<t0); tlDirty=true; bump();
   if(samples.length){ const sim=new Sim(); liveV=sim.advanceTo(samples,t0); } else liveV=0;
   video.playbackRate=+$('speed').value;
-  const go=()=>{ counting=false; $('count').hidden=true; recording=true; setMode('practice'); video.play().catch(()=>{}); refreshUI(); };
+  const go=()=>{ counting=false; countTimer=null; $('count').hidden=true; recording=true; setMode('practice'); const p=video.play(); if(p&&p.catch) p.catch(()=>{ recording=false; video.pause(); refreshUI(); setStatus('blocked'); }); refreshUI(); };
   if($('countdown').checked){ counting=true; let n=3; $('count').hidden=false; $('count').textContent=n; refreshUI();
     countTimer=setInterval(()=>{ n--; if(n<=0){ clearInterval(countTimer); go(); } else $('count').textContent=n; },1000); }
   else go();
 }
 function stopRecord(){
   if(counting){ clearInterval(countTimer); counting=false; $('count').hidden=true; }
+  countTimer=null;
   if(recording){ recording=false; video.pause(); if(samples.length) setMode('review'); }
   tlDirty=true; bump(); refreshUI();
 }
@@ -3123,13 +3134,14 @@ $('recStart').onclick=()=>startRecord(true);
 $('recHere').onclick=()=>startRecord(false);
 $('recStop').onclick=stopRecord;
 $('clearTake').onclick=()=>{ samples=[]; tlDirty=true; bump(); setMode('practice'); };
-function setStatus(){
+function setStatus(override){
   const st=$('status'); st.className='status';
-  if(exporting){ st.classList.add('export'); $('statusTxt').textContent='Đang xuất'; }
-  else if(recording){ st.classList.add('rec'); $('statusTxt').textContent='REC'; }
-  else if(counting){ st.classList.add('rec'); $('statusTxt').textContent='Chuẩn bị'; }
-  else if(viewMode==='review'){ st.classList.add('review'); $('statusTxt').textContent='Xem take'; }
-  else $('statusTxt').textContent='Tập';
+  if(override==='blocked'){ st.classList.add('error'); $('statusTxt').textContent='Cần bấm Phát'; $('dr-statusHint').textContent='Trình duyệt chặn tự phát — bấm Phát rồi ghi lại'; }
+  else if(exporting){ st.classList.add('export'); $('statusTxt').textContent='Đang xuất'; $('dr-statusHint').textContent='Đang kết xuất — không đổi panel'; }
+  else if(recording){ st.classList.add('rec'); $('statusTxt').textContent='REC'; $('dr-statusHint').textContent='Đang ghi — bấm Dừng để kết thúc'; }
+  else if(counting){ st.classList.add('rec'); $('statusTxt').textContent='Chuẩn bị'; $('dr-statusHint').textContent='Đang đếm ngược — bấm Dừng để hủy'; }
+  else if(viewMode==='review'){ st.classList.add('review'); $('statusTxt').textContent='Xem take'; $('dr-statusHint').textContent=samples.length+' mẫu đã ghi · có thể xem lại hoặc ghi đè'; }
+  else { $('statusTxt').textContent='Tập'; $('dr-statusHint').textContent=hasVideo?'Sẵn sàng thao tác':'Chọn video để bắt đầu'; }
 }
 function refreshUI(){
   const busy=recording||counting||exporting;
