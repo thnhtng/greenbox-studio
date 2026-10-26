@@ -2,7 +2,7 @@
 <title>Greenbox Cockpit</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Lilita+One&display=swap">
-<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/build/mp4-muxer.js"></script>
+<script src="./vendor/mp4-muxer.js"></script>
 <style>:root{
   color-scheme: dark;
   --ground:#0f1114; --panel:#171a1f; --panel-2:#1e2228; --line:#2b3038; --line-2:#3a404a;
@@ -1464,17 +1464,7 @@ function drawOverlay(ctx, vis, showAll){
   });
   ctx.restore();
 }
-function drawPivotMark(ctx){
-  if(L().hidden.pad) return;
-  if(!mountPick && (!editMode || selected!=='pad')) return;
-  const pv=padPivot(), r=26;
-  ctx.save(); ctx.strokeStyle='#ffb020'; ctx.lineWidth=5; ctx.setLineDash([]);
-  ctx.beginPath(); ctx.moveTo(pv.x-r,pv.y); ctx.lineTo(pv.x+r,pv.y);
-  ctx.moveTo(pv.x,pv.y-r); ctx.lineTo(pv.x,pv.y+r); ctx.stroke();
-  ctx.beginPath(); ctx.arc(pv.x,pv.y,r*.6,0,Math.PI*2); ctx.stroke(); ctx.restore();
-}
 function drawEditMarks(ctx){
-  drawPivotMark(ctx);
   const items = [['base',layout.base], ...BTN.map(k=>[k,layout[k]])];
   ctx.save(); ctx.lineWidth=5; ctx.font='600 30px "Chakra Petch", sans-serif'; ctx.textAlign='center';
   items.forEach(([id,L])=>{ const sel = id===selected || (selected==='knob' && id==='base');
@@ -2246,7 +2236,10 @@ $('pbBoth').onclick=async()=>{
 
 async function runExport(){
   if(exporting){ cancelEx=true; return false; }
-  if(!hasVideo || !(samples.length||S.mn.on||S.pb.on||S.fl.on)) return false;
+  if(!hasVideo || !(samples.length||S.mn.on||S.pb.on||S.fl.on)){
+    $('exMsg').className='msg err';
+    $('exMsg').textContent = !hasVideo ? 'Chưa có video gốc — thả hoặc chọn video vào khung trước khi xuất.' : 'Chưa có gì để xuất — ghi một take, hoặc bật thanh/bộ đếm ở tab tương ứng.';
+    return false; }
   try{ await document.fonts.load('62px "Lilita One"'); }catch(e){}
   exOK=false; const sigAtStart=renderSig();
   video.pause(); exporting=true; cancelEx=false; refreshUI(); $('exportBtn').disabled=false; $('exportBtn').textContent='Huỷ xuất';
@@ -3433,9 +3426,11 @@ $('exportBtn').onclick=runExport;
 
 async function movSave(blob,name,msg){
   const M=window.__gbMov; const u8=new Uint8Array(await blob.arrayBuffer());
-  if(!downloads){ msg.className='msg err'; msg.textContent='Chế độ xem này không cho lưu file — mở artifact trực tiếp trên claude.ai.'; return; }
   msg.textContent='Đang đóng gói .zip…'; const z=await M.zipStore(name,u8), zn=name.replace(/\.mov$/,'.zip');
-  try{ await downloads.save({filename:zn,data:z}); msg.className='msg'; msg.textContent='Đã lưu '+zn+' ('+(blob.size/1048576).toFixed(1)+' MB) — giải nén ra .mov, kéo thẳng vào AE.'; }
+  try{
+    if(downloads){ await downloads.save({filename:zn,data:z}); }
+    else { const url=URL.createObjectURL(z), a=document.createElement('a'); a.href=url; a.download=zn; a.rel='noopener'; a.style.display='none'; document.body.appendChild(a); a.click(); setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},1000); }
+    msg.className='msg'; msg.textContent='Đã lưu '+zn+' ('+(blob.size/1048576).toFixed(1)+' MB) — giải nén ra .mov, kéo thẳng vào AE.'; }
   catch(e){ msg.className='msg'+(e&&e.code==='declined'?'':' err'); msg.textContent= e&&e.code==='declined' ? 'Đã đóng hộp lưu — bấm lại.' : 'Không lưu được: '+((e&&(e.code||e.message))||e); } }
 async function movRender(dur,fps,paint,msg,btn){
   const M=window.__gbMov; if(!M){ msg.className='msg err'; msg.textContent='Bộ ghi MOV chưa sẵn sàng.'; return null; }
@@ -3469,8 +3464,8 @@ async function saveVideo(){
     return;
   }
   try{ const u=URL.createObjectURL(exBlob), a=document.createElement('a'); a.href=u; a.download=name; document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000);
-    $('saveMsg').className='msg'; $('saveMsg').textContent='Nếu không thấy file tải về, mở artifact trực tiếp trên claude.ai rồi bấm lưu lại.'; }
-  catch(e){ $('saveMsg').className='msg err'; $('saveMsg').textContent='Chế độ xem này không cho lưu file. Mở artifact trực tiếp trên claude.ai.'; }
+    $('saveMsg').className='msg'; $('saveMsg').textContent='Đã lưu: '+name; }
+  catch(e){ $('saveMsg').className='msg err'; $('saveMsg').textContent='Không lưu được file: '+((e&&e.message)||e); }
 }
 $('saveBtn').onclick=saveVideo;
 
@@ -5859,8 +5854,21 @@ for(const a of ['Joy','Drive','Gacha']){ const app=$id('app'+a); if(!app) contin
   const st=app.querySelector('.stagecol'); if(st && !st.querySelector('.gbc-vh')){ const v=document.createElement('div'); v.className='gbc-vh'; v.setAttribute('data-gbc','1'); st.appendChild(v); } }
 window.__gbSolo = LS('gbc.solo')!=='0';
 let cur=LS('gbc.feat')||'joy'; if(!ALL.find(f=>f.id===cur)) cur='joy';
-function btn(lbl,target,cls){ const b=document.createElement('button'); b.className='gbc-b '+(cls||''); b.textContent=lbl; b.onclick=()=>{ const el=$id(target); if(el && !el.disabled) el.click(); else if(el) flash(b); }; return b; }
+function btn(lbl,target,cls){ const b=document.createElement('button'); b.className='gbc-b '+(cls||''); b.textContent=lbl; b.onclick=()=>{ const el=$id(target); if(el && !el.disabled){ el.click(); echoErr(target); } else if(el){ flash(b); why(target); } }; return b; }
+function echoErr(target){ const ids=[target+'Msg', target==='exportBtn'?'exMsg':'', target==='dr-exportBtn'?'dr-exMsg':'', target==='gc-ex'?'gc-msg':'', target==='gc-bgMp4'||target==='gc-bgMp3'?'gc-bgMsg':'', target==='gc-sfxMp3'?'gc-sfxMsg':''].filter(Boolean);
+  setTimeout(()=>{ for(const id of ids){ const m=$id(id); if(m && /\berr\b/.test(m.className) && m.textContent.trim()){ toast(m.textContent.trim()); return; } } },350); }
 function flash(b){ b.classList.add('nope'); setTimeout(()=>b.classList.remove('nope'),500); }
+let whyT=null;
+function why(target){ const f=ALL.find(x=>x.id===cur);
+  const m = /rec|stop/i.test(target) ? T3('Cần thả/chọn video gốc vào khung trước khi ghi.','Load a source video into the frame before recording.','녹화 전에 원본 영상을 먼저 불러오세요.')
+    : f && f.rec ? T3('Cần video gốc và một take đã ghi (bấm Ghi) trước khi xuất.','Needs a source video and a recorded take (press Record) before exporting.','내보내기 전에 원본 영상과 녹화된 테이크가 필요합니다.')
+    : T3('Cần video gốc, và bật thanh/bộ đếm của tab này, trước khi xuất.','Needs a source video, and this tab\u2019s bar/counter switched on, before exporting.','내보내기 전에 원본 영상이 필요하고 이 탭의 바/카운터를 켜야 합니다.');
+  toast(tr(m)); }
+function toast(txt){
+  let t=$id('gbc-why'); if(!t){ t=document.createElement('div'); t.id='gbc-why'; t.setAttribute('role','status'); t.setAttribute('data-gbc','1');
+    t.style.cssText='position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:99999;max-width:min(92vw,560px);padding:12px 18px;border-radius:12px;background:#1b2536;color:#fff;border:1px solid #ffb020;font:600 14px/1.4 "Chakra Petch",system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.5)'; document.body.appendChild(t); }
+  t.textContent=txt; t.hidden=false; clearTimeout(whyT); whyT=setTimeout(()=>{ t.hidden=true; },4200); }
+
 function renderHead(){ const f=ALL.find(x=>x.id===cur), h=heads[f.app]; if(!h) return; h.innerHTML='';
   const tt=document.createElement('div'); tt.className='gbc-ft'; tt.innerHTML='<span class="ic">'+f.ic+'</span><b>'+tr(f.name)+'</b>'; h.appendChild(tt);
   const dd=document.createElement('div'); dd.className='gbc-fd'; dd.textContent=tr(f.d); h.appendChild(dd);
