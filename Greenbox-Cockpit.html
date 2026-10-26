@@ -3136,12 +3136,12 @@ $('recStop').onclick=stopRecord;
 $('clearTake').onclick=()=>{ samples=[]; tlDirty=true; bump(); setMode('practice'); };
 function setStatus(override){
   const st=$('status'); st.className='status';
-  if(override==='blocked'){ st.classList.add('error'); $('statusTxt').textContent='Cần bấm Phát'; $('dr-statusHint').textContent='Trình duyệt chặn tự phát — bấm Phát rồi ghi lại'; }
-  else if(exporting){ st.classList.add('export'); $('statusTxt').textContent='Đang xuất'; $('dr-statusHint').textContent='Đang kết xuất — không đổi panel'; }
-  else if(recording){ st.classList.add('rec'); $('statusTxt').textContent='REC'; $('dr-statusHint').textContent='Đang ghi — bấm Dừng để kết thúc'; }
-  else if(counting){ st.classList.add('rec'); $('statusTxt').textContent='Chuẩn bị'; $('dr-statusHint').textContent='Đang đếm ngược — bấm Dừng để hủy'; }
-  else if(viewMode==='review'){ st.classList.add('review'); $('statusTxt').textContent='Xem take'; $('dr-statusHint').textContent=samples.length+' mẫu đã ghi · có thể xem lại hoặc ghi đè'; }
-  else { $('statusTxt').textContent='Tập'; $('dr-statusHint').textContent=hasVideo?'Sẵn sàng thao tác':'Chọn video để bắt đầu'; }
+  if(override==='blocked'){ st.classList.add('error'); $('statusTxt').textContent='Cần bấm Phát'; $('statusHint').textContent='Trình duyệt chặn tự phát — bấm Phát rồi ghi lại'; }
+  else if(exporting){ st.classList.add('export'); $('statusTxt').textContent='Đang xuất'; $('statusHint').textContent='Đang kết xuất — không đổi panel'; }
+  else if(recording){ st.classList.add('rec'); $('statusTxt').textContent='REC'; $('statusHint').textContent='Đang ghi — bấm Dừng để kết thúc'; }
+  else if(counting){ st.classList.add('rec'); $('statusTxt').textContent='Chuẩn bị'; $('statusHint').textContent='Đang đếm ngược — bấm Dừng để hủy'; }
+  else if(viewMode==='review'){ st.classList.add('review'); $('statusTxt').textContent='Xem take'; $('statusHint').textContent=samples.length+' mẫu đã ghi · có thể xem lại hoặc ghi đè'; }
+  else { $('statusTxt').textContent='Tập'; $('statusHint').textContent=hasVideo?'Sẵn sàng thao tác':'Chọn video để bắt đầu'; }
 }
 function refreshUI(){
   const busy=recording||counting||exporting;
@@ -3233,7 +3233,10 @@ function renderSlots(){
   });
 }
 $('imgFile').addEventListener('change', async e=>{ const f=e.target.files[0]; if(!f||!pendingSlot) return; const id=pendingSlot; e.target.value='';
-  try{ const url=await shrinkImage(f); loadImg(id,url); const ok=await idb.set(id,url); if(!ok) warnSave(); }catch(err){ warnSave(); } });
+  try{ const url=await shrinkImage(f); loadImg(id,url);
+    for(const o of ['portrait','landscape']) if(layouts[o].hidden[id]) delete layouts[o].hidden[id];
+    saveLayout(); select(id);
+    const ok=await idb.set(id,url); if(!ok) warnSave(); }catch(err){ warnSave(); } });
 function select(id){ selected=id; renderSlots(); syncSize(); }
 function syncPos(){ const it=L()[selected]; if(document.activeElement!==$('posX')) $('posX').value=it.x; if(document.activeElement!==$('posY')) $('posY').value=it.y; }
 function setPos(dx,dy,abs){ const it=L()[selected];
