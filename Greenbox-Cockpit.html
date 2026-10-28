@@ -512,7 +512,11 @@ body{background:var(--ground);color:var(--text);font:14px/1.5 var(--f-body);padd
       <div class="field"><span>Căn lên / xuống</span><input type="range" id="pbY" min="-820" max="820" step="2"><output id="pbYO"></output></div>
       <div class="row"><button class="btn sm" id="pbYup">▲ 10px</button><button class="btn sm" id="pbYdn">▼ 10px</button><button class="btn sm" id="pbY0">Về mốc</button><span class="hint" style="margin:0;flex:1">Y thực tế: <b id="pbYabs"></b></span></div>
       <div class="field"><span>Kích thước</span><input type="range" id="pbSc" min="50" max="150" step="5"><output id="pbScO"></output></div>
-      <div class="field"><span>Độ nảy</span><input type="range" id="pbSn" min="5" max="80" step="1"><output id="pbSnO"></output></div>
+      <div class="field"><span>Thời gian tăng mỗi mốc</span><input type="range" id="pbSn" min="10" max="1200" step="10" aria-describedby="pbSpeedHelp"><output id="pbSnO"></output></div>
+      <div class="row">
+        <label class="hint" style="margin:0">Nhập chính xác <input type="number" id="pbSnNum" min="0.1" max="12" step="0.1" inputmode="decimal" aria-label="Thời gian tăng mỗi mốc, tính bằng giây" style="width:72px;background:var(--panel-2);border:1px solid var(--line-2);border-radius:4px;padding:5px 6px;font:13px var(--f-mono);color:var(--text)"> giây</label>
+        <span class="hint" id="pbSpeedHelp" style="margin:0;flex:1">Số lớn hơn = thanh tăng chậm và mượt hơn.</span>
+      </div>
       <div class="row">
         <div class="seg" role="group" aria-label="Viền icon">
           <button id="pbRimg" aria-pressed="true">Viền có sẵn trong ảnh</button>
@@ -702,6 +706,7 @@ let layout = Object.assign(structuredClone(DEF_LAYOUT), store.get('gbx3.layout')
 let S = Object.assign({}, DEF_SET, store.get('gbx3.set') || {});
 if(!ASPECTS[S.aspect]) S.aspect='9x16'; [W,H]=ASPECTS[S.aspect];
 S.pb = Object.assign(structuredClone(PB_DEF), S.pb||{});
+S.pb.snap=Math.max(.1,Math.min(12,+S.pb.snap||PB_DEF.snap));
 if(!Array.isArray(S.pb.marks)||S.pb.marks.length<3) S.pb.marks=[3,7,11];
 if(!Array.isArray(S.pb.names)||S.pb.names.length<4) S.pb.names=['','','',''];
 if(typeof S.pb.y!=='number') S.pb.y=0;
@@ -1077,16 +1082,19 @@ function drawProg(ctx, t){
   if(S.pb.kind==='expr') return drawExpr(ctx,t);
   if(S.pb.kind==='duel') return drawDuel(ctx,t);
   const B=pbGeo(), m=PBM(), st=pbStage(t), col=S.pb.col, NL=PBN(), LAST=NL-1;
-  const d=Math.max(.05,S.pb.snap);
-  const prev=Math.max(0,st-1)/LAST, tar=st/LAST;
-  const k=st===0?1:Math.max(0,Math.min(1,(t-m[st-1])/d));
-  const p=st===0?0:prev+(tar-prev)*pbEase(k);
+  const d=Math.max(.1,Math.min(12,S.pb.snap||PB_DEF.snap));
+  let p=0;
+  for(const mark of m){
+    const k=Math.max(0,Math.min(1,(t-mark)/d));
+    p+=pbEase(k)/LAST;
+  }
+  p=Math.max(0,Math.min(1,p));
   const since=st===0?1e9:(t-m[st-1]);
   const burst=(st>0&&since>=0&&since<.85)?Math.exp(-4.6*(since/.85)):0;
   const jig=1+.26*burst*Math.sin((since/.85)*40), rot=.07*burst*Math.sin((since/.85)*32);
   ctx.save();
   const HX=S.hid||{};
-  const F=(st===LAST&&m.length)?pbFinState(t,m[m.length-1]):null, FA=F?F.fade:1;
+  const F=(st===LAST&&m.length)?pbFinState(t,m[m.length-1]+d):null, FA=F?F.fade:1;
   if(F) ctx.globalAlpha=FA;
   if(!HX.pbTrack && FA>.01){
   ctx.fillStyle='rgba(0,0,0,0.5)'; pbRR(ctx,B.x-8,B.y-8,B.w+16,B.h+16,B.r+8); ctx.fill();
@@ -2026,8 +2034,17 @@ $('pbY0').onclick=()=>{ S.pb.y=0; saveSet(); pbSyncY(); };
 $('pbCol').value=S.pb.col.toLowerCase(); $('pbCol').oninput=e=>{S.pb.col=e.target.value.toUpperCase();saveSet();};
 $('pbSc').value=Math.round(S.pb.scale*100); $('pbScO').textContent=Math.round(S.pb.scale*100)+'%';
 $('pbSc').oninput=e=>{S.pb.scale=+e.target.value/100;$('pbScO').textContent=e.target.value+'%';saveSet();pbSyncY();};
-$('pbSn').value=Math.round(S.pb.snap*100); $('pbSnO').textContent=Math.round(S.pb.snap*100)/100+'s';
-$('pbSn').oninput=e=>{S.pb.snap=+e.target.value/100;$('pbSnO').textContent=(+e.target.value/100)+'s';saveSet();};
+function pbSyncSpeed(v,save=true){
+  S.pb.snap=Math.max(.1,Math.min(12,+v||PB_DEF.snap));
+  $('pbSn').value=Math.round(S.pb.snap*100);
+  $('pbSnNum').value=Number(S.pb.snap.toFixed(2));
+  $('pbSnO').textContent=S.pb.snap.toFixed(S.pb.snap<1?2:1)+'s';
+  if(save) saveSet();
+}
+pbSyncSpeed(S.pb.snap,false);
+$('pbSn').oninput=e=>pbSyncSpeed(+e.target.value/100);
+$('pbSnNum').oninput=e=>{ if(e.target.value!=='') pbSyncSpeed(e.target.value); };
+$('pbSnNum').onblur=()=>pbSyncSpeed($('pbSnNum').value);
 $('pbLb').checked=S.pb.labels; $('pbLb').onchange=e=>{S.pb.labels=e.target.checked;saveSet();};
 function pbMeta(){ $('pbMeta').textContent = !S.pb.on ? 'đang tắt'
   : S.pb.kind==='expr' ? (S.pb.expr.s.toFixed(1)+'–'+S.pb.expr.e.toFixed(1)+'s · '+S.pb.expr.nv+' biểu cảm')
