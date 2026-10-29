@@ -66,6 +66,21 @@
     if ((n === 'src' || n === 'data-src') && /^(IMG|VIDEO|SOURCE)$/.test(this.nodeName)) v = fix(v);
     return osa.call(this, n, v);
   };
+  /* Some Mesh2Motion controls build <img> tags through innerHTML. Rewrite those URLs before the browser
+     parses the markup; waiting for the mutation observer would work visually but still causes one avoidable
+     404 request to the site root first (notably the GitHub and animation mirror icons). */
+  var dih = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  if (dih && dih.set) Object.defineProperty(Element.prototype, 'innerHTML', {
+    configurable: true, enumerable: dih.enumerable, get: dih.get,
+    set: function (v) {
+      if (typeof v === 'string' && v.indexOf('images/') !== -1) {
+        v = v.replace(/(["'])(\.{0,2}\/|\/)?images\/[^"'<>\s]+\1/g, function (all, q) {
+          return q + fix(all.slice(1, -1)) + q;
+        });
+      }
+      dih.set.call(this, v);
+    }
+  });
   function scan(el) {
     if (el.nodeType !== 1) return;
     var list = /^(IMG|VIDEO|SOURCE)$/.test(el.nodeName) ? [el] : el.querySelectorAll ? el.querySelectorAll('img,video,source') : [];
