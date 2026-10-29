@@ -1,0 +1,212 @@
+[
+ {
+  "name": "gb_status",
+  "description": "What Greenbox is showing now: open 3D tab, loaded model, rig step, joints, vehicle parts, play test / mocap state.",
+  "input_schema": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  }
+ },
+ {
+  "name": "gb_screenshot",
+  "description": "Picture of the 3D view of a Greenbox page (default: the open one). Use it to check your work.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "page": {
+     "type": "string",
+     "description": "create | vehicle | playtest | mocap | retarget (default: current)"
+    }
+   },
+   "required": []
+  }
+ },
+ {
+  "name": "gb_open",
+  "description": "Open a Greenbox 3D tab. Tabs stay alive, so work in other tabs is kept.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "page": {
+     "type": "string",
+     "enum": [
+      "create",
+      "rig",
+      "retarget",
+      "vehicle",
+      "playtest",
+      "mocap",
+      "explore"
+     ]
+    }
+   },
+   "required": [
+    "page"
+   ]
+  }
+ },
+ {
+  "name": "gb_click",
+  "description": "Click a button/element in a Greenbox page (CSS selector, or visible text with \"text=...\").",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "selector": {
+     "type": "string"
+    },
+    "page": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "selector"
+   ]
+  }
+ },
+ {
+  "name": "gb_set_value",
+  "description": "Set an input/select value in a Greenbox page and fire its change event.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "selector": {
+     "type": "string"
+    },
+    "value": {
+     "type": "string"
+    },
+    "page": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "selector",
+    "value"
+   ]
+  }
+ },
+ {
+  "name": "gb_run_js",
+  "description": "Run JavaScript inside a Greenbox page (async function body; `return` a JSON value). Globals: create page `__gb3d` (Mesh2Motion engine: load_model_step, edit_skeleton_step, easy_rig, weight_skin_step, animations_listing_step, quick_export_all(fmt)), vehicle `__vehicle` (wheels, mechs, new_mech(kind), build_rig(), clips, play(i)), playtest `__playtest` (ctrl), mocap `__mocap`. THREE objects are live.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "code": {
+     "type": "string"
+    },
+    "page": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "code"
+   ]
+  }
+ },
+ {
+  "name": "gb_rig_auto",
+  "description": "On the \"Use your model\" tab: scan the loaded model and place every joint of the human skeleton (load the human skeleton first if needed).",
+  "input_schema": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  }
+ },
+ {
+  "name": "gb_joints_get",
+  "description": "World positions of every joint on the \"Use your model\" tab (editing step).",
+  "input_schema": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  }
+ },
+ {
+  "name": "gb_joints_set",
+  "description": "Move joints to world positions {name: [x,y,z]} on the \"Use your model\" tab (children follow unless listed).",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "joints": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      }
+     }
+    }
+   },
+   "required": [
+    "joints"
+   ]
+  }
+ },
+ {
+  "name": "gb_rig_finish",
+  "description": "On \"Use your model\": compute skin weights and go to the animation list (178 animations).",
+  "input_schema": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  }
+ },
+ {
+  "name": "gb_export",
+  "description": "Export from a Greenbox page: create = rigged model + all animations, vehicle = vehicle rig, mocap = clip. Returns the file (base64) to the caller, which can save it.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "page": {
+     "type": "string",
+     "enum": [
+      "create",
+      "vehicle",
+      "mocap"
+     ]
+    },
+    "format": {
+     "type": "string",
+     "enum": [
+      "glb",
+      "fbx"
+     ]
+    }
+   },
+   "required": [
+    "page",
+    "format"
+   ]
+  }
+ },
+ {
+  "name": "gb_load_file",
+  "description": "Load a 3D model / video file into a Greenbox page. `data_b64` is the file content (the MCP server fills it from a path on disk).",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "page": {
+     "type": "string",
+     "enum": [
+      "create",
+      "vehicle",
+      "playtest",
+      "mocap"
+     ]
+    },
+    "name": {
+     "type": "string"
+    },
+    "data_b64": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "page",
+    "name",
+    "data_b64"
+   ]
+  }
+ }
+]

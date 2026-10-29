@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video mocap - Greenbox 3D</title>
+  <link rel="icon" type="image/png" href="./images/favicon.png" />
+  <style>
+    :root{--bg:#303030;--bg2:#3d3d3d;--bg3:#474747;--nav:#232323;--txt:#e6e6e6;--mut:#b4b4b4;--blue:#4772b3;--org:#f5a623;--line:#545454}
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+    nav{height:40px;display:flex;align-items:center;gap:4px;background:var(--nav);border-bottom:1px solid #111;padding:0 8px}
+    nav a{color:var(--mut);text-decoration:none;padding:0 12px;height:40px;display:inline-flex;align-items:center}
+    nav a:hover{color:var(--txt);background:#2b2b2b}
+    nav a.on{color:var(--txt);background:var(--bg2)}
+    .logo{font:800 17px/1 system-ui,-apple-system,sans-serif;letter-spacing:.12em;color:var(--txt);display:inline-flex;align-items:center;gap:8px;padding:0 14px}
+    .logo i{width:10px;height:10px;border-radius:50%;background:#3cdc8c;box-shadow:0 0 8px #3cdc8c;display:inline-block}
+    .logo span{color:var(--org)}
+    main{display:grid;grid-template-columns:minmax(0,1fr) 330px;height:calc(100% - 40px)}
+    #vh-view{position:relative;min-width:0;overflow:hidden}
+    #vh-view canvas{display:block}
+    #vh-hint{position:absolute;left:10px;bottom:10px;font-size:12px;color:var(--mut);background:rgba(0,0,0,.35);padding:6px 10px;border-radius:6px;pointer-events:none}
+    aside{background:var(--bg);border-left:1px solid #1f1f1f;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+    section{background:var(--bg2);border:1px solid #2a2a2a;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+    section.disabled{opacity:.45;pointer-events:none}
+    h3{margin:0;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);display:flex;gap:8px;align-items:center}
+    h3 b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px}
+    button{appearance:none;border:1px solid #1f1f1f;background:var(--line);color:var(--txt);border-radius:5px;padding:6px 10px;font:inherit;cursor:pointer}
+    button:hover{background:#606060}
+    button.pri{background:var(--blue);border-color:#2f5b9a}
+    button.pri:hover{background:#5482c6}
+    button.on{background:var(--org);color:#111;border-color:#a86d00}
+    .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .sm{font-size:12px;color:var(--mut)}
+    select,input[type=range]{width:100%}
+    select{background:var(--bg3);color:var(--txt);border:1px solid #222;border-radius:5px;padding:5px}
+    #vh-status{font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;background:rgba(71,114,179,.25)}
+    #vh-status.warn{background:rgba(245,166,35,.22)}
+    #vh-anims{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+    .vh-anim{font-size:12px;padding:5px 6px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .vh-anim.on{background:var(--org);color:#111}
+    .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--mut)}
+    .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+    @media (max-width:800px){main{grid-template-columns:1fr;grid-template-rows:55vh auto}}
+  </style>
+  <style>
+    main{grid-template-columns:minmax(0,1fr) 320px}
+    #mc-view{display:grid;grid-template-rows:1fr 1fr;min-width:0;min-height:0}
+    #mc-video{position:relative;background:#111;min-height:0;overflow:hidden}
+    #mc-video video{width:100%;height:100%;object-fit:contain;display:block}
+    #mc-video canvas{position:absolute;left:0;top:0;pointer-events:none}
+    #mc-3d{position:relative;min-height:0;overflow:hidden;border-top:1px solid #1f1f1f}
+    #mc-3d canvas{display:block}
+    #mc-status{font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;background:rgba(71,114,179,.25)}
+    #mc-status.warn{background:rgba(245,166,35,.22)}
+    .bar{height:6px;background:#222;border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:#3cdc8c}
+    input[type=number],input[type=text]{width:100%;background:var(--bg3);color:var(--txt);border:1px solid #222;border-radius:5px;padding:5px;box-sizing:border-box}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  </style>
+  <script src="./gb-base.js?v=20261029a"></script>
+  <script type="module" crossorigin src="./assets/mocap-CemuoXD5.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/NURBSCurve-l8zBpybq.js">
+  <link rel="modulepreload" crossorigin href="./assets/OrbitControls-C0SJjmQ7.js">
+  <link rel="modulepreload" crossorigin href="./assets/Handoff-y8-k6aH-.js">
+  <link rel="modulepreload" crossorigin href="./assets/FBXLoader-FSu3Bl6u.js">
+</head>
+<body>
+  <nav>
+    <a class="logo" href="./create.html"><i></i>GREENBOX <span>3D</span></a>
+    <a href="./index.html">Explore</a>
+    <a href="./create.html">Use Your Model</a>
+    <a href="./retarget/index.html">Use Your Rigged Model</a>
+    <a href="./vehicle.html">Vehicles</a>
+    <a href="./playtest.html">Play test</a>
+    <a class="on" href="./mocap.html">Video mocap</a>
+  </nav>
+  <main>
+    <div id="mc-view"><div id="mc-video"></div><div id="mc-3d"></div></div>
+    <aside>
+      <div id="mc-status">Loading…</div>
+      <section>
+        <h3><b>1</b>Video</h3>
+        <button class="pri" id="mc-vload">⬆ Load video (MP4 / MOV / WEBM)</button>
+        <input type="file" id="mc-vfile" accept="video/*,.mp4,.mov,.webm,.m4v" hidden>
+        <div class="sm">One person, whole body in view, camera not moving. Side or front view both work.</div>
+        <div class="two"><label class="sm">Start (s)<input type="number" id="mc-t0" value="0" step="0.1" min="0"></label><label class="sm">End (s)<input type="number" id="mc-t1" value="0" step="0.1" min="0"></label></div>
+        <div class="two"><label class="sm">Frames / s<select id="mc-fps"><option>24</option><option selected>30</option></select></label><label class="sm">Quality<select id="mc-quality"><option value="full" selected>Full</option><option value="lite">Fast</option></select></label></div>
+      </section>
+      <section>
+        <h3><b>2</b>Character</h3>
+        <div class="row"><button id="mc-mannequin">🧍 Mannequin</button><button id="mc-cload">⬆ Rigged GLB / FBX</button></div>
+        <input type="file" id="mc-cfile" accept=".glb,.gltf,.fbx" hidden>
+        <div class="sm" id="mc-char">—</div>
+      </section>
+      <section>
+        <h3><b>3</b>Analyse</h3>
+        <button class="pri" id="mc-run">🎥 Analyse video</button>
+        <button id="mc-cancel" style="display:none">✖ Stop</button>
+        <div class="bar"><i id="mc-bar"></i></div>
+        <label class="sm">Smoothing <span id="mc-smooth-v">1.5</span><input type="range" id="mc-smooth" min="0" max="5" step="0.5" value="1.5"></label>
+        <label class="row sm"><input type="checkbox" id="mc-inplace"> In place (no sideways travel)</label>
+        <label class="row sm"><input type="checkbox" id="mc-back"> Person has their back to the camera</label>
+      </section>
+      <section id="mc-export" class="disabled">
+        <h3><b>4</b>Export</h3>
+        <label class="sm">Clip name<input type="text" id="mc-name" value="Video_Mocap"></label>
+        <div class="row"><button class="pri" id="mc-glb">⬇ GLB</button><button id="mc-fbx">⬇ FBX (Unity / UE)</button></div>
+      </section>
+    </aside>
+  </main>
+  <script src="./gb-i18n.js?v=20261029a"></script>
+</body>
+</html>

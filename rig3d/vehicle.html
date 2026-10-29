@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vehicle - Greenbox 3D</title>
+  <link rel="icon" type="image/png" href="./images/favicon.png" />
+  <style>
+    :root{--bg:#303030;--bg2:#3d3d3d;--bg3:#474747;--nav:#232323;--txt:#e6e6e6;--mut:#b4b4b4;--blue:#4772b3;--org:#f5a623;--line:#545454}
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+    nav{height:40px;display:flex;align-items:center;gap:4px;background:var(--nav);border-bottom:1px solid #111;padding:0 8px}
+    nav a{color:var(--mut);text-decoration:none;padding:0 12px;height:40px;display:inline-flex;align-items:center}
+    nav a:hover{color:var(--txt);background:#2b2b2b}
+    nav a.on{color:var(--txt);background:var(--bg2)}
+    .logo{font:800 17px/1 system-ui,-apple-system,sans-serif;letter-spacing:.12em;color:var(--txt);display:inline-flex;align-items:center;gap:8px;padding:0 14px}
+    .logo i{width:10px;height:10px;border-radius:50%;background:#3cdc8c;box-shadow:0 0 8px #3cdc8c;display:inline-block}
+    .logo span{color:var(--org)}
+    main{display:grid;grid-template-columns:minmax(0,1fr) 330px;height:calc(100% - 40px)}
+    #vh-view{position:relative;min-width:0;overflow:hidden}
+    #vh-view canvas{display:block}
+    #vh-hint{position:absolute;left:10px;bottom:10px;font-size:12px;color:var(--mut);background:rgba(0,0,0,.35);padding:6px 10px;border-radius:6px;pointer-events:none}
+    aside{background:var(--bg);border-left:1px solid #1f1f1f;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+    section{background:var(--bg2);border:1px solid #2a2a2a;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+    section.disabled{opacity:.45;pointer-events:none}
+    h3{margin:0;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);display:flex;gap:8px;align-items:center}
+    h3 b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px}
+    button{appearance:none;border:1px solid #1f1f1f;background:var(--line);color:var(--txt);border-radius:5px;padding:6px 10px;font:inherit;cursor:pointer}
+    button:hover{background:#606060}
+    button.pri{background:var(--blue);border-color:#2f5b9a}
+    button.pri:hover{background:#5482c6}
+    button.on{background:var(--org);color:#111;border-color:#a86d00}
+    .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .sm{font-size:12px;color:var(--mut)}
+    select,input[type=range]{width:100%}
+    select{background:var(--bg3);color:var(--txt);border:1px solid #222;border-radius:5px;padding:5px}
+    #vh-status{font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;background:rgba(71,114,179,.25)}
+    #vh-status.warn{background:rgba(245,166,35,.22)}
+    #vh-anims{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+    .vh-anim{font-size:12px;padding:5px 6px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .vh-anim.on{background:var(--org);color:#111}
+    #vh-presets{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px}
+    .vh-preset{font-size:11px;padding:5px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.15;text-align:center}
+    .vh-preset span{font-size:17px}
+    .tools{display:grid;grid-template-columns:auto 1fr 1fr;gap:4px 6px;align-items:center}
+    .tools button{font-size:12px;padding:5px 6px}
+    .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--mut)}
+    .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+    @media (max-width:800px){main{grid-template-columns:1fr;grid-template-rows:55vh auto}}
+  </style>
+  <script src="./gb-base.js?v=20261029a"></script>
+  <script type="module" crossorigin src="./assets/vehicle-B4kIgba5.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/NURBSCurve-l8zBpybq.js">
+  <link rel="modulepreload" crossorigin href="./assets/ViewButtons-hxQIH_13.js">
+  <link rel="modulepreload" crossorigin href="./assets/OrbitControls-C0SJjmQ7.js">
+  <link rel="modulepreload" crossorigin href="./assets/FBXLoader-FSu3Bl6u.js">
+</head>
+<body>
+  <nav>
+    <a class="logo" href="./create.html"><i></i>GREENBOX <span>3D</span></a>
+    <a href="./index.html">Explore</a>
+    <a href="./create.html">Use Your Model</a>
+    <a href="./retarget/index.html">Use Your Rigged Model</a>
+    <a class="on" href="./vehicle.html">Vehicles</a>
+        <a href="./playtest.html">Play test</a>
+        <a href="./mocap.html">Video mocap</a>
+  </nav>
+  <main>
+    <div id="vh-view"><div id="vh-hint">Right-drag: rotate · Middle-drag: pan · Wheel: zoom · Left-click: select part · Left-drag with a tool: box / paint · Delete: remove selected</div></div>
+    <aside>
+      <div id="vh-status">Loading…</div>
+      <section>
+        <h3><b>1</b>Load vehicle</h3>
+        <div class="row"><button class="pri" id="vh-upload">⬆ Upload GLB / FBX</button><button id="vh-demo">Demo car</button></div>
+        <input type="file" id="vh-file" accept=".glb,.gltf,.fbx" hidden>
+        <div class="sm">The green arrow must point to the FRONT of the vehicle.</div>
+        <div class="row"><button id="vh-rotate">↻ Turn 90°</button><button id="vh-flip">⇅ Front / back</button></div>
+        <label class="sm">Vehicle type
+          <select id="vh-type">
+            <option value="car">Car (front wheels steer, stunts)</option>
+            <option value="truck">Truck / bus / van (heavy, no stunts)</option>
+            <option value="tracked">Tracked: tank, bulldozer, excavator (turns on the spot)</option>
+            <option value="roller">Road roller / compactor (slow, drum vibrates)</option>
+          </select></label>
+      </section>
+      <section>
+        <h3><b>2</b>Wheels (<span id="vh-wheel-count">0</span>) &amp; parts (<span id="vh-door-count">0</span>)</h3>
+        <button id="vh-scan">🔍 Scan for wheels</button>
+        <label class="row sm"><input type="checkbox" id="vh-regions" checked> Show wheel areas</label>
+        <div class="legend"><span><i style="background:#9a9a9a"></i>body</span><span><i style="background:#4fc3f7"></i>wheel</span><span><i style="background:#ff7043"></i>door / part</span><span><i style="background:#ffe14d"></i>torn seam</span></div>
+        <div class="sm">Selected part (or click it on the model):</div>
+        <select id="vh-wheel-select"></select>
+        <div class="row"><button id="vh-new-wheel">＋ New wheel / drum</button><button id="vh-del-wheel" title="Delete key">🗑 Delete selected</button></div>
+        <div class="row">
+          <select id="vh-part-kind" style="width:auto;flex:1;min-width:0;max-width:100%">
+            <option value="door">🚪 Door / hood / trunk</option>
+            <option value="turret">🔄 Turret / crane cab (turns)</option>
+            <option value="barrel">💥 Gun barrel (aim + recoil)</option>
+            <option value="blade">🚜 Blade / bucket (lifts)</option>
+            <option value="boom">🏗 Boom / arm (raises)</option>
+            <option value="arm">🦾 Digger arm / stick (swings on the boom)</option>
+            <option value="bucket">🪣 Bucket (curls / dumps)</option>
+            <option value="hook">🪝 Hook (drops, swings)</option>
+            <option value="cable">〰 Cable (stretches with hook)</option>
+            <option value="spin">🌀 Spinner: propeller, rotor, fan, drum</option>
+            <option value="slide">↔ Slider: piston, forks, ladder</option>
+            <option value="wobble">〽 Wobble: antenna, flag</option>
+          </select>
+          <button id="vh-new-door">＋ New part</button>
+        </div>
+        <details id="vh-presets-box"><summary class="sm" style="cursor:pointer">⭐ Ready-made parts (click one, then select its area)</summary>
+          <div id="vh-presets"></div>
+        </details>
+        <div class="sm">Select the area of the chosen part (＋ adds, － gives it back to the body):</div>
+        <div class="tools">
+          <span class="sm">Piece</span><button id="vh-piece-add" title="Click a separate piece of the model">🧩 ＋</button><button id="vh-piece-remove">🧩 －</button>
+          <span class="sm">Box</span><button id="vh-box-add">▭ ＋ add</button><button id="vh-box-remove">▭ － remove</button>
+          <span class="sm">Lasso</span><button id="vh-lasso-add" title="Drag a free shape">➰ ＋</button><button id="vh-lasso-remove">➰ －</button>
+          <span class="sm">Pen</span><button id="vh-pen-add" title="Click corners, click the first point (or Enter) to close">✒ ＋</button><button id="vh-pen-remove">✒ －</button>
+        </div>
+        <label class="row sm"><input type="checkbox" id="vh-box-through"> Select through (also hidden back side)</label>
+        <div class="sm">Brush:</div>
+        <div class="row"><button id="vh-add">＋ Paint</button><button id="vh-remove">－ Erase</button></div>
+        <label class="sm">Brush size <input type="range" id="vh-brush" min="1" max="20" value="6"></label>
+        <div id="vh-door-box" style="display:none;flex-direction:column;gap:6px;border-top:1px solid #2a2a2a;padding-top:8px">
+          <div class="sm">Pivot <b id="vh-hinge-used" style="color:#f5a623;font-weight:600"></b></div>
+          <div id="vh-hinge-row">
+          <select id="vh-hinge">
+            <option value="auto">Auto</option>
+            <option value="front">Front edge (normal door)</option>
+            <option value="back">Back edge (suicide door)</option>
+            <option value="top">Top edge (gull-wing)</option>
+            <option value="scissor">Scissor (opens up)</option>
+            <option value="hood">Hood (hinge at windshield)</option>
+            <option value="trunk">Trunk / tailgate</option>
+          </select>
+          </div>
+          <label class="sm" id="vh-axis-row" style="display:none">Axis
+            <select id="vh-axis"><option value="auto">Auto</option><option value="x">X (side to side)</option><option value="y">Y (up)</option><option value="z">Z (front to back)</option></select></label>
+          <label class="row sm"><input type="checkbox" id="vh-part-flip"> Flip direction</label>
+          <label class="sm">Amount (angle / distance) <span id="vh-door-angle-val">70°</span> <input type="range" id="vh-door-angle" min="15" max="120" value="70"></label>
+          <button id="vh-door-test">▶ Test this part</button>
+        </div>
+      </section>
+      <section>
+        <h3><b>3</b>Rig &amp; animations</h3>
+        <button class="pri" id="vh-build">⚙ Build rig + animations</button>
+      </section>
+      <section id="vh-anim-box" class="disabled">
+        <h3><b>4</b>Preview &amp; export</h3>
+        <div id="vh-anims"></div>
+        <label class="sm">Speed <input type="range" id="vh-speed" min="10" max="300" value="100"></label>
+        <div class="row"><button class="pri" id="vh-export-glb">⬇ GLB (all animations)</button><button id="vh-export-fbx">⬇ FBX (all animations)</button></div>
+      </section>
+    </aside>
+  </main>
+  <script src="./gb-i18n.js?v=20261029a"></script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+MediaPipe Pose (@mediapipe/pose 0.5.1675469404), Apache-2.0, Google LLC. https://github.com/google/mediapipe
+Unmodified copy of the npm package (heavy model left out to save space).

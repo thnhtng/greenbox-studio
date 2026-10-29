@@ -7,3 +7,6 @@ model-1-4 (1).js
 
 # Local source snapshot used to refresh the published cockpit entrypoint
 Greenbox-Cockpit_7.html
+__pycache__/
+gb-ai/.bridge.json
+exports/

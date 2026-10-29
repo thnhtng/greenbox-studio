@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Play test - Greenbox 3D</title>
+  <link rel="icon" type="image/png" href="./images/favicon.png" />
+  <style>
+    :root{--bg:#303030;--bg2:#3d3d3d;--bg3:#474747;--nav:#232323;--txt:#e6e6e6;--mut:#b4b4b4;--blue:#4772b3;--org:#f5a623;--line:#545454}
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+    nav{height:40px;display:flex;align-items:center;gap:4px;background:var(--nav);border-bottom:1px solid #111;padding:0 8px}
+    nav a{color:var(--mut);text-decoration:none;padding:0 12px;height:40px;display:inline-flex;align-items:center}
+    nav a:hover{color:var(--txt);background:#2b2b2b}
+    nav a.on{color:var(--txt);background:var(--bg2)}
+    .logo{font:800 17px/1 system-ui,-apple-system,sans-serif;letter-spacing:.12em;color:var(--txt);display:inline-flex;align-items:center;gap:8px;padding:0 14px}
+    .logo i{width:10px;height:10px;border-radius:50%;background:#3cdc8c;box-shadow:0 0 8px #3cdc8c;display:inline-block}
+    .logo span{color:var(--org)}
+    main{display:grid;grid-template-columns:minmax(0,1fr) 330px;height:calc(100% - 40px)}
+    #vh-view{position:relative;min-width:0;overflow:hidden}
+    #vh-view canvas{display:block}
+    #vh-hint{position:absolute;left:10px;bottom:10px;font-size:12px;color:var(--mut);background:rgba(0,0,0,.35);padding:6px 10px;border-radius:6px;pointer-events:none}
+    aside{background:var(--bg);border-left:1px solid #1f1f1f;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+    section{background:var(--bg2);border:1px solid #2a2a2a;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+    section.disabled{opacity:.45;pointer-events:none}
+    h3{margin:0;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);display:flex;gap:8px;align-items:center}
+    h3 b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px}
+    button{appearance:none;border:1px solid #1f1f1f;background:var(--line);color:var(--txt);border-radius:5px;padding:6px 10px;font:inherit;cursor:pointer}
+    button:hover{background:#606060}
+    button.pri{background:var(--blue);border-color:#2f5b9a}
+    button.pri:hover{background:#5482c6}
+    button.on{background:var(--org);color:#111;border-color:#a86d00}
+    .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .sm{font-size:12px;color:var(--mut)}
+    select,input[type=range]{width:100%}
+    select{background:var(--bg3);color:var(--txt);border:1px solid #222;border-radius:5px;padding:5px}
+    #vh-status{font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;background:rgba(71,114,179,.25)}
+    #vh-status.warn{background:rgba(245,166,35,.22)}
+    #vh-anims{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+    .vh-anim{font-size:12px;padding:5px 6px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .vh-anim.on{background:var(--org);color:#111}
+    .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--mut)}
+    .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+    @media (max-width:800px){main{grid-template-columns:1fr;grid-template-rows:55vh auto}}
+  </style>
+  <style>
+    main{grid-template-columns:minmax(0,1fr) 300px}
+    #pt-view{position:relative;min-width:0;overflow:hidden;outline:none}
+    #pt-view canvas{display:block;outline:none}
+    #pt-hud{position:absolute;left:10px;top:10px;display:flex;gap:6px;align-items:center;font-size:12px}
+    #pt-hud span{background:rgba(0,0,0,.45);padding:4px 8px;border-radius:6px;color:#fff}
+    #pt-pad{position:absolute;right:16px;bottom:16px;display:none;gap:10px;flex-wrap:wrap;width:220px;justify-content:flex-end}
+    #pt-pad button{width:96px;height:56px;border-radius:14px;font-size:15px;font-weight:700;background:rgba(30,30,30,.65);border:2px solid rgba(255,255,255,.35);touch-action:none}
+    #pt-status{font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;background:rgba(71,114,179,.25)}
+    #pt-status.warn{background:rgba(245,166,35,.22)}
+    #pt-help{font-size:12px;line-height:1.6;color:var(--mut)}
+    #pt-help b{color:var(--txt)}
+    .pt-float{position:absolute;transform:translate(-50%,-50%);font:900 22px system-ui;color:#ffd23f;text-shadow:0 2px 0 #000;pointer-events:none;animation:ptf .7s ease-out forwards}
+    @keyframes ptf{to{transform:translate(-50%,-160%);opacity:0}}
+    #pt-rec.on{background:#e53935;border-color:#9a1f1d}
+  </style>
+  <script src="./gb-base.js?v=20261029a"></script>
+  <script type="module" crossorigin src="./assets/playtest-C_Qq2dPQ.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/NURBSCurve-l8zBpybq.js">
+  <link rel="modulepreload" crossorigin href="./assets/Handoff-y8-k6aH-.js">
+  <link rel="modulepreload" crossorigin href="./assets/FBXLoader-FSu3Bl6u.js">
+</head>
+<body>
+  <nav>
+    <a class="logo" href="./create.html"><i></i>GREENBOX <span>3D</span></a>
+    <a href="./index.html">Explore</a>
+    <a href="./create.html">Use Your Model</a>
+    <a href="./retarget/index.html">Use Your Rigged Model</a>
+    <a href="./vehicle.html">Vehicles</a>
+    <a class="on" href="./playtest.html">Play test</a>
+        <a href="./mocap.html">Video mocap</a>
+  </nav>
+  <main>
+    <div id="pt-view">
+      <div id="pt-hud"><span id="pt-state">—</span></div>
+      <div id="pt-pad">
+        <button id="pt-b-block">🛡 Block</button><button id="pt-b-roll">🌀 Roll</button>
+        <button id="pt-b-jump">⤒ Jump</button><button id="pt-b-attack">⚔ Attack</button>
+      </div>
+    </div>
+    <aside>
+      <div id="pt-status">Loading…</div>
+      <section>
+        <h3><b>1</b>Character</h3>
+        <div class="row"><button class="pri" id="pt-load">⬆ Load GLB / FBX</button></div>
+        <input type="file" id="pt-file" accept=".glb,.gltf,.fbx" hidden>
+        <div class="sm" id="pt-clips">—</div>
+      </section>
+      <section>
+        <h3><b>2</b>Controls</h3>
+        <div class="row"><button data-scheme="pc">🖱 PC (WASD)</button><button data-scheme="mobile">📱 Mobile (tap to move)</button></div>
+        <div id="pt-help"></div>
+      </section>
+      <section>
+        <h3><b>3</b>Map</h3>
+        <div class="row"><button id="pt-add-prop">⬆ Add prop (GLB / FBX)</button><button id="pt-add-box">🧱 Box</button></div>
+        <input type="file" id="pt-prop-file" accept=".glb,.gltf,.fbx" multiple hidden>
+        <button id="pt-edit">✏ Edit map</button>
+        <div id="pt-edit-tools" style="display:none;flex-direction:column;gap:6px">
+          <div class="row"><button data-tmode="translate" class="on">↔ Move (G)</button><button data-tmode="rotate">⟳ Turn (R)</button><button data-tmode="scale">⤢ Scale (S)</button></div>
+          <div class="row"><button id="pt-dup">⧉ Copy (Shift+D)</button><button id="pt-del">🗑 Delete</button></div>
+          <label class="row sm"><input type="checkbox" id="pt-snap" checked> Keep on the ground</label>
+        </div>
+        <div class="sm">Drop a mountain, a house, a bridge… The character walks on it, bumps into walls and climbs ledges up to ~2.5 m (push into it or jump). Animated files load as the player; a Greenbox vehicle rig is driven with W/A/S/D.</div>
+      </section>
+      <section>
+        <h3><b>4</b>Camera &amp; record</h3>
+        <div class="row"><button data-cam="third" class="on">3rd person</button><button data-cam="top">Top-down</button><button data-cam="side">Side</button></div>
+        <button id="pt-rec">⏺ Record</button>
+        <div class="sm">Records the view to a video file (for ad footage).</div>
+      </section>
+    </aside>
+  </main>
+  <script src="./gb-i18n.js?v=20261029a"></script>
+</body>
+</html>
