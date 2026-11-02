@@ -1,6 +1,6 @@
 <!doctype html><html><head><meta charset=utf8><script>/* the cockpit never runs inside itself (a 3D tab that wandered to the site root): show the 3D app there instead */try{if(window.self!==window.top&&window.parent.__gbRig){location.replace("./rig3d/index.html")}}catch(e){}</script><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="icon" href="./rig3d/images/favicon.png"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Greenbox Cockpit</title>
-<script>try{var t=localStorage.getItem("gbc.ui")||"k";document.documentElement.classList.add(t==="v"?"gbv":t==="k"?"gbk":"gbd")}catch(e){document.documentElement.classList.add("gbk")}</script><script src="./gb-xp.js?v=20261102b"></script><script src="./gb-endcard.js?v=20261102d"></script><link rel="preconnect" href="https://fonts.googleapis.com">
+<script>try{var t=localStorage.getItem("gbc.ui")||"k";document.documentElement.classList.add(t==="v"?"gbv":t==="k"?"gbk":"gbd")}catch(e){document.documentElement.classList.add("gbk")}</script><script src="./gb-xp.js?v=20261102b"></script><script src="./gb-endcard.js?v=20261102e"></script><link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Lilita+One&family=Inter:wght@400;500;700;800&family=Public+Sans:wght@400;500;700&family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,900&display=swap">
 <script src="./vendor/mp4-muxer.js"></script>
 <style>:root{
@@ -4295,7 +4295,7 @@ S.car=Object.assign(structuredClone(CAR_DEF), S.car||{});
 if(!Array.isArray(S.car.items)) S.car.items=[];
 // the end card on top of the carousel: app icon, logo / game name, PLAY NOW — each part sized / spaced / anchored on its own (gb-endcard.js)
 if(window.GBEC) S.car.ec=GBEC.fix(S.car.ec||GBEC.defaults('carousel'),'carousel'); if(S.car.ecOn===undefined) S.car.ecOn=true;
-for(const k of ['ecIcon','ecLogo']) if(srcs[k]) setImg(k,srcs[k],false);
+for(const k of ['ecIcon','ecLogo','ecCta']) if(srcs[k]) setImg(k,srcs[k],false);
 for(let i=0;i<8;i++) if(!S.car.items[i]) S.car.items[i]={kind:'img'};
 if(S.aspect!=='169') S.aspect='916';
 const carVid={};                                   // item index -> <video>
@@ -4420,7 +4420,7 @@ function drawCarousel(ctx,t,exporting){
 }
 /* over the cards: the end card layer (icon / logo / PLAY) and the hand */
 function carTop(ctx,st,tnow,exporting){
-  if(window.GBEC && S.car.ec && S.car.ecOn) GBEC.paint(ctx,W,H,tnow,S.car.ec,{icon:imgs.ecIcon,logo:imgs.ecLogo},{selT:st.sel?st.sel.t:null,guides:!exporting});
+  if(window.GBEC && S.car.ec && S.car.ecOn) GBEC.paint(ctx,W,H,tnow,S.car.ec,{icon:imgs.ecIcon,logo:imgs.ecLogo,cta:imgs.ecCta},{selT:st.sel?st.sel.t:null,guides:!exporting});
   if(S.car.hand!==false && st.px!=null && st.px>-500 && imgs.ptr){
     const im=imgs.ptr, r=S.ptrR*(Math.min(W,H)/1080), ar=im.naturalWidth/im.naturalHeight;
     let w=r*2,h=r*2; if(ar>1) h=w/ar; else w=h*ar;
@@ -4438,7 +4438,7 @@ let carAutoD=0;
 (function ecUI(){ const box=$('ec'), on=$('ecOn'), file=$('ecFile'); if(!box||!window.GBEC) return; let slot='ecIcon';
   on.checked=!!S.car.ecOn; on.onchange=()=>{ S.car.ecOn=on.checked; save(); draw(T); };
   const api={ kind:'carousel', lang:()=>{ try{ return localStorage.getItem('gbc.lang')||'vi'; }catch(e){ return 'vi'; } }, change:()=>{ save(); draw(T); },
-    upload:k=>{ slot=k==='icon'?'ecIcon':'ecLogo'; file.click(); }, hasImg:k=>!!imgs[k==='icon'?'ecIcon':'ecLogo'] };
+    upload:k=>{ slot=k==='icon'?'ecIcon':k==='cta'?'ecCta':'ecLogo'; file.click(); }, hasImg:k=>!!imgs[k==='icon'?'ecIcon':k==='cta'?'ecCta':'ecLogo'] };
   file.onchange=()=>{ const f=file.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ setImg(slot,r.result,true); setTimeout(()=>GBEC.panel(box,S.car.ec,api),300); }; r.readAsDataURL(f); file.value=''; };
   box.__api=api; GBEC.panel(box,S.car.ec,api); })();
 function carDur(){ if(hasVid&&vid.duration) return vid.duration; if(carAutoD) return carAutoD;
@@ -4449,7 +4449,7 @@ function carDur(){ if(hasVid&&vid.duration) return vid.duration; if(carAutoD) re
 let ecDrag=null;
 const ecPanel=()=>{ const b=$('ec'); if(b&&window.GBEC&&b.__api) GBEC.panel(b,S.car.ec,b.__api); };
 cv.addEventListener('pointerdown',e=>{ if(S.mode!=='car'||e.button!==0||!window.GBEC||!S.car.ecOn||!S.car.ec) return;
-  const p=cpos(e), part=GBEC.hit(S.car.ec,W,H,p.x,p.y,{icon:imgs.ecIcon,logo:imgs.ecLogo}); if(!part) return;
+  const p=cpos(e), part=GBEC.hit(S.car.ec,W,H,p.x,p.y,{icon:imgs.ecIcon,logo:imgs.ecLogo,cta:imgs.ecCta}); if(!part) return;
   e.stopImmediatePropagation(); e.preventDefault(); cv.setPointerCapture(e.pointerId);
   const el=S.car.ec.el[part]; S.car.ec.sel=part; ecDrag={part,x0:p.x,y0:p.y,dx0:el.dx,dy0:el.dy}; ecPanel(); draw(T); },true);
 cv.addEventListener('pointermove',e=>{ if(!ecDrag) return; e.stopImmediatePropagation();
@@ -5554,7 +5554,7 @@ window.__gbHp=(function(){
   fr.addEventListener('load',()=>{ try{ fr.contentWindow.postMessage({gbLang:lang()},'*'); }catch(e){} try{ const a=fr.contentWindow.__gbHp; if(pend&&a&&a.set_page) a.set_page(pend); }catch(e){} });
   const api=()=>{ try{ return fr.contentWindow&&fr.contentWindow.__gbHp; }catch(e){ return null; } };
   return {
-    open(){ if(!fr.getAttribute('src')) fr.setAttribute('src','./hpbar.html?embed=1&v=20261102c'+(pend?'&page='+pend:'')); },
+    open(){ if(!fr.getAttribute('src')) fr.setAttribute('src','./hpbar.html?embed=1&v=20261102d'+(pend?'&page='+pend:'')); },
     page(p){ pend=p; const a=api(); if(a&&a.set_page) a.set_page(p); },
     busy(){ const a=api(); return !!(a&&a.busy()); },
     pause(){ const a=api(); if(a) a.pause(); },
