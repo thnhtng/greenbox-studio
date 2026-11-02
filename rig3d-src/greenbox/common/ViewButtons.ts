@@ -3,12 +3,17 @@
  * Works with any camera + OrbitControls-like object ({ target, update() }).
  */
 import * as THREE from 'three'
+import { set_wire, has_wire } from './WireView.ts'
 
 export type ViewName = 'front' | 'side' | 'top' | 'persp'
 
 export interface ViewHost {
   camera: () => THREE.PerspectiveCamera
   controls: () => { target: THREE.Vector3, update: () => void } | null
+  /** what the "Mesh" button draws the wireframe on (people, animals, vehicles, props) */
+  model?: () => THREE.Object3D | THREE.Object3D[] | null
+  /** optional extra toggle, e.g. "Bones" on the vehicle page */
+  extra?: Array<{ label: string, title: string, toggle: (on: boolean) => void }>
 }
 
 const DIRS: Record<ViewName, THREE.Vector3> = {
@@ -43,6 +48,24 @@ export function mount_view_buttons (parent: HTMLElement, host: ViewHost, pos = '
     b.onclick = (e) => set_view(host, v, e.altKey)
     box.appendChild(b)
   })
+  const toggle = (label: string, title: string, fn: (on: boolean) => void): void => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = title
+    let on = false
+    const paint = (): void => { b.style.cssText = `font:600 12px system-ui,sans-serif;padding:4px 9px;border-radius:5px;border:1px solid #1f1f1f;cursor:pointer;${on ? 'background:#3cdc8c;color:#0d1f14' : 'background:#4a4a4a;color:#eee'}` }
+    b.onclick = () => { on = !on; fn(on); paint() }
+    paint(); box.appendChild(b)
+  }
+  if (host.model !== undefined) {
+    toggle('▦ Mesh', 'Show the wireframe (W)', (on) => { const m = host.model!(); if (m !== null) set_wire(m, on) })
+    addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() !== 'w' || e.ctrlKey || e.metaKey || ['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return
+      const m = host.model!(); if (m === null) return
+      const on = !has_wire(m); set_wire(m, on)
+      const b = Array.from(box.querySelectorAll('button')).find(x => x.textContent === '▦ Mesh')
+      if (b !== undefined) { b.style.background = on ? '#3cdc8c' : '#4a4a4a'; b.style.color = on ? '#0d1f14' : '#eee' }
+    })
+  }
+  for (const x of host.extra ?? []) toggle(x.label, x.title, x.toggle)
   parent.appendChild(box)
   return box
 }

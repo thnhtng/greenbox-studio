@@ -49,8 +49,21 @@ export class CharacterController {
   private block_held = false
   private climb: { from: THREE.Vector3, to: THREE.Vector3, wall: number, up: number } | null = null
 
-  constructor (model: THREE.Object3D, private readonly clips: ClipTable) {
+  // feet on the ground: the bones that touch the floor, how high the lowest one is when standing, and the
+  // small vertical correction applied to the model so the lowest foot stays on the floor in every clip
+  private feet: THREE.Object3D[] = []
+  private rest_foot = 0
+  private foot_fix = 0
+  public ground_lock = true
+
+  constructor (private readonly model: THREE.Object3D, private readonly clips: ClipTable) {
     this.root.add(model)
+    const bones: THREE.Bone[] = []
+    model.traverse(o => { if ((o as THREE.Bone).isBone === true) bones.push(o as THREE.Bone) })
+    const pick = (re: RegExp): THREE.Bone[] => bones.filter(b => re.test(b.name) && !/hand|finger|thumb|index|pinky|ring|middle/i.test(b.name))
+    this.feet = pick(/toe|ball/i)
+    if (this.feet.length < 2) this.feet = pick(/foot|ankle/i)
+    if (this.feet.length < 2) this.feet = pick(/calf|shin|lowerleg|leg/i).filter(b => !b.children.some(c => (c as THREE.Bone).isBone === true && /calf|shin|leg/i.test(c.name)))
     this.mixer = new THREE.AnimationMixer(model)
     ;(Object.keys(clips) as Action[]).forEach(a => {
       const c = clips[a]; if (c === undefined) return
@@ -59,6 +72,47 @@ export class CharacterController {
       this.actions.set(a, act)
     })
     this.play('idle', 0)
+    this.calibrate()
+  }
+
+  /**
+   * Put the model's real feet on the floor. The bounding box of a skinned file is its bind pose, which is
+   * often not where the feet are once the idle plays (armature scale / offset, crouched idles…) — that is
+   * why characters walked in the air. Measure the skinned mesh in the first idle frame instead.
+   */
+  private calibrate (): void {
+    this.mixer.update(0)
+    this.root.updateMatrixWorld(true)
+    let minY = Infinity
+    this.model.traverse((o) => {
+      const m = o as THREE.SkinnedMesh
+      if (m.isMesh !== true) return
+      if (m.isSkinnedMesh === true) { m.computeBoundingBox(); const b = m.boundingBox!.clone().applyMatrix4(m.matrixWorld); minY = Math.min(minY, b.min.y) } else { const b = new THREE.Box3().setFromObject(m); minY = Math.min(minY, b.min.y) }
+    })
+    if (Number.isFinite(minY)) { this.model.position.y -= minY - this.root.position.y; this.root.updateMatrixWorld(true) }
+    this.rest_foot = this.lowest_foot()
+    m_bounding_reset(this.model)
+  }
+
+  private lowest_foot (): number {
+    if (this.feet.length === 0) return 0
+    const v = new THREE.Vector3(); let y = Infinity
+    for (const f of this.feet) y = Math.min(y, f.getWorldPosition(v).y)
+    return y - this.root.position.y
+  }
+
+  /** keep the lowest foot on the floor while standing / walking / running (a light foot lock) */
+  private ground_feet (dt: number): void {
+    if (!this.ground_lock || this.feet.length === 0) return
+    const grounded = this.on_ground && (this.busy === 'none' || this.busy === 'attack' || this.busy === 'hit' || this.busy === 'land')
+    this.root.updateMatrixWorld(true)
+    const target = grounded ? this.rest_foot - (this.lowest_foot() - this.foot_fix) : 0
+    const lim = 0.25 * this.speed_scale
+    const want = Math.max(-lim, Math.min(lim, target))
+    const k = Math.min(1, dt * (grounded ? 14 : 4))
+    const before = this.foot_fix
+    this.foot_fix += (want - this.foot_fix) * k
+    this.model.position.y += this.foot_fix - before
   }
 
   public has (a: Action): boolean { return this.actions.has(a) }
@@ -168,6 +222,7 @@ export class CharacterController {
     }
     if (this.busy === 'none' && this.on_ground) this.locomotion(speed / S)
     this.mixer.update(dt)
+    this.ground_feet(dt)
   }
 
   public is_climbing (): boolean { return this.busy === 'climb' }
@@ -283,4 +338,9 @@ export function strip_root_motion (clips: THREE.AnimationClip[], model: THREE.Ob
       }
     })
   })
+}
+
+/** skinned bounding boxes were computed for one pose: drop them so culling / later measures recompute */
+function m_bounding_reset (root: THREE.Object3D): void {
+  root.traverse(o => { const m = o as THREE.SkinnedMesh; if (m.isSkinnedMesh === true) { (m as any).boundingBox = null; (m as any).boundingSphere = null } })
 }

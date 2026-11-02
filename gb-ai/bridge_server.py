@@ -8,7 +8,8 @@
   GET  /bridge/status  what the AI side looks like (MCP calls seen, Claude Desktop config found / set up)
   POST /bridge/blender {name, glb_b64, script}   saves a Rigify kit into Greenbox/exports/ and opens it in
                        Blender (same Greenbox-page-only rule as install-claude)
-  POST /bridge/install-claude   adds Greenbox to Claude Desktop's MCP config (backup first). Only from the
+  POST /bridge/install-claude | install-codex | install-claude-code   adds Greenbox to Claude Desktop's /
+                       Codex's (~/.codex/config.toml) / Claude Code's (~/.claude.json) MCP config (backup first). Only from the
                        Greenbox page itself: needs header X-Greenbox-UI and a localhost Origin.
 Works with Python 3.8+.
 """
@@ -61,6 +62,101 @@ def claude_status():
     except (OSError, ValueError):
         pass
     return out
+
+
+def codex_config_path():
+    """Codex (CLI / app) keeps its MCP servers in ~/.codex/config.toml (CODEX_HOME if set)"""
+    return os.path.join(os.environ.get('CODEX_HOME') or os.path.expanduser('~/.codex'), 'config.toml')
+
+
+def claude_code_config_path():
+    """Claude Code's user-wide MCP servers live in ~/.claude.json (mcpServers)"""
+    return os.path.expanduser('~/.claude.json')
+
+
+def _toml_str(v):
+    return '"' + str(v).replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+
+def _codex_block():
+    e = mcp_entry()
+    return '[mcp_servers.greenbox]\ncommand = %s\nargs = [%s]\n' % (_toml_str(e['command']), ', '.join(_toml_str(a) for a in e['args']))
+
+
+def _strip_codex_block(text):
+    """the config without its [mcp_servers.greenbox] table (and its sub-tables)"""
+    out, skip = [], False
+    for line in text.splitlines(keepends=True):
+        t = line.strip()
+        if t.startswith('['):
+            name = t.strip('[]').strip()
+            skip = name == 'mcp_servers.greenbox' or name.startswith('mcp_servers.greenbox.')
+        if not skip:
+            out.append(line)
+    return ''.join(out)
+
+
+def codex_status():
+    path = codex_config_path()
+    out = {'config': path, 'app_found': os.path.isdir(os.path.dirname(path)) or bool(shutil.which('codex')), 'installed': False}
+    try:
+        with open(path, encoding='utf-8') as f:
+            txt = f.read()
+        out['installed'] = '[mcp_servers.greenbox]' in txt and mcp_entry()['args'][0] in txt.replace('\\\\', '\\')
+    except OSError:
+        pass
+    return out
+
+
+def install_codex():
+    """add / update [mcp_servers.greenbox] in Codex's config.toml; the old file is kept as a backup"""
+    path = codex_config_path()
+    txt = ''
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            txt = f.read()
+        shutil.copy2(path, path + '.greenbox-backup-%d' % int(time.time()))
+    else:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    txt = _strip_codex_block(txt).rstrip('\n')
+    txt = (txt + '\n\n' if txt else '') + _codex_block()
+    tmp = path + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        f.write(txt)
+    os.replace(tmp, path)
+    return path
+
+
+def claude_code_status():
+    path = claude_code_config_path()
+    out = {'config': path, 'app_found': os.path.exists(path) or bool(shutil.which('claude')), 'installed': False}
+    try:
+        with open(path, encoding='utf-8') as f:
+            g = (json.load(f).get('mcpServers') or {}).get('greenbox')
+        out['installed'] = bool(g) and os.path.abspath((g.get('args') or [''])[-1]) == os.path.abspath(mcp_entry()['args'][0])
+    except (OSError, ValueError, AttributeError):
+        pass
+    return out
+
+
+def install_claude_code():
+    """add / update the user-wide mcpServers.greenbox in ~/.claude.json (Claude Code); backup first"""
+    path = claude_code_config_path()
+    cfg = {}
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            raw = f.read()
+        try:
+            cfg = json.loads(raw) if raw.strip() else {}
+        except ValueError:
+            raise RuntimeError('~/.claude.json is not valid JSON, not touching it')
+        shutil.copy2(path, path + '.greenbox-backup-%d' % int(time.time()))
+    cfg.setdefault('mcpServers', {})['greenbox'] = dict(mcp_entry(), type='stdio')
+    tmp = path + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(cfg, f, indent=2)
+    os.replace(tmp, path)
+    return path
 
 
 def find_blender():
@@ -175,7 +271,7 @@ def handle(h, method, path, reply):
     if method == 'GET' and path.startswith('/status'):
         now = time.time()
         acts = [{'ago': round(now - a['t'], 1), 'tool': a['tool']} for a in list(_activity)[-10:]]
-        reply(200, {'claude': claude_status(), 'calls': acts, 'last_call_ago': acts[-1]['ago'] if acts else None})
+        reply(200, {'claude': claude_status(), 'codex': codex_status(), 'claude_code': claude_code_status(), 'calls': acts, 'last_call_ago': acts[-1]['ago'] if acts else None})
         return True
     if method == 'POST' and path == '/blender':
         origin = h.headers.get('Origin') or ''
@@ -188,13 +284,13 @@ def handle(h, method, path, reply):
         except Exception as e:
             reply(500, {'ok': False, 'error': str(e)})
         return True
-    if method == 'POST' and path == '/install-claude':
+    if method == 'POST' and path in ('/install-claude', '/install-codex', '/install-claude-code'):
         origin = h.headers.get('Origin') or ''
         ok_origin = origin in ('http://localhost:%d' % _port['p'], 'http://127.0.0.1:%d' % _port['p'])
         if h.headers.get('X-Greenbox-UI') != '1' or not ok_origin:
             reply(403, {'error': 'only the Greenbox page can do this'}); return True
         try:
-            p = install_claude()
+            p = {'/install-claude': install_claude, '/install-codex': install_codex, '/install-claude-code': install_claude_code}[path]()
             reply(200, {'ok': True, 'config': p, 'entry': mcp_entry()})
         except Exception as e:  # report, never crash the server
             reply(500, {'ok': False, 'error': str(e)})

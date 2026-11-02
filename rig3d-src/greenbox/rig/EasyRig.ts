@@ -1,3 +1,6 @@
+import { mount_clone_rig } from './CloneRigWizard'
+import { TWIST } from './Twist'
+import { CUSTOM_RIG } from './CustomRig'
 /*
  * EasyRig (Greenbox): beginner-friendly skeleton placement for the Edit Skeleton step.
  *  - Auto-fit: the freshly loaded skeleton is stretched into the imported model's bounding box,
@@ -11,7 +14,11 @@
  */
 import { M } from '../common/lang'
 import { mount_view_buttons } from '../common/ViewButtons'
+import { PoseControls, LIMBS, type Limb } from './PoseControls'
+import { ExportFormat } from '../../lib/processes/export-to-file/DownloadSettings.ts'
 import { BONES_OFF, can_turn_off, human_preset, type SpineCount, type FingerMode } from './BoneReduce'
+import { find_fingers, palm_fit, fingers_ok, hand_reach, FINGER_WEIGHTS, type FingerName } from './FingerFinder'
+import { WEIGHT_POST } from '../skin/WeightPost'
 import { CAGE_REGIONS, region_bones, region_diameter, build_region_preview, dispose_group } from '../skin/CageRegions'
 import * as THREE from 'three'
 import { type Bone, type Skeleton } from 'three'
@@ -21,6 +28,8 @@ import { SkeletonType } from '../../lib/enums/SkeletonType.ts'
 import { scan_humanoid, type BodyLandmarks } from './BodyScan.ts'
 import { rigify_metarig_script, download_text } from '../export/RigifyMetarig.ts'
 import { send_to_playtest, send_character } from '../common/SendCharacter.ts'
+import { WeightPaint } from '../skin/WeightPaint.ts'
+import { analyze, draw_analysis, model_geometries, type Analysis, type Branch, type AnchorKind } from './ModelAnalyzer.ts'
 import { sample_points, CAGE, build_capsules, estimate_radii, apply_settings, type Capsule } from '../skin/CageWeights.ts'
 
 type Mode = 'idle' | 'marquee' | 'drag' | 'keygrab'
@@ -97,7 +106,7 @@ export class EasyRig {
   private label_layer: HTMLDivElement | null = null
   private show_all_labels = false
   // fingers
-  private finger_lock = true
+  private finger_lock = false
   private finger_template = new Map<Bone, { hand: Bone, d0: THREE.Vector3, offset: THREE.Vector3 }>()
   private finger_spread = 1
   private finger_length = 1
@@ -107,7 +116,7 @@ export class EasyRig {
   private pristine = new Map<Bone, THREE.Vector3>()
   // anatomical cage (only lives while rigging)
   private cage_group = new THREE.Group()
-  private cage_visible = true
+  private cage_visible = false
   private cage_listen = false
   private cage_timer = 0
   // skin-region preview (model painted by owning bone)
@@ -116,7 +125,12 @@ export class EasyRig {
   private region_timer = 0
   private hidden_for_regions: THREE.Object3D | null = null
 
-  constructor (private readonly engine: Mesh2MotionEngine) {}
+  private pose: PoseControls | null = null
+  constructor (private readonly engine: Mesh2MotionEngine) {
+    CUSTOM_RIG.final_bones = () => this.engine.weight_skin_step.skeleton()?.bones ?? []
+    TWIST.skeleton = () => this.engine.weight_skin_step.skeleton() ?? null
+    mount_clone_rig(this.engine) // 🧬 the guided "rig file -> my model" panel
+  }
 
   /* ---------------- lifecycle ---------------- */
   public on_enter (): void {
@@ -239,14 +253,19 @@ export class EasyRig {
     const mx = e.clientX - r.left; const my = e.clientY - r.top
     const R = 14 * 14
     let best: Bone | null = null; let bd = R
+    // a finger joint clicked right on is picked even while the fingers are locked to the hand
+    let finger: Bone | null = null; let fd = 8 * 8
     for (const b of skel.bones) {
-      if (!this.selectable(b)) continue
+      const lockedFinger = this.finger_lock && FINGER_RE.test(b.name)
+      if (!lockedFinger && !this.selectable(b)) continue
       const p = Utility.world_position_from_object(b).project(this.engine.camera)
       if (p.z > 1 || p.z < -1) continue
       const dx = (p.x + 1) / 2 * r.width - mx; const dy = (1 - p.y) / 2 * r.height - my
       const d = dx * dx + dy * dy
+      if (lockedFinger) { if (d < fd) { fd = d; finger = b } continue }
       if (d < bd) { bd = d; best = b }
     }
+    if (finger !== null && (best === null || fd < bd * 0.6)) return finger
     return best
   }
 
@@ -259,6 +278,7 @@ export class EasyRig {
   /* ---------------- auto fit ---------------- */
   /** Stretch the skeleton into the model's bounding box. Returns false when there is nothing to fit to. */
   public fit_to_model (): boolean {
+    if (CUSTOM_RIG.active) return true // a rig from a file is already fitted onto the model (its own body box)
     const skel = this.skeleton()
     if (skel === undefined || skel.bones.length === 0) return false
     const model = this.engine.load_model_step.model_meshes()
@@ -282,6 +302,7 @@ export class EasyRig {
     if (this.scan_fit(model)) {
       this.capture_finger_template(true)
       this.fit_fingers_to_hand()
+      this.detect_fingers()
       this.auto_weight_fixes()
       this.engine.edit_skeleton_step.dispatchEvent(new CustomEvent('skeletonTransformed'))
       return true
@@ -324,7 +345,23 @@ export class EasyRig {
   /** humanoid only: landmarks from the mesh -> named joints; everything else follows its nearest placed parent */
   private scan_fit (model: THREE.Object3D): boolean {
     const skel = this.skeleton()
-    const names = skel.bones.map(b => b.name.toLowerCase())
+    // Mixamo / Unity style names (LeftArm, LeftUpLeg, Spine1… as in the XP Hero rig) read as the Greenbox ones
+    const has_plain_spine = skel.bones.some(b => /^(mixamorig:?)?spine$/i.test(b.name))
+    const canon = (raw: string): string => {
+      let n = raw.toLowerCase().replace(/^mixamorig:?/, '')
+      const side = n.startsWith('left') ? 'l' : n.startsWith('right') ? 'r' : ''
+      if (side !== '') {
+        const rest = n.replace(/^(left|right)/, '')
+        const M2: Record<string, string> = { shoulder: 'clavicle', arm: 'upperarm', forearm: 'lowerarm', hand: 'hand', upleg: 'thigh', leg: 'calf', foot: 'foot', toebase: 'ball', toe_end: 'ball_leaf' }
+        if (M2[rest] !== undefined) return `${M2[rest]}_${side}`
+      }
+      if (n === 'hips') return 'pelvis'
+      if (has_plain_spine) { if (n === 'spine') return 'spine_01'; if (n === 'spine1') return 'spine_02'; if (n === 'spine2') return 'spine_03' }
+      if (n === 'neck') return 'neck_01'
+      if (n === 'headtop_end') return 'head_leaf'
+      return n
+    }
+    const names = skel.bones.map(b => canon(b.name))
     if (!names.some(n => n.includes('upperarm')) || !names.some(n => n.includes('thigh'))) return false
     let L: BodyLandmarks | null = null
     try { L = scan_humanoid(model) } catch (e) { console.warn('body scan failed', e) }
@@ -335,7 +372,7 @@ export class EasyRig {
     this.last_head_share = L.head_share
     const W = new Map<Bone, THREE.Vector3>()
     skel.bones.forEach(b => W.set(b, Utility.world_position_from_object(b)))
-    const byName = (re: RegExp): Bone | undefined => skel.bones.find(b => re.test(b.name.toLowerCase()))
+    const byName = (re: RegExp): Bone | undefined => skel.bones.find(b => re.test(canon(b.name)))
     const ua = byName(/upperarm_l$/); const pel = byName(/^pelvis$|hips/)
     const l_is_plus = ua !== undefined && pel !== undefined ? W.get(ua)!.x >= W.get(pel)!.x : true
     const sideOf = (suffix: 'l' | 'r') => (suffix === 'l') === l_is_plus ? L!.left : L!.right
@@ -518,7 +555,7 @@ export class EasyRig {
     if (t !== null && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return
     const k = e.key.toLowerCase()
     if (this.mode === 'keygrab') {
-      if (k === 'x' || k === 'y' || k === 'z') { this.kg_axis = this.kg_axis === k ? null : k; if (this.last_mouse !== null) this.move_key_grab(this.last_mouse); this.update_status() }
+      if ((k === 'x' || k === 'y' || k === 'z') && !e.ctrlKey && !e.metaKey) { this.kg_axis = this.kg_axis === k ? null : k; if (this.last_mouse !== null) this.move_key_grab(this.last_mouse); this.update_status() }
       else if (e.key === 'Enter') this.confirm_key_grab()
       else if (e.key === 'Escape') this.cancel_key_grab()
       e.preventDefault(); return
@@ -620,7 +657,173 @@ export class EasyRig {
   /** Front / Side / Top / 3D buttons over the viewport (stay for the whole page) */
   public mount_views (): void {
     // the canvas lives in <body> under the top nav bar: pin the buttons just below it
-    mount_view_buttons(document.body, { camera: () => this.engine.camera, controls: () => this.orbit() ?? null }, 'position:fixed;left:12px;top:52px')
+    // Explore has its skeleton list in the top-left corner: sit to the right of it there
+    const left = /create\.html$/.test(location.pathname) ? 12 : 110
+    mount_view_buttons(document.body, { camera: () => this.engine.camera, controls: () => this.orbit() ?? null, model: () => this.model_objects(), extra: [{ label: '🔎 Anchors', title: 'Analyze the model: head, arms, legs and accessories (tail, wings, ears, cape…)', toggle: (on) => this.show_anchors(on) }] }, `position:fixed;left:${left}px;top:52px`)
+  }
+
+  /** what is on screen as "the model" right now: skinned meshes after skinning, the loaded meshes before */
+  public model_objects (): THREE.Object3D[] {
+    try { const a = this.engine.animations_listing_step.active_skinned_meshes(); if (a.length > 0) return a } catch { /* not there yet */ }
+    try { const s = this.engine.weight_skin_step.final_skinned_meshes(); if (s.length > 0) return s } catch { /* not there yet */ }
+    const out: THREE.Object3D[] = []
+    this.engine.scene.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh === true && m.geometry?.getAttribute('position')?.count > 64 && !/grid|floor|ground|helper|joint/i.test(m.name) && (m.material as THREE.Material)?.type !== 'ShadowMaterial') out.push(m) })
+    return out
+  }
+
+  private anchors_view: THREE.Group | null = null
+  public last_analysis: ReturnType<typeof analyze> | null = null
+  public show_anchors (on: boolean): void {
+    if (this.anchors_view !== null) { this.engine.scene.remove(this.anchors_view); this.anchors_view = null }
+    document.getElementById('gb-anchor-card')?.remove()
+    const mixer = (() => { try { return this.engine.animations_listing_step.mixer() } catch { return null } })()
+    if (!on) { this.anchor_geos = null; if (mixer !== null && this.anchor_paused) { mixer.timeScale = 1; this.anchor_paused = false } return }
+    // a still pose while the anchors are on screen (they are measured on this pose)
+    if (mixer !== null && mixer.timeScale !== 0) { mixer.timeScale = 0; this.anchor_paused = true }
+    const objs = this.model_objects(); if (objs.length === 0) return
+    const geos = model_geometries(objs)
+    const a = analyze(geos); this.last_analysis = a; this.anchor_geos = geos; this.anchor_focus = -1
+    const snapped = this.snap_anchors_to_skeleton(a, geos, objs)
+    this.redraw_anchors()
+    this.bind_anchor_drag()
+    const card = document.createElement('div'); card.id = 'gb-anchor-card'
+    card.style.cssText = 'position:fixed;left:12px;bottom:56px;z-index:30;max-width:340px;background:var(--gbp-panel,#14181fee);color:var(--gbp-ink,#e8edf3);border:1px solid var(--gbp-line,#2c3440);border-radius:10px;padding:8px 10px;font:12px/1.45 system-ui,sans-serif'
+    const T: Record<string, string> = { humanoid: M('person', 'người', '사람'), quadruped: M('4-legged animal', 'thú 4 chân', '네발 동물'), vehicle: M('vehicle', 'xe', '차량'), object: M('object / creature', 'vật thể / sinh vật', '오브젝트') }
+    const extra = a.branches.filter(b => ['tail', 'wing', 'ear', 'horn', 'hair', 'cape', 'item'].includes(b.kind))
+    card.innerHTML = `<b>🔎 ${M('Analysis', 'Phân tích', '분석')}: ${T[a.type]}</b><br>${a.branches.map(b => b.name).join(' · ')}` +
+      (extra.length > 0 ? `<br><span style="color:#ffd34d">${M('Accessories found', 'Phụ kiện tìm thấy', '액세서리')}: ${extra.map(b => b.name).join(', ')}</span><br><span style="opacity:.75">${M('The human skeleton rigs the body; to give accessories their own bones, open the model in the Vehicles / any model tab → 🔎 Analyze.', 'Khung người gắn cho thân; muốn phụ kiện có xương riêng, mở model ở tab Xe cộ / model bất kỳ → 🔎 Phân tích.', '액세서리 본은 차량/모든 모델 탭에서 분석하세요.')}</span>` : '') +
+      (a.type === 'vehicle' ? `<br><span style="color:#7ad7ff">${M('This looks like a vehicle: use the Vehicles tab.', 'Đây giống xe: dùng tab Xe cộ.', '차량 탭을 사용하세요.')}</span>` : '')
+    card.innerHTML += `<br><span style="opacity:.8">${snapped > 0 ? M(`Head, arms, legs follow the ${snapped} joints of the human skeleton. `, `Đầu, tay, chân bám theo ${snapped} khớp của bộ xương người. `, '사람 스켈레톤에 맞춤. ') : ''}${M('Drag a dot to move it (on the joints step it moves the bone too). Click a dot: only the skin of that branch stays bright.', 'Kéo một điểm để chỉnh (ở bước sửa khớp thì xương đi theo). Bấm một điểm: chỉ vùng da của nhánh đó sáng lên.', '점을 드래그해 이동, 클릭하면 그 부위 피부 강조.')}</span>`
+    document.body.append(card)
+  }
+
+  private anchor_geos: THREE.BufferGeometry[] | null = null
+  private anchor_paused = false
+  private anchor_focus = -1
+  private anchor_drag_bound = false
+
+  private redraw_anchors (): void {
+    if (this.last_analysis === null) return
+    if (this.anchors_view !== null) this.engine.scene.remove(this.anchors_view)
+    this.anchors_view = draw_analysis(this.last_analysis, this.anchor_geos ?? undefined, this.anchor_focus); this.engine.scene.add(this.anchors_view)
+  }
+
+  /** the human skeleton to compare with: the posed one after skinning, the edited one before */
+  private anchor_bones (): Map<string, Bone> | null {
+    let bones: Bone[] = []
+    try { const a = this.engine.animations_listing_step.active_skinned_meshes(); if (a.length > 0) bones = a[0].skeleton.bones } catch { /* not skinned yet */ }
+    if (bones.length === 0 && this.engine.process_step === 'edit-skeleton') bones = this.skeleton().bones
+    if (!bones.some(b => /^upperarm_l$/i.test(b.name))) return null
+    return new Map(bones.map(b => [b.name.toLowerCase(), b]))
+  }
+
+  /**
+   * A person with a human skeleton: the body anchors ARE the skeleton — head (neck → head top), both arms
+   * (clavicle → finger tip), both legs (thigh → toes), always all five, at the joints' current place. The skin of
+   * each one is the skin its bones really move (the strongest bone of each point); before skinning, the points
+   * nearest to the chain. The mesh analysis only adds accessories (tail, wings, ears, cape, held item…) that are
+   * not one of those limbs. Returns how many joints were used.
+   */
+  private snap_anchors_to_skeleton (a: Analysis, geos: THREE.BufferGeometry[], objs: THREE.Object3D[]): number {
+    const by = this.anchor_bones(); if (by === null) return 0
+    const W = (n: string): THREE.Vector3 | null => { const b = by.get(n); return b === undefined ? null : Utility.world_position_from_object(b) }
+    const CH: Array<[string, AnchorKind, string[]]> = [
+      ['head', 'head', ['neck_01', 'head', 'head_leaf']],
+      ['arm_L', 'arm', ['clavicle_l', 'upperarm_l', 'lowerarm_l', 'hand_l', 'middle_04_leaf_l']], ['arm_R', 'arm', ['clavicle_r', 'upperarm_r', 'lowerarm_r', 'hand_r', 'middle_04_leaf_r']],
+      ['leg_L', 'leg', ['thigh_l', 'calf_l', 'foot_l', 'ball_l', 'ball_leaf_l']], ['leg_R', 'leg', ['thigh_r', 'calf_r', 'foot_r', 'ball_r', 'ball_leaf_r']]
+    ]
+    const pel = W('pelvis'); if (pel !== null) a.core.copy(pel)
+    const body: Branch[] = []; const chain_of = new Map<string, number>(); let n = 0
+    for (const [name, kind, list] of CH) {
+      const names = list.filter(x => by.has(x)); if (names.length === 0) continue
+      const pts = names.map(x => W(x)!)
+      const br: Branch = { name, kind, side: name.endsWith('_L') ? 1 : name.endsWith('_R') ? -1 : 0, tip: pts[pts.length - 1].clone(), joints: pts, nodes: 0, length: 0 }; (br as any).bones = names
+      body.push(br); n += pts.length
+      // every bone below the chain's first joint belongs to it (fingers to the arm, toes to the leg)
+      const root = by.get(names[0])!; root.traverse(o => { if ((o as THREE.Bone).isBone === true) chain_of.set(o.name.toLowerCase(), body.length - 1) })
+    }
+    // accessories the mesh analysis found, unless they are really a limb
+    const lim = a.size.length() * 0.09
+    const acc = a.branches.map((b, i) => ({ b, i })).filter(({ b }) => ['tail', 'wing', 'ear', 'horn', 'hair', 'cape', 'item'].includes(b.kind) && body.every(c => c.joints.every(j => j.distanceTo(b.tip) > lim)))
+    const remap = new Map(acc.map(({ i }, k) => [i, body.length + k]))
+    a.branches = [...body, ...acc.map(({ b }) => b)]
+    // skin of each branch
+    const meshes: THREE.Mesh[] = []
+    for (const r of objs) r.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh === true && m.userData.__gb_wire !== true && m.geometry?.getAttribute('position') !== undefined) meshes.push(m) })
+    a.labels = geos.map((geo, gi) => {
+      const old = a.labels[gi]; const m = meshes[gi] as THREE.SkinnedMesh | undefined; const pa = geo.getAttribute('position'); const out = new Int32Array(pa.count).fill(-1)
+      const si = m?.geometry.getAttribute('skinIndex'); const sw = m?.geometry.getAttribute('skinWeight')
+      const p = new THREE.Vector3(); const line = new THREE.Line3(); const q = new THREE.Vector3()
+      for (let v = 0; v < pa.count; v++) {
+        const o = old?.[v] ?? -1; if (remap.has(o)) { out[v] = remap.get(o)!; continue }
+        if (m?.isSkinnedMesh === true && si !== undefined && sw !== undefined) {
+          let k = 0; for (let j = 1; j < 4; j++) if (sw.getComponent(v, j) > sw.getComponent(v, k)) k = j
+          const bn = m.skeleton.bones[si.getComponent(v, k)]?.name.toLowerCase(); out[v] = bn !== undefined ? (chain_of.get(bn) ?? -1) : -1
+        } else {
+          p.fromBufferAttribute(pa, v); let best = -1; let bd = lim * lim * 4
+          body.forEach((c, ci) => { for (let j = 0; j + 1 < c.joints.length; j++) { line.set(c.joints[j], c.joints[j + 1]); line.closestPointToPoint(p, true, q); const d = q.distanceToSquared(p); if (d < bd) { bd = d; best = ci } } })
+          out[v] = best
+        }
+      }
+      return out
+    })
+    return n
+  }
+
+  /** drag the anchor dots; a click (no drag) shows only that branch's skin */
+  private bind_anchor_drag (): void {
+    if (this.anchor_drag_bound) return
+    this.anchor_drag_bound = true
+    const dom = this.engine.renderer.domElement; const ray = new THREE.Raycaster(); const plane = new THREE.Plane()
+    let drag: { bi: number, ji: number, moved: boolean, x: number, y: number } | null = null; let raf = 0
+    const ndc = (e: PointerEvent): THREE.Vector2 => { const r = dom.getBoundingClientRect(); return new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1) }
+    dom.addEventListener('pointerdown', (e) => {
+      if (this.anchors_view === null || this.last_analysis === null || e.button !== 0) return
+      ray.setFromCamera(ndc(e), this.engine.camera)
+      const hit = ray.intersectObjects(this.anchors_view.children.filter(o => o.userData.branch !== undefined), false)[0]
+      if (hit === undefined) return
+      e.stopImmediatePropagation(); e.preventDefault()
+      const ud = hit.object.userData
+      plane.setFromNormalAndCoplanarPoint(this.engine.camera.getWorldDirection(new THREE.Vector3()), hit.object.position)
+      drag = { bi: ud.branch, ji: ud.joint, moved: false, x: e.clientX, y: e.clientY }
+      dom.setPointerCapture(e.pointerId)
+    }, true)
+    dom.addEventListener('pointermove', (e) => {
+      if (drag === null || this.last_analysis === null) return
+      e.stopImmediatePropagation()
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 3) drag.moved = true
+      if (!drag.moved) return
+      ray.setFromCamera(ndc(e), this.engine.camera); const p = ray.ray.intersectPlane(plane, new THREE.Vector3()); if (p === null) return
+      const b = this.last_analysis.branches[drag.bi]; b.joints[drag.ji].copy(p); if (drag.ji === b.joints.length - 1) b.tip.copy(p)
+      // on the joints step the anchor IS the bone: move it
+      const bn = (b as any).bones?.[drag.ji] as string | undefined
+      if (bn !== undefined && this.engine.process_step === 'edit-skeleton') {
+        const bone = this.skeleton().bones.find(x => x.name.toLowerCase() === bn)
+        if (bone !== undefined) { this.apply_world_targets(new Map([[bone, p.clone()]])); this.engine.edit_skeleton_step.dispatchEvent(new CustomEvent('skeletonTransformed')) }
+      }
+      if (raf === 0) raf = requestAnimationFrame(() => { raf = 0; this.redraw_anchors() })
+    }, true)
+    addEventListener('pointerup', () => {
+      if (drag === null) return
+      if (!drag.moved) { this.anchor_focus = this.anchor_focus === drag.bi ? -1 : drag.bi; this.redraw_anchors() }
+      else if ((this.last_analysis?.branches[drag.bi] as any)?.bones !== undefined && this.engine.process_step === 'edit-skeleton') this.engine.edit_skeleton_step.store_bone_state_for_undo()
+      drag = null
+    }, true)
+  }
+
+  private weight_paint: WeightPaint | null = null
+  public paint_weights (on: boolean): boolean {
+    if (this.weight_paint === null) {
+      this.weight_paint = new WeightPaint({
+        camera: () => this.engine.camera,
+        dom: this.engine.renderer.domElement,
+        scene: this.engine.scene,
+        meshes: () => this.engine.animations_listing_step.active_skinned_meshes(),
+        pause: (on) => { const m = this.engine.animations_listing_step.mixer(); m.timeScale = on ? 0 : 1 }
+      })
+    }
+    if (!on) { this.weight_paint.stop(); return false }
+    return this.weight_paint.start()
   }
 
   /* ---------------- views (numpad 1 / 3 / 7, Ctrl or Alt = opposite side) ---------------- */
@@ -775,7 +978,7 @@ export class EasyRig {
   private show_marquee (x0: number, y0: number, x1: number, y1: number): void {
     if (this.marquee_el === null) {
       this.marquee_el = document.createElement('div')
-      this.marquee_el.style.cssText = 'position:fixed;z-index:50;pointer-events:none;border:1.5px dashed #ffb020;background:rgba(255,160,40,.12);border-radius:3px'
+      this.marquee_el.style.cssText = 'position:fixed;z-index:50;pointer-events:none;border:1.5px dashed var(--gbp-accent,#ffb020);background:rgba(255,160,40,.12);border-radius:3px'
       document.body.appendChild(this.marquee_el)
     }
     const s = this.marquee_el.style
@@ -798,7 +1001,7 @@ export class EasyRig {
     if (host === null || document.getElementById('easy-export') !== null) return
     const box = document.createElement('div')
     box.id = 'easy-export'
-    box.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:10px 12px;margin:0 0 10px;border:1px solid #ffb02088;border-radius:10px;background:rgba(255,176,32,.08);flex:none;align-self:stretch;box-sizing:border-box'
+    box.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:10px 12px;margin:0 0 10px;border:1px solid #ffb02088;border-radius:10px;background:rgba(255,176,32,.08);flex:none;align-self:stretch;box-sizing:border-box;max-width:420px'
     box.innerHTML = `
       <div style="font-weight:700">Quick export</div>
       <div style="font-size:12px;opacity:.85">Rigged model + every animation in the list, in one file.</div>
@@ -810,7 +1013,32 @@ export class EasyRig {
         <button type="button" id="easy-playtest">🎮 Play test this character</button>
         <button type="button" class="secondary-button" id="easy-mocap">🎥 Video mocap on it</button>
       </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button type="button" id="easy-wpaint">🖌 Paint skin weights (brush / eraser)</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button type="button" class="secondary-button" id="easy-rejoints" title="Go back to the joints to move them; Finish skins again with the new joints">🦴 Move the bones again → re-skin</button>
+        <button type="button" class="secondary-button" id="easy-reskin" title="Compute the skin weights again now (after changing the smoothness)">↻ Re-skin now</button>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:12px">Weight smoothness <input type="range" id="easy-smooth" min="0" max="8" step="1" style="flex:1"><span id="easy-smooth-v"></span></label>
+      <label style="display:flex;gap:6px;align-items:center;font-size:12px"><input type="checkbox" id="easy-keep-paint" checked> Keep what I painted by hand when re-skinning</label>
+      <div style="font-size:11px;opacity:.8;line-height:1.45">Arm pulls the thigh? Pick the arm, erase its colour on the thigh: that skin goes back to the leg. Test bend shows the result live.</div>
       <div style="font-size:12px;opacity:.75">Only want some? Tick them in the list below, then use Download.</div>
+      <div id="easy-pose-box" style="display:flex;flex-direction:column;gap:6px;border-top:1px solid rgba(255,255,255,.15);padding-top:7px">
+        <div style="font-weight:700">Pose controls (IK / FK)</div>
+        <button type="button" id="easy-pose-on">✋ Pose the character</button>
+        <div id="easy-pose-ui" style="display:none;flex-direction:column;gap:5px">
+          <div id="easy-pose-rows" style="display:grid;grid-template-columns:1fr auto;gap:4px 8px;align-items:center;font-size:12px"></div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button type="button" class="secondary-button" data-all="IK" style="padding:3px 9px;font-size:12px">All IK</button>
+            <button type="button" class="secondary-button" data-all="FK" style="padding:3px 9px;font-size:12px">All FK</button>
+            <button type="button" class="secondary-button" id="easy-pose-turn" style="padding:3px 9px;font-size:12px">⟳ IK box: turn</button>
+            <button type="button" class="secondary-button" id="easy-pose-reset" style="padding:3px 9px;font-size:12px">↺ T-pose</button>
+          </div>
+          <div style="font-size:11px;opacity:.8;line-height:1.45">FK: click a ring, drag the coloured circles to turn. IK: drag the box at the hand / foot, the yellow ball sets where the elbow / knee points. Switching keeps the pose. The same IK / FK panel is in Blender (sidebar N › Greenbox).</div>
+          <button type="button" class="secondary-button" id="easy-pose-off" style="padding:4px 10px;font-size:12px">▶ Back to the animations</button>
+        </div>
+      </div>
       <div id="easy-rigify-box" style="display:flex;flex-direction:column;gap:5px;border-top:1px solid rgba(255,255,255,.15);padding-top:7px">
         <div style="font-weight:700">Blender Rigify</div>
         <button type="button" id="easy-rigify-open" style="display:none">🚀 Open in Blender with Rigify (one click)</button>
@@ -824,6 +1052,7 @@ export class EasyRig {
     ;(box.querySelector('#easy-export-glb') as HTMLButtonElement).onclick = () => { this.engine.quick_export_all('glb') }
     ;(box.querySelector('#easy-export-fbx') as HTMLButtonElement).onclick = () => { this.engine.quick_export_all('fbx') }
     ;(box.querySelector('#easy-rigify-box') as HTMLElement).style.display = this.is_human() ? 'flex' : 'none'
+    this.wire_pose(box)
     ;(box.querySelector('#easy-rigify-kit') as HTMLButtonElement).onclick = () => { this.download_rigify_kit() }
     // served by Mo-Greenbox on this computer: Greenbox can start Blender itself, no download / Scripting steps
     const op = box.querySelector('#easy-rigify-open') as HTMLButtonElement
@@ -834,12 +1063,89 @@ export class EasyRig {
       mc.disabled = true
       try { await send_character(this.engine.animations_listing_step.active_skinned_meshes(), [], 'mocap', 'mocap.html') } catch (e) { console.error(e); alert(String(e)) } finally { mc.disabled = false }
     }
+    const keep = box.querySelector('#easy-keep-paint') as HTMLInputElement
+    ;(box.querySelector('#easy-rejoints') as HTMLButtonElement).onclick = () => this.back_to_joints(keep.checked)
+    ;(box.querySelector('#easy-reskin') as HTMLButtonElement).onclick = () => this.reskin(keep.checked)
+    const sm = box.querySelector('#easy-smooth') as HTMLInputElement; const smv = box.querySelector('#easy-smooth-v') as HTMLElement
+    sm.value = String(WEIGHT_POST.smooth); smv.textContent = String(WEIGHT_POST.smooth)
+    sm.oninput = () => { WEIGHT_POST.smooth = Number(sm.value); smv.textContent = sm.value }
+    const wp = box.querySelector('#easy-wpaint') as HTMLButtonElement
+    let painting = false
+    const wp_label = wp.textContent ?? ''
+    const set_wp = (on: boolean): void => {
+      painting = on && this.paint_weights(true)
+      if (!on) this.paint_weights(false)
+      wp.textContent = painting ? M('✓ Done painting', '✓ Xong paint', '✓ 페인트 완료') : wp_label
+    }
+    wp.onclick = () => set_wp(!painting)
+    document.addEventListener('gb-weightpaint-closed', () => { painting = false; wp.textContent = wp_label })
     const pt = box.querySelector('#easy-playtest') as HTMLButtonElement
     pt.onclick = async () => {
       pt.disabled = true; const t = pt.textContent; pt.textContent = '⏳ …'
       try { await send_to_playtest(this.engine.animations_listing_step.active_skinned_meshes(), this.engine.animations_listing_step.animation_clips()) } catch (e) { console.error(e); alert(String(e)) } finally { pt.disabled = false; pt.textContent = t }
     }
   }
+
+  /* ---------------- pose controls (IK / FK) ---------------- */
+  private wire_pose (box: HTMLElement): void {
+    const LBL: Record<Limb, string> = { 'arm.L': M('Left arm', 'Tay trái', '왼팔'), 'arm.R': M('Right arm', 'Tay phải', '오른팔'), 'leg.L': M('Left leg', 'Chân trái', '왼다리'), 'leg.R': M('Right leg', 'Chân phải', '오른다리') }
+    const ui = box.querySelector('#easy-pose-ui') as HTMLElement; const on = box.querySelector('#easy-pose-on') as HTMLButtonElement
+    const rows = box.querySelector('#easy-pose-rows') as HTMLElement
+    const draw = (): void => {
+      const P = this.pose; if (P === null) return
+      rows.innerHTML = ''
+      LIMBS.forEach(l => {
+        const name = document.createElement('span'); name.textContent = LBL[l]
+        const seg = document.createElement('span'); seg.style.cssText = 'display:inline-flex;gap:2px'
+        ;(['IK', 'FK'] as const).forEach(m => {
+          const b = document.createElement('button'); b.type = 'button'; b.textContent = m
+          const onm = P.modes[l] === m
+          b.style.cssText = `padding:2px 12px;font-size:12px;border-radius:5px;border:1px solid #1f1f1f;cursor:pointer;${onm ? 'background:#3cdc8c;color:#0d1f14;font-weight:700' : 'background:#4a4a4a;color:#ddd'}`
+          b.onclick = () => { P.set_mode(l, m); draw() }
+          seg.appendChild(b)
+        })
+        rows.append(name, seg)
+      })
+    }
+    on.onclick = () => {
+      if (this.pose === null) { this.pose = new PoseControls(this.engine); this.pose.on_change = () => draw() }
+      if (!this.pose.available()) { on.textContent = M('Pose controls need the human skeleton', 'Điều khiển tư thế cần bộ xương người', '사람 스켈레톤이 필요합니다'); return }
+      this.pose.enter(); ui.style.display = 'flex'; on.style.display = 'none'; draw()
+    }
+    ;(box.querySelector('#easy-pose-off') as HTMLButtonElement).onclick = () => { this.pose?.exit(); ui.style.display = 'none'; on.style.display = '' }
+    box.querySelectorAll<HTMLButtonElement>('[data-all]').forEach(b => { b.onclick = () => { LIMBS.forEach(l => this.pose?.set_mode(l, b.dataset.all as 'IK' | 'FK')); draw() } })
+    const turn = box.querySelector('#easy-pose-turn') as HTMLButtonElement
+    let rot = false
+    turn.onclick = () => { rot = !rot; this.pose?.set_handle_mode(rot ? 'rotate' : 'translate'); turn.textContent = rot ? M('↔ IK box: move', '↔ Hộp IK: kéo', '↔ IK 박스: 이동') : M('⟳ IK box: turn', '⟳ Hộp IK: xoay', '⟳ IK 박스: 회전') }
+    ;(box.querySelector('#easy-pose-reset') as HTMLButtonElement).onclick = () => this.pose?.reset()
+    ;(box.querySelector('#easy-pose-box') as HTMLElement).style.display = this.is_human() ? 'flex' : 'none'
+  }
+
+  /**
+   * Export for Blender: every animation, plus the hand-made pose as clip "Greenbox_Pose" (Blender puts it on the
+   * Rigify controls). The skeleton is exported in its rest pose, then the pose is put back.
+   */
+  private async export_for_blender (name: string, quiet: boolean): Promise<void> {
+    const ls = this.engine.animations_listing_step
+    const clips = [...ls.animation_clips()]
+    if (this.pose !== null && this.pose.touched) clips.push(this.pose.pose_clip())
+    const meshes = ls.active_skinned_meshes()
+    const saved = new Map<THREE.Bone, [THREE.Vector3, THREE.Quaternion, THREE.Vector3]>()
+    meshes.forEach(m => m.skeleton.bones.forEach(b => saved.set(b, [b.position.clone(), b.quaternion.clone(), b.scale.clone()])))
+    const hold = ls.pose_hold; ls.pose_hold = true
+    meshes.forEach(m => m.skeleton.pose())
+    try {
+      this.engine.download_settings.set_export_format(ExportFormat.GLB)
+      this.engine.file_export_step.set_animation_clips_to_export(clips, clips.map((_c, i) => ({ animation_index: i, mirror_export_mode: 'none' })) as any)
+      await this.engine.file_export_step.export(meshes, name, this.engine.download_settings)
+    } finally {
+      saved.forEach(([p, q, sc], b) => { b.position.copy(p); b.quaternion.copy(q); b.scale.copy(sc) })
+      ls.pose_hold = hold
+    }
+    void quiet
+  }
+
+  private limb_modes (): Record<string, 'IK' | 'FK'> { return this.pose !== null ? { ...this.pose.modes } : {} }
 
   /** export the rig, hand it to the local Greenbox server, which opens Blender running the Rigify script */
   private async open_in_blender (): Promise<void> {
@@ -858,11 +1164,11 @@ export class EasyRig {
       }
     })
     try {
-      this.engine.quick_export_all('glb', name, true)
+      void this.export_for_blender(name, true)
       const blob = await got
       const u8 = new Uint8Array(await blob.arrayBuffer()); let bin = ''
       for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode(...u8.subarray(i, i + 0x8000))
-      const script = rigify_metarig_script(skel.bones, 'Greenbox character', { glb: name, off: [...BONES_OFF] })
+      const script = rigify_metarig_script(skel.bones, 'Greenbox character', { glb: name, off: [...BONES_OFF], modes: this.limb_modes() })
       say(M('Opening Blender…', 'Đang mở Blender…', 'Blender 여는 중…'))
       const r = await fetch('/bridge/blender', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Greenbox-UI': '1' }, body: JSON.stringify({ name, glb_b64: btoa(bin), script }) })
       const j = await r.json()
@@ -879,8 +1185,8 @@ export class EasyRig {
   private download_rigify_kit (): void {
     const name = 'greenbox-rigify'
     const skel = this.skeleton(); if (skel === undefined) return
-    download_text(rigify_metarig_script(skel.bones, 'Greenbox character', { glb: name, off: [...BONES_OFF] }), `${name}.py`)
-    this.engine.quick_export_all('glb', name)
+    download_text(rigify_metarig_script(skel.bones, 'Greenbox character', { glb: name, off: [...BONES_OFF], modes: this.limb_modes() }), `${name}.py`)
+    void this.export_for_blender(name, false)
   }
 
   /* ---------------- joint name labels ---------------- */
@@ -962,7 +1268,7 @@ export class EasyRig {
 
   private toast_bones (msg: string): void {
     const el = document.getElementById('easy-rig-bone-count'); if (el === null) return
-    el.textContent = msg; el.style.color = '#ffb020'
+    el.textContent = msg; el.style.color = 'var(--gbp-accent,#ffb020)'
     window.setTimeout(() => { el.style.color = ''; this.update_bone_count() }, 2200)
   }
 
@@ -987,8 +1293,11 @@ export class EasyRig {
 
   private hand_dir (hand: Bone): THREE.Vector3 {
     const h = Utility.world_position_from_object(hand)
-    const par = hand.parent instanceof THREE.Bone ? Utility.world_position_from_object(hand.parent) : h.clone().add(new THREE.Vector3(-1, 0, 0))
-    const d = h.sub(par); if (d.lengthSq() < 1e-12) d.set(1, 0, 0)
+    // the forearm joint (not a twist helper, which can sit anywhere along the forearm)
+    let pb: THREE.Object3D | null = hand.parent
+    while (pb instanceof THREE.Bone && (/twist/i.test(pb.name) || Utility.world_position_from_object(pb).distanceTo(h) < 1e-4)) pb = pb.parent
+    const par = pb instanceof THREE.Bone ? Utility.world_position_from_object(pb) : h.clone().add(new THREE.Vector3(-Math.sign(h.x || 1), 0, 0))
+    const d = h.sub(par); if (d.lengthSq() < 1e-12) d.set(Math.sign(h.x || 1), 0, 0)
     return d.normalize()
   }
 
@@ -1022,6 +1331,102 @@ export class EasyRig {
     })
     this.apply_world_targets(targets)
     this.engine.edit_skeleton_step.dispatchEvent(new CustomEvent('skeletonTransformed'))
+  }
+
+  public last_finger_note = ''
+  /** read the real fingers from the mesh around each wrist and put the finger joints on them (FingerFinder) */
+  public detect_fingers (): string {
+    if (this.finger_template.size === 0) this.capture_finger_template(true)
+    if (this.finger_template.size === 0) return ''
+    const model = this.engine.load_model_step.model_meshes(); model.updateMatrixWorld(true)
+    const geos = model_geometries(model)
+    const hands = new Set<Bone>(); this.finger_template.forEach(t => hands.add(t.hand))
+    const targets = new Map<Bone, THREE.Vector3>(); const notes: string[] = []
+    const by = new Map<string, Bone>(); this.skeleton().bones.forEach(b => by.set(b.name.toLowerCase(), b))
+    hands.forEach(hand => {
+      const side = /_l$|\.l$|left/i.test(hand.name) ? 'l' : 'r'
+      const wrist = Utility.world_position_from_object(hand); const dir = this.hand_dir(hand)
+      // radius: the fitted template's longest reach, with room for longer fingers
+      let reach = 0; this.finger_template.forEach((t, b) => { if (t.hand === hand) reach = Math.max(reach, Utility.world_position_from_object(b).distanceTo(wrist)) })
+      if (reach <= 0) return
+      const tpl: Partial<Record<FingerName, THREE.Vector3>> = {}
+      for (const f of ['thumb', 'index', 'middle', 'ring', 'pinky'] as FingerName[]) { const b = by.get(`${f}_01_${side}`); if (b !== undefined) tpl[f] = Utility.world_position_from_object(b) }
+      // the region that holds the whole hand (chibi hands are far bigger than the template's)
+      const mb = new THREE.Box3().setFromObject(model); const cap = Math.max(reach * 1.45, (mb.max.y - mb.min.y) * 0.3)
+      const RR = hand_reach(geos, wrist, dir, reach * 1.45, cap)
+      let scan = find_fingers(geos, wrist, dir, RR, tpl)
+      // fingers that do not stick out (fist, mitten, glued, chibi): measure the hand and lay them on it
+      const pf = palm_fit(geos, wrist, dir, RR, tpl)
+      // fewer than 4 separate fingers found, but the hand clearly shows 4 ridges: trust the measured hand
+      const few = scan.fingers.filter(f => f.name !== 'thumb').length < 4 && (pf.ridges ?? 0) >= 4
+      if ((few || !fingers_ok(scan, pf.width, wrist, pf.length)) && pf.fingers.length === 5) scan = pf
+      notes.push(`${side === 'l' ? 'L' : 'R'}: ${scan.note}`); (this as any).last_finger_debug = { ...(this as any).last_finger_debug, [side]: scan.debug, ['R' + side]: [reach, RR, cap, wrist.toArray(), dir.toArray(), pf.width, pf.length] }
+      if (scan.fingers.length < 3) return
+      for (const f of scan.fingers) {
+        ['01', '02', '03', '04_leaf'].forEach((k, i) => { const b = by.get(`${f.name}_${k}_${side}`); if (b !== undefined) targets.set(b, f.joints[i].clone()) })
+      }
+      // a 4-finger cartoon hand: the pinky follows the ring finger
+      if (!scan.fingers.some(f => f.name === 'pinky')) {
+        const ring = scan.fingers.find(f => f.name === 'ring')
+        if (ring !== undefined) ['01', '02', '03', '04_leaf'].forEach((k, i) => { const b = by.get(`pinky_${k}_${side}`); if (b !== undefined) targets.set(b, ring.joints[i].clone()) })
+      }
+    })
+    if (targets.size > 0) {
+      this.engine.edit_skeleton_step.store_bone_state_for_undo()
+      this.apply_world_targets(targets)
+      this.capture_finger_template(true)
+      this.engine.edit_skeleton_step.dispatchEvent(new CustomEvent('skeletonTransformed'))
+    }
+    this.last_finger_note = notes.join(' · ')
+    const el = document.getElementById('easy-rig-finger-note'); if (el !== null) el.textContent = this.last_finger_note
+    return this.last_finger_note
+  }
+
+  /** side of a joint from its name: 1 left, -1 right, 0 middle */
+  private side_of (b: Bone): number { const n = b.name; return /(_l|\.l|_left)$|^left|left_|^l_/i.test(n) ? 1 : /(_r|\.r|_right)$|^right|right_|^r_/i.test(n) ? -1 : 0 }
+
+  /** the middle plane of the skeleton: where its centre joints are (pelvis, spine, head), else the model's middle */
+  private mid_x (): number {
+    const mids = this.skeleton().bones.filter(b => this.side_of(b) === 0 && this.engine.edit_skeleton_step.find_mirror_bone(b) === undefined && !/root/i.test(b.name))
+    if (mids.length > 0) return mids.reduce((a, b) => a + Utility.world_position_from_object(b).x, 0) / mids.length
+    const box = new THREE.Box3().setFromObject(this.engine.load_model_step.model_meshes()); return box.isEmpty() ? 0 : box.getCenter(new THREE.Vector3()).x
+  }
+
+  /** l: left joints -> right (mirrored), r: right -> left, c: middle joints onto the middle line */
+  public make_symmetric (from: 'l' | 'r' | 'c'): number {
+    const c = this.mid_x(); const targets = new Map<Bone, THREE.Vector3>()
+    for (const b of this.skeleton().bones) {
+      const p = Utility.world_position_from_object(b)
+      if (from === 'c') { if (this.side_of(b) === 0 && this.engine.edit_skeleton_step.find_mirror_bone(b) === undefined) targets.set(b, p.setX(c)); continue }
+      if (this.side_of(b) !== (from === 'l' ? 1 : -1)) continue
+      const m = this.engine.edit_skeleton_step.find_mirror_bone(b); if (m === undefined || m === b) continue
+      targets.set(m, new THREE.Vector3(2 * c - p.x, p.y, p.z))
+    }
+    if (targets.size === 0) return 0
+    this.engine.edit_skeleton_step.store_bone_state_for_undo()
+    this.apply_world_targets(targets)
+    this.capture_finger_template(true)
+    this.engine.edit_skeleton_step.dispatchEvent(new CustomEvent('skeletonTransformed'))
+    return targets.size
+  }
+
+  /**
+   * After skinning: back to the joints, keeping what was painted by hand (by bone name) for the next skin.
+   * Pressing "Finish" again computes the weights for the new joints, smooths them, re-skins the fingers and
+   * puts the hand-painted points back.
+   */
+  public back_to_joints (keep_paint: boolean): void {
+    const wp = this.weight_paint
+    if (wp !== null && wp.has_manual() && keep_paint) WEIGHT_POST.manual = wp.export_manual()
+    if (!keep_paint) WEIGHT_POST.manual = null
+    if (wp !== null) { wp.stop(); document.dispatchEvent(new CustomEvent('gb-weightpaint-closed')) }
+    ;(document.getElementById('action_back_to_edit_skeleton') as HTMLButtonElement | null)?.click()
+  }
+
+  /** compute the skin again right away (e.g. after changing the smoothness) */
+  public reskin (keep_paint: boolean): void {
+    this.back_to_joints(keep_paint)
+    setTimeout(() => (document.getElementById('action_bind_pose') as HTMLButtonElement | null)?.click(), 700)
   }
 
   public finger_preset (id: 'spread' | 'closed' | 'mitten' | 'reset'): void {
@@ -1203,32 +1608,34 @@ export class EasyRig {
     const groups = GROUPS.filter(g => g.re.test(names))
     const p = document.createElement('div')
     p.id = 'easy-rig-panel'
-    p.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:12px;margin:0 0 12px;border:1px solid #ffb02088;border-radius:10px;background:rgba(255,176,32,.08);width:260px;max-width:100%;box-sizing:border-box'
+    p.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:10px;margin:0 0 10px;border:1px solid #ffb02088;border-radius:10px;background:rgba(255,176,32,.08);width:100%;max-width:100%;box-sizing:border-box'
     p.innerHTML = `
       <div style="font-weight:700;font-size:15px">Easy mode</div>
-      <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.5">
+      <details><summary style="font-size:12px;cursor:pointer;opacity:.85">❓ How to move joints</summary>
+      <ol style="margin:4px 0 0;padding-left:18px;font-size:12px;line-height:1.5">
         <li>Left-drag on empty space to box-select joints (they turn orange).</li>
         <li>Drag any orange joint to move the whole group onto the model.</li>
         <li>Right-drag: rotate view · Wheel: zoom · Middle-drag or Shift + right-drag: pan · Esc: deselect.</li>
-      </ol>
+        <li>Finger joints: click one (or box-select) and drag it, like any joint.</li>
+      </ol></details>
       <button id="easy-rig-fit" type="button">🔍 Scan model &amp; place joints</button>
       <div style="font-size:12px;opacity:.8">Quick select</div>
       <div id="easy-rig-quick" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       <div id="easy-rig-auto-notes" style="display:none;font-size:12px;line-height:1.5;padding:6px 8px;border-radius:6px;background:rgba(71,114,179,.25)"></div>
       <div id="easy-rig-status" style="font-size:12px;opacity:.85">No joints selected</div>
       <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="easy-rig-labels"> Show all joint names</label>
+<details style="border-top:1px solid rgba(255,255,255,.15);padding-top:6px"><summary style="font-weight:700;cursor:pointer">⌨ Mouse, keys, Rigify</summary><div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Mouse &amp; keys
         <select id="easy-rig-keymap" style="font-size:12px;padding:3px">
           <option value="greenbox">Greenbox (right-drag rotates)</option>
           <option value="blender">Blender (middle-drag / Alt+left rotates, G move)</option>
         </select></label>
       <div style="font-size:11px;opacity:.75;line-height:1.45">G move (X/Y/Z lock, click OK, right-click cancel) · A all · Alt+A none · F frame · 1 / 3 / 7 front / side / top (Alt: opposite) · Ctrl+Z undo</div>
-      <button type="button" class="secondary-button" id="easy-rig-rigify" style="padding:4px 10px;font-size:12px">🦴 Rigify meta-rig only (.py) · full kit after Finish</button>
-      <div id="easy-rig-cage-box" style="display:flex;flex-direction:column;gap:6px;border-top:1px solid rgba(255,255,255,.15);padding-top:8px">
-        <div style="font-weight:700">Anatomy cage</div>
+      <button type="button" class="secondary-button" id="easy-rig-rigify" style="padding:4px 10px;font-size:12px">🦴 Rigify meta-rig only (.py) · full kit after Finish</button></div></details>
+      <div id="easy-rig-cage-box" style="display:flex;flex-direction:column;gap:6px"><details style="border-top:1px solid rgba(255,255,255,.15);padding-top:6px"><summary style="font-weight:700;cursor:pointer">🧩 Anatomy cage <span style="font-weight:400;opacity:.7;font-size:12px">(skin weights · advanced)</span></summary><div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
         <div style="font-size:12px;opacity:.8">Invisible tubes around each body part decide which bone moves which skin. Only used while rigging, not exported.</div>
         <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="easy-rig-cage-on" checked> Use the anatomy cage for skin weights</label>
-        <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="easy-rig-cage-show" checked> Show the cage</label>
+        <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="easy-rig-cage-show"> Show the cage</label>
         <label style="display:flex;gap:8px;align-items:center;font-size:12px">Thickness (selected joints) <input type="range" id="easy-rig-cage-size" min="40" max="200" value="100" style="flex:1"></label>
         <button type="button" class="secondary-button" id="easy-rig-cage-measure" style="padding:4px 10px;font-size:12px">↺ Re-measure cage</button>
         <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="easy-rig-regions"> Show skin regions (colour = which bone moves it)</label>
@@ -1237,11 +1644,19 @@ export class EasyRig {
           <div style="font-size:11px;opacity:.75;margin:4px 0">% = tube thickness · Ø = measured width in model units. Thinner = takes less skin.</div>
           <div id="easy-rig-cage-rows" style="display:flex;flex-direction:column;gap:3px"></div>
         </details>
-      </div>
-      <div id="easy-rig-fingers" style="display:none;flex-direction:column;gap:6px;border-top:1px solid rgba(255,255,255,.15);padding-top:8px">
-        <div style="font-weight:700">Fingers</div>
-        <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="easy-rig-finger-lock" checked> Lock fingers to the hand (move the hand only)</label>
+      </div></details></div>
+      <div id="easy-rig-sym" style="display:flex;flex-direction:column;gap:6px"><details style="border-top:1px solid rgba(255,255,255,.15);padding-top:6px"><summary style="font-weight:700;cursor:pointer">🪞 Symmetry</summary><div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
         <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <button type="button" class="secondary-button" data-sym="l" style="padding:4px 10px;font-size:12px" title="Copy the left joints to the right, mirrored across the middle">🪞 Left → right</button>
+          <button type="button" class="secondary-button" data-sym="r" style="padding:4px 10px;font-size:12px" title="Copy the right joints to the left">🪞 Right → left</button>
+          <button type="button" class="secondary-button" data-sym="c" style="padding:4px 10px;font-size:12px" title="Put the spine, neck and head on the middle line">⇥ Centre the spine</button>
+        </div>
+        <div style="font-size:11px;opacity:.75">While dragging, "Mirror Left/Right Joints" keeps both sides together.</div>
+      </div></details></div>
+      <div id="easy-rig-fingers" style="display:none;flex-direction:column;gap:6px"><details style="border-top:1px solid rgba(255,255,255,.15);padding-top:6px" open><summary style="font-weight:700;cursor:pointer">🖐 Fingers</summary><div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+        <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="easy-rig-finger-lock"> Lock fingers to the hand (move the hand only)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <button type="button" class="secondary-button" data-fp="detect" style="padding:4px 10px;font-size:12px" title="Find every finger on the mesh (tips, knuckles) and put the finger joints on them">🖐 Find fingers in the mesh</button>
           <button type="button" class="secondary-button" data-fp="fit" style="padding:4px 10px;font-size:12px">📏 Fit fingers into the hand</button>
           <button type="button" class="secondary-button" data-fp="spread" style="padding:4px 10px;font-size:12px">✋ Spread</button>
           <button type="button" class="secondary-button" data-fp="closed" style="padding:4px 10px;font-size:12px">🤚 Together</button>
@@ -1249,9 +1664,10 @@ export class EasyRig {
           <button type="button" class="secondary-button" data-fp="reset" style="padding:4px 10px;font-size:12px">↺ Template</button>
         </div>
         <label style="display:flex;gap:8px;align-items:center;font-size:12px">Finger size <input type="range" id="easy-rig-finger-size" min="40" max="180" value="100" style="flex:1"></label>
-      </div>
-      <div id="easy-rig-bones" style="display:flex;flex-direction:column;gap:6px;border-top:1px solid rgba(255,255,255,.15);padding-top:8px">
-        <div style="font-weight:700">Bone count (hyper-casual)</div>
+        <label style="display:flex;gap:6px;align-items:center;font-size:12px"><input type="checkbox" id="easy-rig-finger-weights" checked> Finger weights: palm / each finger / each knuckle (fingers bend alone)</label>
+        <div id="easy-rig-finger-note" style="font-size:11px;opacity:.75"></div>
+      </div></details></div>
+      <div id="easy-rig-bones" style="display:flex;flex-direction:column;gap:6px"><details style="border-top:1px solid rgba(255,255,255,.15);padding-top:6px"><summary style="font-weight:700;cursor:pointer">🔢 Bone count <span style="font-weight:400;opacity:.7;font-size:12px">(hyper-casual)</span></summary><div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
         <div id="easy-rig-bone-count" style="font-size:12px"></div>
         <div id="easy-rig-human-reduce" style="display:none;flex-direction:column;gap:5px;font-size:12px">
           <label style="display:flex;gap:6px;align-items:center;justify-content:space-between">Spine <select id="eb-spine" style="font-size:12px;padding:2px"><option value="3">3 bones</option><option value="2">2 bones</option><option value="1">1 bone</option></select></label>
@@ -1268,7 +1684,7 @@ export class EasyRig {
           <button type="button" class="secondary-button" id="eb-all-on" style="padding:4px 10px;font-size:12px">↺ All joints on</button>
         </div>
         <div style="font-size:11px;opacity:.75;line-height:1.45">Joints marked with a red ✕ are merged into their parent when you press Finish: their skin and their animation go to the parent. Nothing is deleted here, turn them back on any time.</div>
-      </div>`
+      </div></details></div>`
     const q = p.querySelector('#easy-rig-quick') as HTMLElement
     const mk = (id: string, label: string): void => {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'secondary-button'; b.textContent = label
@@ -1308,6 +1724,7 @@ export class EasyRig {
     const lab = p.querySelector('#easy-rig-labels') as HTMLInputElement
     lab.checked = this.show_all_labels
     lab.onchange = () => { this.show_all_labels = lab.checked }
+    p.querySelectorAll<HTMLButtonElement>('[data-sym]').forEach(b => { b.onclick = () => this.make_symmetric(b.dataset.sym as 'l' | 'r' | 'c') })
     if (this.skeleton().bones.some(b => FINGER_RE.test(b.name))) {
       (p.querySelector('#easy-rig-fingers') as HTMLElement).style.display = 'flex'
       const lock = p.querySelector('#easy-rig-finger-lock') as HTMLInputElement
@@ -1320,9 +1737,12 @@ export class EasyRig {
       p.querySelectorAll('[data-fp]').forEach(el => {
         (el as HTMLButtonElement).onclick = () => {
           const id = (el as HTMLElement).dataset.fp as string
-          if (id === 'fit') this.fit_fingers_to_hand(); else this.finger_preset(id as any)
+          if (id === 'detect') this.detect_fingers(); else if (id === 'fit') this.fit_fingers_to_hand(); else this.finger_preset(id as any)
         }
       })
+      const fw = p.querySelector('#easy-rig-finger-weights') as HTMLInputElement
+      fw.checked = FINGER_WEIGHTS.enabled; fw.onchange = () => { FINGER_WEIGHTS.enabled = fw.checked }
+      const fn = p.querySelector('#easy-rig-finger-note'); if (fn !== null) fn.textContent = this.last_finger_note
       const size = p.querySelector('#easy-rig-finger-size') as HTMLInputElement
       size.value = String(Math.round(this.finger_size * 100))
       size.onchange = () => { this.finger_size = Number(size.value) / 100; this.apply_fingers() }

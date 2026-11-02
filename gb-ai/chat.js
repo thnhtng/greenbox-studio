@@ -63,10 +63,14 @@
       <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="gbai-tools" checked> Let the AI use Greenbox tools</label>
       <div style="font-size:11px;color:#9aa3b2" id="gbai-note"></div>
       <div class="mcpbox" style="font-size:12px;color:#b4b8c2;border-top:1px solid #3d4250;padding-top:8px">
-        <b style="color:#e6e6e6">Claude Desktop / Cowork (MCP)</b>
+        <b style="color:#e6e6e6">Claude / Codex (MCP)</b>
         <div id="gbai-mcp"></div>
-        <div class="row"><button id="gbai-mcp-install" class="pri">🔌 Connect Claude Desktop</button><button id="gbai-mcp-copy">📋 Copy config</button></div>
+        <div class="row" id="gbai-mcp-localrow"><button id="gbai-mcp-install" class="pri">🔌 Claude Desktop</button><button id="gbai-mcp-codex" class="pri">🔌 Codex</button><button id="gbai-mcp-cc" class="pri">🔌 Claude Code</button><button id="gbai-mcp-copy">📋 Copy config</button></div>
         <div id="gbai-mcp-status" style="font-size:11px;color:#9aa3b2"></div>
+        <div class="row" style="align-items:center"><span id="gbai-pair-lbl" style="font-size:11px"></span><input id="gbai-pair-code" inputmode="numeric" maxlength="6" placeholder="123456" style="width:80px"><input id="gbai-pair-port" value="47827" style="width:62px" title="port"><button id="gbai-pair-go" class="pri">🔗</button><button id="gbai-pair-off" title="Disconnect">✕</button></div>
+        <div id="gbai-pair-state" style="font-size:11px;color:#9aa3b2"></div>
+        <div class="row"><button data-snip="desktop">📋 Claude Desktop</button><button data-snip="code">📋 Claude Code</button><button data-snip="codex">📋 Codex</button></div>
+        <div style="font-size:11px"><a id="gbai-dl-py" href="./gb-ai/greenbox_mcp.py" download="greenbox_mcp.py" style="color:#7ad7ff">⬇ greenbox_mcp.py</a> · <a id="gbai-dl-json" href="./gb-ai/tools.json" download="tools.json" style="color:#7ad7ff">⬇ tools.json</a> <span id="gbai-dl-note"></span></div>
       </div>
     </div>
     <div class="log" id="gbai-log"></div>
@@ -86,7 +90,8 @@
   const texts = () => {
     $('gbai-msg').placeholder = L('Nhắn cho AI… (Enter gửi, Shift+Enter xuống dòng)', 'Message the AI… (Enter to send, Shift+Enter new line)', 'AI에게 메시지… (Enter 전송)');
     $('gbai-note').textContent = L('Key chỉ lưu trong trình duyệt này và chỉ gửi tới nhà cung cấp bạn chọn.', 'The key stays in this browser and is only sent to the provider you pick.', '키는 이 브라우저에만 저장되고 선택한 제공자에게만 전송됩니다.');
-    $('gbai-mcp').innerHTML = L('Không cần API key: Claude Desktop / Cowork điều khiển Greenbox qua MCP. Bấm nút dưới 1 lần, mở lại Claude Desktop, rồi chat với Claude ở đó; mọi thao tác hiện ở đây.', 'No API key needed: Claude Desktop / Cowork drives Greenbox through MCP. Press the button once, reopen Claude Desktop, then chat with Claude there; everything it does shows up here.', 'API 키 불필요: Claude Desktop / Cowork가 MCP로 Greenbox를 조작합니다. 버튼을 한 번 누르고 Claude Desktop을 다시 연 뒤 거기서 대화하세요. 작업 내역이 여기에 표시됩니다.');
+    $('gbai-pair-lbl').textContent = L('Mã ghép nối', 'Pairing code', '페어링 코드');
+    $('gbai-mcp').innerHTML = L('Không cần API key: Claude (Desktop / Code / Cowork) hoặc Codex điều khiển Greenbox qua MCP. Copy cấu hình cho app của bạn (nút bên dưới), mở lại app, rồi chat ở đó; mọi thao tác hiện ở đây.', 'No API key needed: Claude (Desktop / Code / Cowork) or Codex drives Greenbox through MCP. Copy the setup for your app (buttons below), restart it, then chat there; everything it does shows up here.', 'API 키 불필요: Claude Desktop / Cowork가 MCP로 Greenbox를 조작합니다. 버튼을 한 번 누르고 Claude Desktop을 다시 연 뒤 거기서 대화하세요. 작업 내역이 여기에 표시됩니다.');
   };
   texts(); addEventListener('storage', e => { if (e.key === 'gbc.lang') texts(); });
 
@@ -94,25 +99,64 @@
   const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   let mcp = null;
   async function mcp_status () {
-    if (!local) { $('gbai-mcp-status').textContent = L('Mở Greenbox bằng Mo-Greenbox để dùng MCP.', 'Open Greenbox with Mo-Greenbox to use MCP.', 'MCP를 쓰려면 Mo-Greenbox로 여세요.'); return; }
+    if (!local) { $('gbai-mcp-localrow').style.display = 'none'; $('gbai-mcp-status').textContent = L('Bản web: chạy greenbox_mcp.py từ app AI (Claude Desktop / Claude Code / Codex), rồi nhập mã ghép nối bên dưới.', 'Web version: run greenbox_mcp.py from your AI app (Claude Desktop / Claude Code / Codex), then type the pairing code below.', '웹 버전: AI 앱에서 greenbox_mcp.py를 실행하고 코드를 입력하세요.'); return; }
     try { const r = await fetch('/bridge/status', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); mcp = await r.json(); } catch (e) { mcp = null; }
     const st = $('gbai-mcp-status'); const dot = document.getElementById('gbai-dot');
     if (mcp === null) { st.textContent = L('Máy chủ Greenbox cũ: chạy lại Mo-Greenbox.', 'Old Greenbox server: restart Mo-Greenbox.', '이전 서버: Mo-Greenbox를 다시 실행하세요.'); return; }
     const c = mcp.claude; const live = mcp.last_call_ago !== null && mcp.last_call_ago < 120;
     if (dot) dot.classList.toggle('on', live);
-    st.innerHTML = (c.installed ? '✅ ' + L('Đã gắn vào Claude Desktop', 'Set up in Claude Desktop', 'Claude Desktop에 설정됨') : (c.app_found ? '⚪ ' + L('Chưa gắn', 'Not set up yet', '아직 설정 안 됨') : '⚪ ' + L('Không thấy Claude Desktop trên máy này (vẫn có thể copy config)', 'Claude Desktop not found on this computer (you can still copy the config)', '이 컴퓨터에 Claude Desktop 없음 (설정 복사는 가능)'))) +
-      (live ? ' · 🟢 ' + L(`AI vừa dùng Greenbox ${Math.round(mcp.last_call_ago)}s trước`, `AI used Greenbox ${Math.round(mcp.last_call_ago)}s ago`, `${Math.round(mcp.last_call_ago)}초 전 AI 사용`) : '');
-    $('gbai-mcp-install').textContent = c.installed ? '🔁 ' + L('Gắn lại', 'Set up again', '다시 설정') : '🔌 ' + L('Gắn vào Claude Desktop', 'Connect Claude Desktop', 'Claude Desktop 연결');
+    // one line per app: set up or not (Claude Desktop, Codex, Claude Code)
+    const APPS = [['claude', 'Claude Desktop', 'gbai-mcp-install'], ['codex', 'Codex', 'gbai-mcp-codex'], ['claude_code', 'Claude Code', 'gbai-mcp-cc']];
+    st.innerHTML = APPS.map(([k, nm]) => { const a = mcp[k] || {}; return (a.installed ? '✅ ' + L(`Đã gắn vào ${nm}`, `Set up in ${nm}`, `${nm} 설정됨`) : (a.app_found ? '⚪ ' + L(`${nm}: chưa gắn`, `${nm}: not set up`, `${nm}: 설정 안 됨`) : '⚪ ' + L(`Không thấy ${nm} trên máy này`, `${nm} not found on this computer`, `${nm} 없음`))); }).join('<br>') +
+      (live ? '<br>🟢 ' + L(`AI vừa dùng Greenbox ${Math.round(mcp.last_call_ago)}s trước`, `AI used Greenbox ${Math.round(mcp.last_call_ago)}s ago`, `${Math.round(mcp.last_call_ago)}초 전 AI 사용`) : '');
+    for (const [k, nm, id] of APPS) { const a = mcp[k] || {}; $(id).textContent = (a.installed ? '🔁 ' : '🔌 ') + (a.installed ? L(`Gắn lại ${nm}`, `Redo ${nm}`, `${nm} 다시`) : L(`Gắn ${nm}`, `Connect ${nm}`, `${nm} 연결`)); }
   }
-  $('gbai-mcp-install').onclick = async () => {
+  /* one click: Greenbox goes into that app's MCP config (the old file is backed up) */
+  async function install (route, nm, hint) {
     try {
-      const r = await fetch('/bridge/install-claude', { method: 'POST', headers: { 'X-Greenbox-UI': '1' } });
-      const j = await r.json();
+      const r = await fetch('/bridge/' + route, { method: 'POST', headers: { 'X-Greenbox-UI': '1' } });
+      const j = await r.json().catch(() => ({ ok: false, error: r.status === 404 ? L('Máy chủ Greenbox cũ: chạy lại Mo-Greenbox.', 'Old Greenbox server: restart Mo-Greenbox.', '서버를 다시 실행하세요.') : r.status }));
       if (!j.ok) throw new Error(j.error || r.status);
-      show('mcp', L(`Đã thêm Greenbox vào ${j.config} (file cũ được sao lưu). Tắt hẳn Claude Desktop rồi mở lại, sau đó nhắn cho Claude kiểu: "dùng Greenbox, auto-rig model đang mở rồi xuất GLB".`, `Added Greenbox to ${j.config} (old file backed up). Quit Claude Desktop completely and open it again, then ask Claude e.g. "use Greenbox: auto-rig the open model and export a GLB".`, `${j.config}에 Greenbox 추가 (기존 파일 백업). Claude Desktop을 완전히 종료 후 다시 열고 "Greenbox로 열린 모델을 자동 리깅하고 GLB로 내보내줘" 처럼 요청하세요.`));
+      show('mcp', L(`Đã thêm Greenbox vào ${j.config} (file cũ được sao lưu). ${hint.vi}`, `Added Greenbox to ${j.config} (old file backed up). ${hint.en}`, `${j.config}에 Greenbox 추가. ${hint.en}`));
     } catch (e) { show('t', '⚠ ' + (e.message || e)); }
     mcp_status();
+  }
+  $('gbai-mcp-install').onclick = () => install('install-claude', 'Claude Desktop', { vi: 'Tắt hẳn Claude Desktop rồi mở lại, sau đó nhắn: "dùng Greenbox, auto-rig model đang mở rồi xuất GLB".', en: 'Quit Claude Desktop completely and reopen it, then ask: "use Greenbox: auto-rig the open model and export a GLB".' });
+  $('gbai-mcp-codex').onclick = () => install('install-codex', 'Codex', { vi: 'Mở lại Codex (app hoặc `codex` trong Terminal), gõ /mcp để thấy greenbox, rồi nhắn: "dùng Greenbox, gắn vô lăng vào video đang mở".', en: 'Restart Codex (the app or `codex` in a terminal), type /mcp to see greenbox, then ask: "use Greenbox: put a steering wheel on the open video".' });
+  $('gbai-mcp-cc').onclick = () => install('install-claude-code', 'Claude Code', { vi: 'Mở phiên Claude Code mới, gõ /mcp để thấy greenbox.', en: 'Start a new Claude Code session and type /mcp to see greenbox.' });
+  /* ---------------- any MCP app (Claude Desktop / Claude Code / Codex), also from the web version: pairing code ---------------- */
+  const py_path = () => (mcp && mcp.claude && mcp.claude.entry && mcp.claude.entry.args[0]) || L('/ĐƯỜNG/DẪN/greenbox_mcp.py', '/PATH/TO/greenbox_mcp.py', '/경로/greenbox_mcp.py');
+  const py_cmd = () => (mcp && mcp.claude && mcp.claude.entry && mcp.claude.entry.command) || 'python3';
+  const SNIP = {
+    desktop: () => JSON.stringify({ mcpServers: { greenbox: { command: py_cmd(), args: [py_path()] } } }, null, 2),
+    code: () => `claude mcp add greenbox -- ${py_cmd()} "${py_path()}"`,
+    codex: () => `[mcp_servers.greenbox]\ncommand = "${py_cmd()}"\nargs = ["${py_path()}"]`
   };
+  box.querySelectorAll('[data-snip]').forEach(b => {
+    b.onclick = async () => {
+      const k = b.dataset.snip; const txt = SNIP[k]()
+      try { await navigator.clipboard.writeText(txt); } catch (e) { /* show it anyway */ }
+      const where = { desktop: L('Claude Desktop → Settings → Developer → Edit Config, dán vào claude_desktop_config.json, mở lại Claude Desktop.', 'Claude Desktop → Settings → Developer → Edit Config, paste into claude_desktop_config.json, restart Claude Desktop.', 'Claude Desktop 설정에 붙여넣기.'),
+        code: L('Dán lệnh này vào Terminal (Claude Code).', 'Paste this command in a terminal (Claude Code).', '터미널에 붙여넣기.'),
+        codex: L('Dán vào ~/.codex/config.toml rồi mở lại Codex.', 'Paste into ~/.codex/config.toml, then restart Codex.', '~/.codex/config.toml에 붙여넣기.') }[k]
+      show('mcp', '📋 ' + where + '\n' + txt + (local ? '' : '\n' + L('Tải greenbox_mcp.py + tools.json về cùng 1 thư mục, sửa đường dẫn ở trên cho đúng.', 'Download greenbox_mcp.py + tools.json into one folder and fix the path above.', '두 파일을 한 폴더에 받으세요.')))
+    }
+  })
+  const pair_text = (st) => {
+    const el = $('gbai-pair-state'); const dot = document.getElementById('gbai-dot')
+    const m = { off: L('Chưa kết nối. Hỏi Claude / Codex: "kết nối Greenbox" → nó đưa mã 6 số → nhập vào ô trên.', 'Not connected. Ask Claude / Codex "connect to Greenbox" → it gives a 6-digit code → type it above.', '연결 안 됨. AI에게 코드를 받아 입력하세요.'),
+      connecting: L('Đang kết nối…', 'Connecting…', '연결 중…'),
+      on: '🟢 ' + L(`Đã kết nối AI (cổng ${st.port}). Chat với Claude / Codex ở app của nó; thao tác hiện ở đây.`, `AI connected (port ${st.port}). Chat with Claude / Codex in its own app; what it does shows here.`, `AI 연결됨 (포트 ${st.port}).`),
+      waiting: '🟡 ' + L('Chưa thấy greenbox_mcp.py chạy trên máy (mở app AI có cấu hình Greenbox). Safari: dùng Chrome / Edge cho bản web.', 'greenbox_mcp.py is not running on this computer yet (open the AI app with Greenbox configured). On Safari use Chrome / Edge for the web version.', 'greenbox_mcp.py가 실행되지 않음.'),
+      'bad-code': '🔴 ' + L('Sai mã ghép nối: hỏi lại AI mã mới (gb_connect).', 'Wrong pairing code: ask the AI again (gb_connect).', '코드가 틀렸습니다.') }
+    el.textContent = m[st.relay] || ''
+    if (dot && st.relay === 'on') dot.classList.add('on')
+  }
+  addEventListener('gb-mcp-state', e => pair_text(e.detail))
+  $('gbai-pair-go').onclick = () => { const c = $('gbai-pair-code').value.replace(/\D/g, ''); if (c.length !== 6 || !window.__gbBridge) { show('t', '⚠ ' + L('Mã gồm 6 số.', 'The code has 6 digits.', '코드는 6자리입니다.')); return; } window.__gbBridge.pair($('gbai-pair-port').value, c) }
+  $('gbai-pair-off').onclick = () => { if (window.__gbBridge) window.__gbBridge.unpair() }
+  try { const sp = JSON.parse(localStorage.getItem('gb.mcp.pair') || 'null'); if (sp) { $('gbai-pair-code').value = sp.code; $('gbai-pair-port').value = sp.port } } catch (e) { /* ignore */ }
+  setTimeout(() => { if (window.__gbBridge) pair_text(window.__gbBridge.state()) }, 300)
   $('gbai-mcp-copy').onclick = async () => {
     const entry = mcp && mcp.claude ? mcp.claude.entry : { command: 'python3', args: ['<Greenbox folder>/gb-ai/greenbox_mcp.py'] };
     const txt = JSON.stringify({ mcpServers: { greenbox: entry } }, null, 2);

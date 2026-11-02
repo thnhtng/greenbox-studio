@@ -7,6 +7,7 @@
  *   wall    = something at knee height in the direction of travel
  *   ledge   = a wall whose top is at most CLIMB_MAX above the feet -> the character climbs it
  */
+import { load_any_buffer } from '../common/AnyLoader.ts'
 import * as THREE from 'three'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -59,9 +60,7 @@ export class World {
 
   /** a GLB / FBX with no animation: becomes a prop. Huge or tiny files are brought to a sensible size. */
   public async add_file (buf: ArrayBuffer, name: string, at: THREE.Vector3): Promise<THREE.Object3D> {
-    let root: THREE.Object3D
-    if (/\.fbx$/i.test(name)) root = new FBXLoader().parse(buf, '')
-    else root = (await new GLTFLoader().parseAsync(buf, '')).scene
+    const root: THREE.Object3D = (await load_any_buffer(name, buf)).scene
     root.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh === true) { m.castShadow = true; m.receiveShadow = true } })
     const holder = new THREE.Group(); holder.name = name.replace(/\.[^.]+$/, '')
     holder.add(root)
@@ -107,7 +106,7 @@ export class World {
   /** the top-level prop under a screen point */
   public pick (ndc: THREE.Vector2, camera: THREE.Camera): THREE.Object3D | null {
     this.ray.setFromCamera(ndc, camera)
-    const h = this.ray.intersectObjects(this.solids, false)[0]
+    const h = this.ray.intersectObjects(this.solids, false).find(i => i.object.userData.no_pick !== true)
     if (h === undefined) return null
     let o: THREE.Object3D = h.object
     while (o.parent !== null && o.parent !== this.props) o = o.parent
@@ -135,7 +134,7 @@ export class World {
     this.ray.far = y + STEP + 50
     const h = this.ray.intersectObjects(this.solids, false).find(i => i.face == null || i.face.normal.clone().transformDirection(i.object.matrixWorld).y > 0.2)
     this.ray.far = Infinity
-    return Math.max(0, h !== undefined ? h.point.y : 0)
+    return h !== undefined ? h.point.y : 0 // terrain can go below 0 (valleys, river beds)
   }
 
   /** top of whatever stands at (x, z), looking down from `from_y` (null = nothing there) */

@@ -12,14 +12,24 @@
  *   spin    keeps turning around an axis (propeller, rotor, fan, radar, mixer drum, drill)
  *   slide   moves in a straight line (piston, forklift forks, ladder, tipper)
  *   wobble  sways from its base (antenna, flag, whip)
+ *   track   caterpillar belt: a chain of bones running round the wheels (Tracks.ts)
+ *   bone    a free bone you place with the mouse (Shift = chain it to the previous one), any name
  * Everything is worked out from the part's own box in the vehicle's canonical space (+Z forward, +Y up, on the floor).
  */
 import * as THREE from 'three'
 
-export type MechKind = 'door' | 'turret' | 'barrel' | 'blade' | 'boom' | 'arm' | 'bucket' | 'hook' | 'cable' | 'spin' | 'slide' | 'wobble'
-export type MechAxis = 'auto' | 'x' | 'y' | 'z'
+export type MechKind = 'door' | 'turret' | 'barrel' | 'blade' | 'boom' | 'arm' | 'bucket' | 'hook' | 'cable' | 'spin' | 'slide' | 'wobble' | 'track' | 'bone'
+export type MechAxis = 'auto' | 'x' | 'y' | 'z' | 'long' // long: along the part's longest side (a drill bit)
 export type Hinge = 'auto' | 'front' | 'back' | 'top' | 'scissor' | 'hood' | 'trunk'
-export interface Mech { kind: MechKind, name: string, hinge: Hinge, angle: number, flip: boolean, axis?: MechAxis }
+export interface Mech {
+  kind: MechKind, name: string, hinge: Hinge, angle: number, flip: boolean, axis?: MechAxis
+  /** free bone: where its joint is (vehicle space) */
+  pivot?: [number, number, number]
+  /** hang this part on another one (by name) instead of the automatic guess */
+  parent?: string
+  /** track: how many chain bones */
+  links?: number
+}
 export interface MechPose {
   used: string // the pivot rule actually used (for the UI)
   pivot: THREE.Vector3 // world, rest pose
@@ -29,10 +39,10 @@ export interface MechPose {
   stretch: number // cable: Y scale at full drop (1 = none)
 }
 
-export const MECH_KINDS: MechKind[] = ['door', 'turret', 'barrel', 'blade', 'boom', 'arm', 'bucket', 'hook', 'cable', 'spin', 'slide', 'wobble']
-export const MECH_ICON: Record<MechKind, string> = { door: '🚪', turret: '🔄', barrel: '💥', blade: '🚜', boom: '🏗', arm: '🦾', bucket: '🪣', hook: '🪝', cable: '〰', spin: '🌀', slide: '↔', wobble: '〽' }
+export const MECH_KINDS: MechKind[] = ['door', 'turret', 'barrel', 'blade', 'boom', 'arm', 'bucket', 'hook', 'cable', 'spin', 'slide', 'wobble', 'track', 'bone']
+export const MECH_ICON: Record<MechKind, string> = { door: '🚪', turret: '🔄', barrel: '💥', blade: '🚜', boom: '🏗', arm: '🦾', bucket: '🪣', hook: '🪝', cable: '〰', spin: '🌀', slide: '↔', wobble: '〽', track: '⛓', bone: '🦴' }
 export function default_angle (k: MechKind): number {
-  return ({ door: 70, turret: 90, barrel: 15, blade: 60, boom: 40, arm: 50, bucket: 70, hook: 60, cable: 60, spin: 100, slide: 60, wobble: 20 } as Record<MechKind, number>)[k]
+  return ({ door: 70, turret: 90, barrel: 15, blade: 60, boom: 40, arm: 50, bucket: 70, hook: 60, cable: 60, spin: 100, slide: 60, wobble: 20, track: 0, bone: 30 } as Record<MechKind, number>)[k]
 }
 
 const V = (x = 0, y = 0, z = 0): THREE.Vector3 => new THREE.Vector3(x, y, z)
@@ -44,6 +54,7 @@ export function mech_axis (m: Mech, s: THREE.Vector3, guess: 'thin' | 'long'): T
   if (a === 'y') return V(0, 1, 0)
   if (a === 'z') return V(0, 0, 1)
   const d = [s.x, s.y, s.z]
+  if (a === 'long') return [V(1, 0, 0), V(0, 1, 0), V(0, 0, 1)][d.indexOf(Math.max(...d))]
   const i = guess === 'thin' ? d.indexOf(Math.min(...d)) : d.indexOf(Math.max(...d))
   return [V(1, 0, 0), V(0, 1, 0), V(0, 0, 1)][i]
 }
@@ -55,12 +66,19 @@ export function hook_drop_for (m: Mech, b: THREE.Box3, S: THREE.Vector3): number
 
 /** pivot, axis and motion of one part. `S` = whole vehicle size, `hook_drop` = how far the hook goes (for its cable) */
 export function mech_pose (m: Mech, b: THREE.Box3, S: THREE.Vector3, hook_drop = 0): MechPose | null {
-  if (b.isEmpty()) return null
-  const c = b.getCenter(V()); const s = b.getSize(V())
   const A = m.angle * Math.PI / 180
   const flip = m.flip ? -1 : 1
   const base = (used: string, pivot: THREE.Vector3, axis: THREE.Vector3, open: number, slide = V(), stretch = 1): MechPose => ({ used, pivot, axis, open, slide, stretch })
+  // a free bone exists from the moment it is placed, even before it owns any skin
+  if (m.kind === 'bone' && m.pivot !== undefined) {
+    const ax = m.axis === undefined || m.axis === 'auto' ? V(1, 0, 0) : mech_axis(m, V(1, 1, 1), 'thin')
+    return base('bone', V(...m.pivot), ax, A * flip)
+  }
+  if (b.isEmpty()) return null
+  const c = b.getCenter(V()); const s = b.getSize(V())
   switch (m.kind) {
+    case 'track': return base('track', c, V(1, 0, 0), 0)
+    case 'bone': return base('bone', c, V(1, 0, 0), A * flip)
     case 'door': {
       const side = c.x >= 0 ? 1 : -1
       const mid = Math.abs(c.x) < S.x * 0.18
@@ -127,6 +145,9 @@ export function mech_pose (m: Mech, b: THREE.Box3, S: THREE.Vector3, hook_drop =
 /** which part a part hangs on: barrels/booms ride the turret, hooks/cables hang from the boom */
 export function mech_parent (j: number, mechs: Mech[], poses: Array<MechPose | null>, boxes: THREE.Box3[]): number {
   const k = mechs[j].kind; const p = poses[j]; if (p === null) return -1
+  const named = mechs[j].parent
+  if (named !== undefined && named !== '') { const i = mechs.findIndex(m => m.name === named); if (i >= 0 && i !== j && poses[i] !== null) return i }
+  if (k === 'track' || k === 'bone') return -1
   const find = (want: MechKind, near: (i: number) => boolean): number => {
     let best = -1; let bd = Infinity
     mechs.forEach((m, i) => {
@@ -245,6 +266,13 @@ export function mech_clips (mechs: Mech[]): MechClip[] {
   if (has('wobble')) {
     out.push({ name: 'M_Wobble', dur: 2, frame: (t, j) => of('wobble')(j) ? { rot: 0.6 * Math.sin(t * Math.PI * 2) + 0.25 * Math.sin(t * Math.PI * 6), slide: 0 } : Z })
     out.push({ name: 'M_Wobble_Hit', dur: 2, frame: (t, j) => of('wobble')(j) ? { rot: Math.sin(t * 14) * Math.exp(-t * 2.2), slide: 0 } : Z })
+  }
+  if (has('bone')) {
+    // free bones: every bone sways in turn (a chain looks like a tail / antenna / arm), then all bend together
+    const bones = mechs.map((m, j) => m.kind === 'bone' ? j : -1).filter(j => j >= 0)
+    const pos = (j: number): number => bones.indexOf(j)
+    out.push({ name: 'B_Bones_Wave', dur: 2, frame: (t, j) => of('bone')(j) ? { rot: 0.6 * Math.sin(t * Math.PI - pos(j) * 0.7), slide: 0 } : Z })
+    out.push({ name: 'B_Bones_Bend', dur: 2, frame: (t, j) => of('bone')(j) ? { rot: 0.5 - 0.5 * Math.cos(t * Math.PI), slide: 0 } : Z })
   }
   if (has('hook') || has('cable')) {
     const hook = (j: number): boolean => of('hook')(j) || of('cable')(j)

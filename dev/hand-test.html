@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hand rig test</title>
+<style>
+  body{margin:0;background:#151a22;color:#e8edf3;font:13px/1.45 system-ui,sans-serif}
+  header{padding:10px 14px;display:flex;gap:10px;align-items:center;border-bottom:1px solid #2c3440}
+  button{background:#1f2630;color:inherit;border:1px solid #39424f;border-radius:7px;padding:6px 10px;cursor:pointer}
+  main{display:grid;grid-template-columns:1fr 700px;height:calc(100vh - 50px)}
+  iframe{width:100%;height:100%;border:0;border-right:1px solid #2c3440}
+  #out{overflow:auto;padding:10px}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  td,th{padding:3px 5px;border-bottom:1px solid #2c3440;text-align:left;white-space:nowrap}
+  .bad{color:#ff7a7a}.ok{color:#7ee2a0}.mid{color:#ffd166}
+</style>
+</head>
+<body>
+<!--
+  Dev tool (not part of the app): runs the human auto-rig on every model of rig3d/models-variation/human and scores
+  each hand. Open http://localhost:8080/dev/hand-test.html (the project served by serve.py / any static server).
+  Score per hand (0..100), lower = worse:
+    inside   finger joints close to the skin (distance to the nearest vertex / hand length)
+    spread   the 4 finger tips are apart (not one clump)
+    reach    the finger tips reach the end of the hand mesh
+    order    every finger runs away from the wrist joint by joint
+  See GREENBOX-HANDOFF.md.
+-->
+<header><b>✋ Hand rig test</b><button id="run">▶ Run all</button><button id="one">▶ Run selected</button><select id="sel"></select><span id="st"></span></header>
+<main><iframe id="fr"></iframe><div id="out"><table><thead><tr><th>model</th><th>side</th><th>score</th><th>inside</th><th>spread</th><th>reach</th><th>order</th><th>note</th></tr></thead><tbody id="tb"></tbody></table></div></main>
+<script>
+const MODELS = ['bunny','doctor_m','female','female_31','female_8','female_9','hazmat_female','hazmat_suit_male','jay','killer_4','killer_5','killer_6','killer_7','male','male_10','male_15','male_32','male_5','male_6','monster','monster_3','monster_4','monster_5','police_female','police_male','sintel','sophia','swat_male','zombie'];
+const $ = id => document.getElementById(id), sleep = t => new Promise(r => setTimeout(r, t));
+$('sel').innerHTML = MODELS.map(m => `<option>${m}</option>`).join('');
+const fr = $('fr');
+function load_page () { return new Promise(res => { fr.onload = () => res(); fr.src = '../rig3d/create.html?test=' + Date.now(); }); }
+async function test (name) {
+  await load_page(); await sleep(2500);
+  const w = fr.contentWindow, d = w.document, e = w.__gb3d;
+  const buf = await (await fetch(`../rig3d/models-variation/human/${name}.glb`)).arrayBuffer();
+  const input = d.querySelector('#model-upload'); const dt = new w.DataTransfer(); dt.items.add(new w.File([buf], name + '.glb')); input.files = dt.files; input.dispatchEvent(new w.Event('change', { bubbles: true }));
+  await sleep(3500);
+  const sel = d.querySelector('#skeleton-selection'); sel.value = 'human'; sel.dispatchEvent(new w.Event('change', { bubbles: true })); await sleep(1500);
+  d.querySelector('#load-skeleton-button').click(); await sleep(2500);
+  const er = e.easy_rig; const bones = er.skeleton().bones; const V = e.camera.position.constructor;
+  const P = n => { const b = bones.find(x => x.name === n); if (!b) return null; const v = new V(); b.getWorldPosition(v); return v; };
+  // the model's vertices (world)
+  const pts = []; const model = e.load_model_step.model_meshes(); model.updateMatrixWorld(true);
+  model.traverse(o => { if (!o.isMesh) return; const p = o.geometry.getAttribute('position'); const step = Math.max(1, Math.floor(p.count / 60000)); for (let i = 0; i < p.count; i += step) { const v = new V().fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); pts.push(v); } });
+  const rows = [];
+  for (const s of ['l', 'r']) {
+    const wr = P('hand_' + s); if (!wr) continue;
+    const F = ['thumb', 'index', 'middle', 'ring', 'pinky'].map(f => ['01', '02', '03', '04_leaf'].map(k => P(`${f}_${k}_${s}`)));
+    if (F.some(c => c.some(j => j === null))) { rows.push({ name, s, score: 0, note: 'no finger bones' }); continue; }
+    const tipMid = F[2][3]; const L = Math.max(1e-6, wr.distanceTo(tipMid));
+    const near = pts.filter(p => p.distanceTo(wr) < L * 2.2);
+    const nd = q => { let m = Infinity; for (const p of near) { const d2 = p.distanceTo(q); if (d2 < m) m = d2; } return m; };
+    // inside: every joint near the skin
+    let inside = 0, n = 0; F.forEach(c => c.forEach(j => { inside += nd(j) / L < 0.14 ? 1 : 0; n++; }));
+    inside /= n;
+    // spread: the 4 finger tips apart from each other
+    const tips = F.slice(1).map(c => c[3]); let close = Infinity; for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) close = Math.min(close, tips[i].distanceTo(tips[j]));
+    const spread = Math.min(1, close / (L * 0.1));
+    // reach: the hand mesh beyond the wrist, along the middle finger: the farthest point vs the middle tip
+    const dir = tipMid.clone().sub(wr).normalize(); let far = 0; for (const p of near) { const t = p.clone().sub(wr).dot(dir); const off = p.clone().sub(wr).sub(dir.clone().multiplyScalar(t)).length(); if (off < L * 0.6 && t > far) far = t; }
+    const reach = Math.max(0, 1 - Math.abs(far - L) / Math.max(1e-6, far));
+    // order: joints run away from the wrist
+    let order = 0; F.forEach(c => { const dd = c.map(j => j.distanceTo(wr)); order += dd[1] >= dd[0] - L * 0.02 && dd[2] >= dd[1] - L * 0.02 && dd[3] >= dd[2] - L * 0.02 ? 1 : 0; }); order /= 5;
+    const score = Math.round(100 * (0.35 * inside + 0.2 * spread + 0.3 * reach + 0.15 * order));
+    rows.push({ name, s, score, inside: inside.toFixed(2), spread: spread.toFixed(2), reach: reach.toFixed(2), order: order.toFixed(2), note: (er.last_finger_note || '').split(' · ').find(x => x.startsWith(s.toUpperCase() + ':')) || '' });
+  }
+  return rows;
+}
+function show (rows) {
+  for (const r of rows) {
+    const c = r.score >= 80 ? 'ok' : r.score >= 60 ? 'mid' : 'bad';
+    $('tb').insertAdjacentHTML('beforeend', `<tr><td>${r.name}</td><td>${r.s}</td><td class="${c}">${r.score}</td><td>${r.inside ?? ''}</td><td>${r.spread ?? ''}</td><td>${r.reach ?? ''}</td><td>${r.order ?? ''}</td><td>${(r.note || '').slice(0, 60)}</td></tr>`);
+  }
+}
+window.__results = [];
+async function run (list) {
+  $('tb').innerHTML = ''; window.__results = [];
+  for (const m of list) { $('st').textContent = 'testing ' + m + '…'; try { const r = await test(m); window.__results.push(...r); show(r); } catch (err) { show([{ name: m, s: '-', score: 0, note: String(err) }]); } }
+  const avg = window.__results.reduce((a, r) => a + r.score, 0) / Math.max(1, window.__results.length);
+  $('st').textContent = `done · average ${avg.toFixed(1)}`; window.__done = true;
+}
+$('run').onclick = () => run(MODELS);
+$('one').onclick = () => run([$('sel').value]);
+</script>
+</body>
+</html>

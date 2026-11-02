@@ -4,8 +4,10 @@
  * GLB/FBX, or the one you just rigged)   3. Analyse (MediaPipe Pose, in the browser)   4. tune smoothing / in place
  * 5. export GLB / FBX with the clip.
  */
+import { load_any_buffer } from '../common/AnyLoader.ts'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import '../common/MacTrackpad.ts'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
@@ -23,7 +25,7 @@ class MocapApp {
   private readonly scene = new THREE.Scene()
   private readonly camera = new THREE.PerspectiveCamera(40, 1, 0.01, 200)
   private readonly controls: OrbitControls
-  private readonly clock = new THREE.Clock()
+  private readonly timer = new THREE.Timer()
   private readonly video = document.createElement('video')
   private readonly overlay = document.createElement('canvas')
   private character: THREE.Object3D | null = null
@@ -55,7 +57,8 @@ class MocapApp {
     addEventListener('resize', () => this.resize()); this.resize()
     this.bind()
     this.renderer.setAnimationLoop(() => {
-      this.mixer?.update(this.clock.getDelta())
+      this.timer.update()
+      this.mixer?.update(this.timer.getDelta())
       this.controls.update()
       this.renderer.render(this.scene, this.camera)
     })
@@ -74,6 +77,10 @@ class MocapApp {
   private bind (): void {
     const vf = $('mc-vfile') as HTMLInputElement; const cf = $('mc-cfile') as HTMLInputElement
     $('mc-vload').onclick = () => vf.click(); $('mc-cload').onclick = () => cf.click()
+    // a sample clip that ships with Greenbox (static/samples), so the page can be tried without a video of your own
+    $('mc-vsample').onclick = async () => {
+      try { const r = await fetch('samples/mocap-sample.mp4'); if (!r.ok) throw new Error(String(r.status)); this.load_video(new File([await r.blob()], 'mocap-sample.mp4', { type: 'video/mp4' })) } catch (e) { this.status(M('No sample video in this copy.', 'Bản này không có video mẫu.', '샘플 영상이 없습니다.') + ' ' + String(e), true) }
+    }
     vf.onchange = () => { const f = vf.files?.[0]; if (f !== undefined) this.load_video(f); vf.value = '' }
     cf.onchange = async () => { const f = cf.files?.[0]; if (f !== undefined) await this.load_character(await f.arrayBuffer(), f.name); cf.value = '' }
     $('mc-mannequin').onclick = () => { void this.use_mannequin() }
@@ -108,7 +115,7 @@ class MocapApp {
 
   private async load_character (buf: ArrayBuffer, name: string): Promise<void> {
     try {
-      const root = /\.fbx$/i.test(name) ? new FBXLoader().parse(buf, '') : (await new GLTFLoader().parseAsync(buf, '')).scene
+      const root = (await load_any_buffer(name, buf)).scene
       this.set_character(root, name)
     } catch (e) { this.status(M('Could not read the character: ', 'Không đọc được nhân vật: ', '캐릭터를 읽을 수 없습니다: ') + String(e), true) }
   }

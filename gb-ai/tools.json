@@ -37,6 +37,7 @@
       "vehicle",
       "playtest",
       "mocap",
+      "smash",
       "explore"
      ]
     }
@@ -206,6 +207,353 @@
     "page",
     "name",
     "data_b64"
+   ]
+  }
+ },
+ {
+  "name": "gb_analyze",
+  "description": "Analyse the model loaded on a page: what it is (humanoid / quadruped / vehicle / object) and its anchor points — head, arms, legs and accessories (tail, wings, ears, horns, hair, cape, held items) with joint positions inside the mesh. On \"vehicle\" it can also create a bone chain on every branch (make_bones).",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "page": {
+     "type": "string",
+     "enum": [
+      "create",
+      "vehicle"
+     ]
+    },
+    "make_bones": {
+     "type": "boolean",
+     "description": "vehicle page: create free bones along every branch (default true)"
+    }
+   },
+   "required": [
+    "page"
+   ]
+  }
+ },
+ {
+  "name": "gb_smash",
+  "description": "Target smash blockout (a shooting ad: a wall of cans / boxes on a table, a gun in the middle). Actions: status (ammo, knocked, blocks, layout), preset {name: wall | pyramid | towers | checker | random}, reset (rebuild the stack), shoot {x, y} (0..1 of the 9:16 view), auto {on} (auto shoot), record (start / stop a 9:16 blockout video download), prompt (the Seedance video-to-video prompt for the chosen theme).",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "action": {
+     "type": "string",
+     "enum": [
+      "status",
+      "preset",
+      "reset",
+      "shoot",
+      "auto",
+      "record",
+      "prompt"
+     ]
+    },
+    "name": {
+     "type": "string"
+    },
+    "x": {
+     "type": "number"
+    },
+    "y": {
+     "type": "number"
+    },
+    "on": {
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "action"
+   ]
+  }
+ },
+ {
+  "name": "gb_vehicle",
+  "description": "Vehicles / any-model rig tab. Actions: auto_rig (one click: what was learned from 4–5 ★ rigs of the same shape + shape scan + bones + all keyframed animations), rate {score 1–5} (rate the rig on screen; 4–5 ★ rigs teach the next auto_rig), scan_wheels, find_tracks (caterpillar belts as bone chains), add_bone {name, at:[x,y,z], parent?, axis?} (a free bone with its joint at a point; parent chains it), assign_box {part, min:[x,y,z], max:[x,y,z]} (give every vertex inside a box to a part / bone), separate {part} (cut the part into its own mesh and fill the holes), set_type {type: car|truck|tracked|roller}, build (rig + animations), play {clip}, stop, list.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "action": {
+     "type": "string",
+     "enum": [
+      "list",
+      "scan_wheels",
+      "find_tracks",
+      "add_bone",
+      "assign_box",
+      "separate",
+      "set_type",
+      "build",
+      "play",
+      "stop",
+      "auto_rig",
+      "rate"
+     ]
+    },
+    "score": {
+     "type": "number",
+     "description": "rate: 1–5 stars"
+    },
+    "name": {
+     "type": "string"
+    },
+    "part": {
+     "type": "string",
+     "description": "part / bone name"
+    },
+    "parent": {
+     "type": "string"
+    },
+    "at": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     }
+    },
+    "min": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     }
+    },
+    "max": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     }
+    },
+    "axis": {
+     "type": "string",
+     "enum": [
+      "auto",
+      "x",
+      "y",
+      "z"
+     ]
+    },
+    "type": {
+     "type": "string"
+    },
+    "clip": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "action"
+   ]
+  }
+ },
+ {
+  "name": "gb_map",
+  "description": "Play-test map editor (terrain + objects, RTS-style). Actions: preset {preset: flat|hills|island|valley|mountains}, add {object: pine|tree|bush|rock|house|tower|wall|fence|crate|barrel|flag, x, z, rot?, scale?}, sculpt {tool: raise|lower|flatten|smooth|paint, x, z, radius?, strength?, ground?: 0 grass 1 dirt 2 sand 3 rock 4 snow 5 road 6 water bed}, water {level}, export_blender (Python script that rebuilds the map in Blender), export_glb, get (map JSON summary). Also: dig {x, z, radius?, depth?} carves a flat-bottomed hole; pour {x, z, fill?: 0.3..1} fills the hole / channel at (x, z) with water up to its rim; sea {on: bool}; erase {x, z, radius?} removes props there; shot_add {mode?: fixed|look|follow, follow?: \"player\"|object name, t?, dur?, fov?} saves the current camera view as a shot; shots (list); shots_play; layout {image_b64, legend?: [{color:\"#rrggbb\", kind}]} builds the map from a top-down colour plan (kinds: background grass water sand road dirt mountain snow forest tree house tower wall fence rock flag); export_unity (C# script that plays the shots); plan {plan: {shapes: [{id, kind: zone|block|source|machine|stack|counter|unlock|player, form: rect|ellipse, x, z, w, d, r, label, color, height, gives?, takes?, time?, price?, model?}], wires: [{id, from, to, mode: carry|belt|unlock}]}, play?: bool} builds a 2D plan as a 3D playable (and plays it); clear (empty map).",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "action": {
+     "type": "string",
+     "enum": [
+      "get",
+      "preset",
+      "add",
+      "sculpt",
+      "water",
+      "dig",
+      "pour",
+      "sea",
+      "erase",
+      "shot_add",
+      "shots",
+      "shots_play",
+      "layout",
+      "export_blender",
+      "export_glb",
+      "export_unity",
+      "plan",
+      "clear"
+     ]
+    },
+    "plan": {
+     "type": "object"
+    },
+    "play": {
+     "type": "boolean"
+    },
+    "depth": {
+     "type": "number"
+    },
+    "fill": {
+     "type": "number"
+    },
+    "on": {
+     "type": "boolean"
+    },
+    "mode": {
+     "type": "string"
+    },
+    "follow": {
+     "type": "string"
+    },
+    "t": {
+     "type": "number"
+    },
+    "dur": {
+     "type": "number"
+    },
+    "fov": {
+     "type": "number"
+    },
+    "image_b64": {
+     "type": "string"
+    },
+    "legend": {
+     "type": "array",
+     "items": {
+      "type": "object"
+     }
+    },
+    "preset": {
+     "type": "string"
+    },
+    "object": {
+     "type": "string"
+    },
+    "x": {
+     "type": "number"
+    },
+    "z": {
+     "type": "number"
+    },
+    "rot": {
+     "type": "number"
+    },
+    "scale": {
+     "type": "number"
+    },
+    "tool": {
+     "type": "string"
+    },
+    "radius": {
+     "type": "number"
+    },
+    "strength": {
+     "type": "number"
+    },
+    "ground": {
+     "type": "number"
+    },
+    "level": {
+     "type": "number"
+    }
+   },
+   "required": [
+    "action"
+   ]
+  }
+ },
+ {
+  "name": "gb_hpbar",
+  "description": "HP-bar / HUD video layer (its own page, exported separately: green MP4 for Keylight or alpha .MOV). Actions: get, set {settings: partial state, e.g. {hero:{name,level}, hp:{max,start}, mp:{on,max}, dur, fps, size:\"1080x1920\", bg:\"green\"|\"black\"|\"clear\"}}, events {events:[{t: seconds, kind: dmg|heal|set|mana-|mana+, v: amount}]} (replaces the list: when the hero is hit), export_mov, export_mp4. Boss bar: set {settings:{boss:{on:true, name, max, start, layers, w, h, x, y}}} and events with who:\"boss\". Hero bar size: hp:{w, h, round, drain, hold}, hud:{flip, on, x, y}. Countdown: page {page:\"count\"} then set {settings:{cd:{from, to, start, format: s|mmss|dec|dec2, size, x, y, color, stroke, sw, ring, end, endHold, warn}}} and export like the HP bar.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "action": {
+     "type": "string",
+     "enum": [
+      "get",
+      "set",
+      "events",
+      "page",
+      "export_mov",
+      "export_mp4"
+     ]
+    },
+    "page": {
+     "type": "string",
+     "enum": [
+      "hp",
+      "count"
+     ]
+    },
+    "settings": {
+     "type": "object"
+    },
+    "events": {
+     "type": "array",
+     "items": {
+      "type": "object"
+     }
+    }
+   },
+   "required": [
+    "action"
+   ]
+  }
+ },
+ {
+  "name": "gb_drive",
+  "description": "Driving overlay (Lái xe → Vô lăng & bàn đạp): a steering wheel + 2 pedals that follow a driving video, no hands. Actions: status, load {video_b64, name} (MCP: {path}), auto (the AI reads the video: the scenery sliding sideways = steering, how fast the picture changes = gas / brake; makes the take), export {mode: \"video\" = the gameplay video with the wheel + pedals on it (finished MP4), \"green\" = green screen, \"black\"}.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "action": {
+     "type": "string",
+     "enum": [
+      "status",
+      "load",
+      "auto",
+      "export"
+     ]
+    },
+    "video_b64": {
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    },
+    "mode": {
+     "type": "string",
+     "enum": [
+      "video",
+      "green",
+      "black"
+     ]
+    }
+   },
+   "required": [
+    "action"
+   ]
+  }
+ },
+ {
+  "name": "gb_sfx",
+  "description": "SFX sync (Post → Gắn SFX): put sounds on the hits of a finished video. Actions: status (sounds in the library, cues found, clips placed), load {video_b64, name} (MCP: {path}), analyze (finds the hits / cue points), add_all {sound: name or part of it, e.g. \"coin\"} (that sound on EVERY cue, aligned by its loudest point; repeat with other sounds), export (renders the MP4 with sound). Built-in sounds: Impact boom, Rock crunch, Coin ding, Sparkle shimmer, Whoosh, Upgrade rise, Water splash; the user can add their own in the page.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "action": {
+     "type": "string",
+     "enum": [
+      "status",
+      "load",
+      "analyze",
+      "add_all",
+      "export"
+     ]
+    },
+    "sound": {
+     "type": "string"
+    },
+    "video_b64": {
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "action"
    ]
   }
  }

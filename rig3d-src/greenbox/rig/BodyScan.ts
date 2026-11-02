@@ -186,6 +186,20 @@ export function scan_humanoid (root: THREE.Object3D): BodyLandmarks | null {
       // prefer the highest of near-equal minima: the neck sits above the waist
       for (let i = up0; i <= up1 && i < N; i++) { const w = W[i]; if (w <= best * 1.02) { if (w < best) best = w; neck_i = i } }
     } }
+  // arms held out sideways ABOVE that "neck": it was the waist (long hair hides the real neck). The neck is above
+  // the arms: search again from there. Arm points = near the farthest sideways reach of the whole model.
+  { let far = 0; for (const p of P) far = Math.max(far, Math.abs(p.x - cx))
+    const lim = Math.max(halfW * 2.6, far * 0.8); let arm_top = -1
+    for (let i = neck_i + 1; i <= Math.min(up1, N - 1); i++) if (slices[i].some(p => Math.abs(p.x - cx) > lim)) arm_top = i
+    if (arm_top > neck_i && arm_top + 1 < Math.min(up1, N - 1)) {
+      let best = Infinity; let pick = -1
+      const wa: number[] = []; for (let i = arm_top + 1; i <= Math.min(up1, N - 1); i++) wa[i] = width_at(i)
+      let mx = 0; const above: number[] = []
+      for (let i = Math.min(up1, N - 1); i > arm_top; i--) { above[i] = mx; if (Number.isFinite(wa[i])) mx = Math.max(mx, wa[i]) }
+      for (let i = arm_top + 1; i <= Math.min(up1, N - 1); i++) { const w = wa[i]; if (!Number.isFinite(w) || above[i] < w * 1.05) continue; if (w <= best * 1.02) { if (w < best) best = w; pick = i } }
+      if (pick < 0) pick = Math.min(Math.min(up1, N - 1), arm_top + 2)
+      neck_i = pick; notes.push('neck above the arms')
+    } }
   const neckY = ys(neck_i)
 
   /* ---- front/back centre of the body at a height: only the middle of the centre blob counts, so arms reaching
@@ -217,8 +231,22 @@ export function scan_humanoid (root: THREE.Object3D): BodyLandmarks | null {
   const side_arm = (s: number): { shoulder: V3, elbow: V3, wrist: V3, tip: V3, top: number } | null => {
     // outside the torso: further out than its side, OR in front of / behind it (arms reaching forward)
     const out_of_torso = (p: V3): boolean => (p.x - cx) * s > halfW * 1.12 || ((p.x - cx) * s > halfW * 0.35 && Math.abs(p.z - zc(p.y)) > halfD * 1.35)
-    const A = P.filter(p => p.y > crotchY + 0.02 * H && p.y < neckY - dy && out_of_torso(p))
-    if (A.length < P.length * 0.01) return null
+    let A = P.filter(p => p.y > crotchY + 0.02 * H && p.y < neckY - dy && out_of_torso(p))
+    // thin arms (slim models) hold well under 1 % of the surface: a few hundred points are enough
+    if (A.length < Math.max(60, P.length * 0.0025)) return null
+    // wide shorts / skirts / coat tails also stick out past the torso: keep only the tube around the arm,
+    // grown from the points farthest from the body (the hand and forearm)
+    { const far = A.map(p => ({ p, r: Math.abs(p.x - cx) + Math.abs(p.z - zc(p.y)) * 0.5 })).sort((u, v) => v.r - u.r)
+      let B = far.slice(0, Math.max(30, Math.floor(far.length * 0.25))).map(o => o.p)
+      for (let it = 0; it < 4; it++) {
+        const ax = principal_axis(B)
+        const dl = (p: V3): number => { const v = p.clone().sub(ax.c); return v.sub(ax.d.clone().multiplyScalar(v.dot(ax.d))).length() }
+        const med = median(B.slice(0, 3000).map(dl))
+        const nb = A.filter(p => dl(p) < Math.max(med * 2.6, H * 0.025))
+        if (nb.length < 30) break
+        B = nb
+      }
+      if (B.length >= Math.max(30, A.length * 0.2)) A = B }
     const { c, d } = principal_axis(A)
     let tmin = Infinity; let tmax = -Infinity
     const ends = (): void => { tmin = Infinity; tmax = -Infinity; for (const p of A) { const t = p.clone().sub(c).dot(d); tmin = Math.min(tmin, t); tmax = Math.max(tmax, t) } }
@@ -262,10 +290,30 @@ export function scan_humanoid (root: THREE.Object3D): BodyLandmarks | null {
       const across = m.sub(q); across.sub(dir.clone().multiplyScalar(across.dot(dir)))
       return q.add(across)
     }
+    // wrist: where the arm is thinnest just before the hand widens (big cartoon hands start well before 80%)
+    let kw = 0.8
+    { const e1 = new THREE.Vector3(0, 1, 0).cross(dir); if (e1.lengthSq() < 1e-6) e1.set(1, 0, 0); e1.normalize(); const e2 = dir.clone().cross(e1).normalize()
+      const NB = 40; const lo: number[][] = Array.from({ length: NB }, () => [Infinity, Infinity]); const hi: number[][] = Array.from({ length: NB }, () => [-Infinity, -Infinity])
+      for (const p of A) {
+        const v = p.clone().sub(shoulder); const t = v.dot(dir) / L; if (t < 0.4 || t >= 1) continue
+        const i = Math.floor((t - 0.4) / 0.6 * NB); const a1 = v.dot(e1); const a2 = v.dot(e2)
+        lo[i][0] = Math.min(lo[i][0], a1); hi[i][0] = Math.max(hi[i][0], a1); lo[i][1] = Math.min(lo[i][1], a2); hi[i][1] = Math.max(hi[i][1], a2)
+      }
+      const w = lo.map((l, i) => Number.isFinite(l[0]) ? Math.max(hi[i][0] - l[0], hi[i][1] - l[1]) : NaN)
+      const tk = (i: number): number => 0.4 + (i + 0.5) / NB * 0.6
+      // the palm: widest bin in the outer part
+      let pi = -1; for (let i = NB - 1; i >= 0 && tk(i) > 0.62; i--) if (Number.isFinite(w[i]) && (pi < 0 || w[i] > w[pi])) pi = i
+      if (pi > 0) {
+        // the thinnest part between the forearm and the palm (the outermost of near-equal minima: thumb gaps
+        // inside the hand are not deeper than the wrist)
+        let mn = Infinity; for (let i = 0; i < pi; i++) if (tk(i) > 0.5 && Number.isFinite(w[i])) mn = Math.min(mn, w[i])
+        let wi = -1; for (let i = 0; i < pi; i++) if (tk(i) > 0.5 && w[i] <= mn * 1.08) wi = i
+        if (wi >= 0 && mn < w[pi] * 0.8) kw = Math.min(0.85, Math.max(0.55, tk(wi)))
+      } }
     return {
       shoulder,
-      elbow: centre_at(0.44),
-      wrist: centre_at(0.80),
+      elbow: centre_at(Math.min(0.44, kw * 0.55)),
+      wrist: centre_at(kw),
       tip,
       top: topY
     }

@@ -1,0 +1,1179 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HP Bar Greenbox</title>
+<script>(function(){var r=document.documentElement,set=function(v){r.classList.toggle("gbv",v==="v");r.classList.toggle("gbk",v!=="v"&&v!=="d")};try{set(localStorage.getItem("gbc.ui")||"k")}catch(e){set("k")}addEventListener("message",function(e){if(e.origin===location.origin&&e.data&&e.data.gbTheme)set(e.data.gbTheme)})})();</script>
+<script src="./gb-xp.js"></script>
+<script src="./gb-endcard.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Public+Sans:wght@400;500;700&family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,900&display=swap">
+<script src="./vendor/mp4-muxer-5.1.3.js"></script>
+<style>
+:root{--bg:#0a1322;--panel:#0e1a2e;--sunk:#081222;--ink:#e8f1ff;--muted:#94a9c6;--line:rgba(120,190,255,.22);--accent:#1aa3ff;--mark:#ffb020;--ok:#47c27a;--bad:#ff5d5d;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+html.embed,html.embed body{background:transparent}
+main{display:grid;grid-template-columns:minmax(0,1fr) 380px;height:100vh}
+#stage{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;padding:12px;gap:8px}
+#wrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+#cv{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 0 0 1px var(--line);cursor:grab;
+  background:repeating-conic-gradient(#2a3446 0 25%,#1d2533 0 50%) 0 0/24px 24px}
+#wrap video{position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;opacity:.0;pointer-events:none}
+.tl{display:flex;gap:8px;align-items:center}
+.tl input[type=range]{flex:1}
+#marks{position:relative;height:14px;margin:0 6px}
+#clips{position:relative;display:flex;height:30px;margin:0 6px;border-radius:6px;overflow:hidden;background:#0d1626;box-shadow:inset 0 0 0 1px var(--line)}
+#clips:empty{display:none}
+#clips .cl{position:relative;min-width:0;display:flex;align-items:center;gap:4px;padding:0 8px;font-size:11px;color:#eaf6ff;white-space:nowrap;overflow:hidden;cursor:pointer;border-right:2px solid #0d1626}
+#clips .cl b{overflow:hidden;text-overflow:ellipsis}
+#clips .cl em{font-style:normal;opacity:.7}
+#clips .cl.on{box-shadow:inset 0 0 0 2px #ffb020}
+#clips .tj{position:absolute;top:0;bottom:0;background:rgba(176,124,255,.55);border-left:1px solid #d9c2ff;border-right:1px solid #d9c2ff;pointer-events:none;font-size:10px;color:#fff;display:flex;align-items:center;justify-content:center}
+#clips .add{flex:0 0 auto;display:flex;align-items:center;padding:0 10px;font-size:12px;color:#9fd2ff;cursor:pointer;background:#13213a}
+#clips .ph{position:absolute;top:0;bottom:0;width:2px;background:#fff;pointer-events:none}
+#clips.drop{box-shadow:inset 0 0 0 2px #2fd17a}
+#marks i{position:absolute;top:0;width:3px;height:14px;border-radius:2px;transform:translateX(-1px)}
+aside{border-left:1px solid var(--line);overflow:auto;padding:10px 12px 40px;background:var(--panel)}
+html.embed aside{background:rgba(14,26,46,.92)}
+section{border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin:0 0 10px;background:var(--sunk)}
+h3{margin:0 0 7px;font-size:13px;color:#9fd8ff;display:flex;gap:6px;align-items:center}
+h3 b{background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+label{display:flex;gap:6px;align-items:center;margin:4px 0}
+label>span{min-width:92px;color:var(--muted)}
+input,select,button{font:inherit;color:inherit}
+input[type=number],input[type=text],select{background:#0b1526;border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-width:0;flex:1}
+input[type=color]{width:34px;height:26px;padding:0;border:1px solid var(--line);border-radius:6px;background:none}
+input[type=range]{flex:1}
+button{background:#17263d;border:1px solid var(--line);border-radius:7px;padding:6px 9px;cursor:pointer}
+button:hover{border-color:#71cbff}
+button.pri{background:linear-gradient(180deg,#1aa3ff,#0b6fd6);border-color:#71cbff;color:#fff;font-weight:600}
+button.alpha{background:linear-gradient(180deg,#8b5cf6,#5b2fd6);border-color:#b9a0ff;color:#fff;font-weight:600}
+button.on{background:var(--mark);color:#111;border-color:#a86d00}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0}
+.row>button{flex:1}
+.grid9{display:grid;grid-template-columns:repeat(3,34px);gap:3px;margin:4px 0}.grid9 button{padding:3px 0;min-width:0}
+.sm{font-size:11.5px;color:var(--muted)}
+.msg{font-size:12px;margin-top:6px;min-height:16px}
+.msg.err{color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{padding:3px 4px;border-bottom:1px solid var(--line);text-align:left}
+td input,td select{width:100%}
+.img{display:flex;gap:6px;align-items:center;margin:4px 0}
+.img>span{min-width:92px;color:var(--muted)}
+.img img{width:34px;height:34px;object-fit:contain;border-radius:6px;background:#0b1526;border:1px solid var(--line)}
+.prog{height:6px;border-radius:3px;background:#0b1526;overflow:hidden;margin-top:6px}
+.prog>i{display:block;height:100%;width:0;background:var(--accent)}
+details.fxc{border:1px solid var(--line);border-radius:10px;margin:0 0 10px;background:var(--sunk)}
+details.fxc>summary{cursor:pointer;padding:9px 10px;font-size:13px;color:#9fd8ff;font-weight:600;list-style:none}
+details.fxc>summary::-webkit-details-marker{display:none}
+details.fxc>summary::before{content:'▸ ';color:var(--muted)}
+details.fxc[open]>summary::before{content:'▾ '}
+.fxb{padding:0 10px 9px}
+@media (max-width:820px){main{grid-template-columns:1fr;grid-template-rows:55vh auto;height:auto}aside{border-left:0;border-top:1px solid var(--line)}}
+
+/* vibrant theme (the cockpit's ◐): white, black type, red accent, pill buttons, flat */
+html.gbv{--bg:#fff;--panel:#fff;--sunk:#fff;--ink:#000;--muted:#565C65;--line:#B9B9BB;--accent:#D83933;--mark:#D83933;--ok:#1f8a4c;--bad:#D83933;color-scheme:light}
+html.gbv body{font:14px/1.55 "Public Sans",system-ui,sans-serif}
+html.gbv.embed aside,html.gbv aside{background:#fff}
+html.gbv section{border-radius:16px;padding:12px}
+html.gbv h3{color:#000;font:700 15px/1.2 Inter,system-ui,sans-serif}
+html.gbv input[type=number],html.gbv input[type=text],html.gbv select{background:#000;color:#fff;border:1px solid #565C65;border-radius:8px}
+html.gbv button{background:#fff;border:1px solid #000;border-radius:50px;padding:6px 12px;font-weight:600;transition:transform .2s,background .2s}
+html.gbv button:hover:not(:disabled){border-color:#000;background:#F4F4F5;transform:scale(1.05)}
+html.gbv button.pri{background:#D83933;border-color:#D83933;color:#fff;font-weight:700}
+html.gbv button.alpha{background:#000;border-color:#000;color:#fff;font-weight:700}
+html.gbv button.on{background:#000;color:#fff;border-color:#000}
+html.gbv .grid9 button{border-radius:8px}
+html.gbv :is(input[type=range],input[type=checkbox]){accent-color:#D83933}
+html.gbv :is(button,input,select,summary):focus-visible{outline:.25rem solid rgb(36,145,255);outline-offset:2px}
+html.gbv #cv{background:repeating-conic-gradient(#e6e6e8 0 25%,#fff 0 50%) 0 0/24px 24px;box-shadow:0 0 0 1px #B9B9BB}
+html.gbv #clips{background:#F4F4F5}
+html.gbv #clips .add{background:#fff;color:#D83933}
+html.gbv #clips .ph{background:#000}
+
+/* Roboto for every page text (Vietnamese marks), and the gradient-dark accents (default theme) */
+body,button,input,select,textarea{font-family:Roboto,system-ui,-apple-system,"Segoe UI",sans-serif!important}
+html.gbk{--bg:#08201a;--panel:#0d3028;--sunk:#10382f;--ink:#effbf8;--muted:#a8d8cd;--line:rgba(159,246,225,.22);--accent:#19df62;--mark:#4fed89}
+html.gbk.embed aside{background:rgba(13,48,40,.94)}
+html.gbk section{border-radius:15px}
+html.gbk h3{color:#dcfced}
+html.gbk h3 b{background:linear-gradient(120deg,#37966a,#19df62)}
+html.gbk button{border-radius:15px;background:rgba(255,255,255,.06)}
+html.gbk button:hover{border-color:#4fed89}
+html.gbk button.pri{background:linear-gradient(120deg,#37966a,#19df62 60%,#4fed89);border-color:transparent}
+html.gbk button.alpha{background:linear-gradient(120deg,#1c8c72,#0e8b51);border-color:transparent}
+html.gbk :is(input[type=range],input[type=checkbox]){accent-color:#19df62}
+</style>
+</head>
+<body>
+<main>
+  <div id="stage">
+    <div id="wrap"><video id="vid" muted playsinline></video><canvas id="cv"></canvas></div>
+    <div id="clips"></div>
+    <div id="marks"></div>
+    <div class="tl"><button id="undo" title="Ctrl+Z / Cmd+Z" disabled>↶</button><button id="redo" title="Ctrl+Shift+Z / Cmd+Shift+Z" disabled>↷</button><button id="play">▶</button><input type="range" id="seek" min="0" max="1000" value="0"><span id="time" class="sm" style="min-width:90px;text-align:right">0.00 s</span></div>
+    <div class="sm" id="hint"></div>
+  </div>
+  <aside id="side"></aside>
+</main>
+<script>
+(() => {
+'use strict';
+/* ---------------- language (VI / EN / KO; follows the Cockpit) ---------------- */
+const qs = (location.search.match(/[?&]lang=(vi|en|ko)/) || [])[1];
+let L = qs || (() => { try { return localStorage.getItem('gbc.lang') || 'vi'; } catch (e) { return 'vi'; } })();
+const embed = window.self !== window.top || /[?&]embed=1/.test(location.search);
+if (embed) document.documentElement.classList.add('embed');
+const T = (vi, en, ko) => L === 'en' ? en : L === 'ko' ? (ko || en) : vi;
+addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.gbLang) { L = e.data.gbLang; render(); } });
+const $ = id => document.getElementById(id);
+
+/* ---------------- state ---------------- */
+const SIZES = { '1080x1920': [1080, 1920], '1920x1080': [1920, 1080], '1080x1080': [1080, 1080], '1080x1350': [1080, 1350], '720x1280': [720, 1280] };
+const DEF = {
+  size: '1080x1920', fps: 30, dur: 12, bg: 'green', page: 'hp',
+  hud: { on: true, x: 0.06, y: 0.05, scale: 1.45, shake: true, popups: true, lowPulse: true, flip: false },
+  hero: { name: 'HERO', level: 25, showLevel: true, shape: 'circle', ring: '#ffd34d' },
+  hp: { on: true, max: 1500, start: 1500, c1: '#ff4d4d', c2: '#c3121e', trail: '#ffe08a', back: '#2a0d12', numbers: true, w: 1, h: 1, round: 1, drain: 5, hold: 0.35 },
+  mp: { on: false, max: 300, start: 300, c1: '#4da6ff', c2: '#1747c9', numbers: false },
+  // boss: one big bar (name above, optional "x3" bar layers)
+  boss: { on: false, name: 'DEMON LORD', max: 20000, start: 20000, x: 0.5, y: 0.1, w: 0.86, h: 54, c1: '#ff3d6e', c2: '#8a0a2a', trail: '#ffffff', back: '#1a0710', numbers: false, pct: true, layers: 1, round: 0.5, edge: '#ffd34d' },
+  // countdown: just one number
+  cd: { from: 10, to: 0, start: 0, x: 0.5, y: 0.45, size: 420, color: '#ffffff', stroke: '#000000', sw: 14, glow: '#ffb020', font: '900', format: 's', pop: true, ring: false, ringColor: '#ffb020', end: 'GO!', endHold: 1, warn: 3, warnColor: '#ff3d3d' },
+  logo: { on: false, x: 0.7, y: 0.9, w: 0.26 },
+  // end card: a card that grows 0 → 100 % from `start` over `grow` s; logo, app icon, name, stars and the button pop in after it
+  // simple by default: the game blurred behind, the big logo + app icon, one fat PLAY NOW! button
+  ec: { start: 0.2, grow: 0.6, ease: 'back', x: 0.5, y: 0.5, w: 0.86, back: 'blur', blur: 26, panel: false, panelColor: '#ffffff', panelAlpha: 1, radius: 56, dim: 0.12, bgColor: '#000000', title: 'XP HERO', titleColor: '#ffc21a', sub: '', stars: 0, cta: 'PLAY NOW!', ctaColor: '#3cc41a', ctaText: '#ffffff', pulse: true, gap: 0.12, hold: 2 },
+  // video FX: blur / pixel masks (tracked), frames with a picture / video inside, red damage corners
+  fx: { masks: [], sel: null, rec: false, trans: [], open: { blur: true, media: false, trans: true, vig: false }, vig: { on: false, color: '#ff0000', size: 0.42, strength: 0.85, dur: 0.6, hits: [1.5, 4], fromHp: true, low: false } },
+  events: [{ t: 2, kind: 'dmg', v: 250 }, { t: 4.5, kind: 'dmg', v: 420 }, { t: 6, kind: 'heal', v: 300 }, { t: 8, kind: 'dmg', v: 600 }]
+};
+// deep merge so a project saved by an older version still gets the new fields
+function merge (a, b) { for (const k in b) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k] && typeof a[k] === 'object') merge(a[k], b[k]); else a[k] = b[k]; } return a; }
+let S = (() => { try { const s = JSON.parse(localStorage.getItem('gb.hpbar') || 'null'); if (s && s.ec && s.ec.back === undefined) delete s.ec; /* the first end card design: start from the simple one */ return s ? merge(structuredClone(DEF), s) : structuredClone(DEF); } catch (e) { return structuredClone(DEF); } })();
+{ const p = (location.search.match(/[?&]page=(hp|count|fx|end)/) || [])[1]; if (p) S.page = p; }
+// the end card's parts (icon, logo, name, button): each with its own size, spacing, offset, anchor (gb-endcard.js)
+S.ec.layer = window.GBEC ? GBEC.fix(S.ec.layer || Object.assign(GBEC.defaults('simple'), { title: S.ec.title || 'XP HERO', cta: S.ec.cta || 'PLAY NOW!' }), 'simple') : null;
+const IMG = {}; // slot -> HTMLImageElement (kept in IndexedDB)
+const SLOTS = [
+  // id, VI, EN, base size at 1080 px wide (HUD scale 1)
+  ['avatar', 'Ảnh nhân vật (avatar)', 'Hero picture (avatar)', 180, 180, 'PNG, nhân vật ở giữa', 'PNG, character centred'],
+  ['avatarFrame', 'Khung avatar', 'Avatar frame', 224, 224, 'PNG nền trong suốt, giữa rỗng', 'transparent PNG, empty middle'],
+  ['barFrame', 'Khung thanh máu', 'Bar frame', 640, 150, 'PNG trong suốt, chừa lỗ cho thanh', 'transparent PNG, hole for the bars'],
+  ['hpFill', 'Vân thanh HP', 'HP bar fill', 560, 46, 'ảnh lặp ngang được', 'tileable horizontally'],
+  ['mpFill', 'Vân thanh mana', 'Mana bar fill', 480, 26, 'ảnh lặp ngang được', 'tileable horizontally'],
+  ['logo', 'Logo', 'Logo', 400, 160, 'PNG trong suốt', 'transparent PNG'],
+  ['panel', 'Nền HUD (tuỳ chọn)', 'HUD backdrop (optional)', 820, 220, 'PNG, sau avatar + thanh', 'PNG, behind avatar + bars'],
+  ['bossFill', 'Vân thanh máu boss', 'Boss bar fill', 930, 54, 'ảnh lặp ngang được', 'tileable horizontally'],
+  ['bossFrame', 'Khung máu boss', 'Boss bar frame', 1004, 130, 'PNG trong suốt, chừa lỗ giữa cho thanh', 'transparent PNG, hole for the bar']
+];
+let W = 1080, H = 1920;
+let t = 0, playing = false, last = 0, dirty = true, busy = false;
+const cv = $('cv'), x = cv.getContext('2d'), vid0 = $('vid');
+/* clips: the source video plus more videos joined after it (one timeline, so transitions can sit on the joins).
+   `vid` is the clip playing now and `vid_off` the second it starts at. */
+let vid = vid0, vid_off = 0;
+const CLIPS = [vid0];
+const clip_list = () => CLIPS.filter(v => v.src);
+const clip_len = v => isFinite(v.duration) && v.duration > 0 ? v.duration : 0;
+const clips_total = () => clip_list().reduce((a, v) => a + clip_len(v), 0);
+function clip_at (tt) { const L = clip_list(); let off = 0; for (let i = 0; i < L.length; i++) { const d = clip_len(L[i]); if (tt < off + d - 1e-4 || i === L.length - 1) return { v: L[i], off, i }; off += d; } return { v: vid0, off: 0, i: 0 }; }
+function use_clip (tt) { const c = clip_at(tt); if (c.v !== vid) { vid.pause(); vid = c.v; } vid_off = c.off; return c; }
+/** jump the source video(s) to second tt of the timeline */
+function goto (tt) { if (!vid0.src) return; use_clip(tt); vid.currentTime = Math.max(0, tt - vid_off); if (playing) vid.play().catch(() => {}); }
+async function seek_g (tt) { if (!vid0.src) return; use_clip(tt); await seek(vid, tt - vid_off); }
+
+function save () { try { localStorage.setItem('gb.hpbar', JSON.stringify(S)); } catch (e) {} }
+
+/* images in IndexedDB (they are too big for localStorage) */
+function idb () { return new Promise((res, rej) => { const r = indexedDB.open('gb-hpbar', 1); r.onupgradeneeded = () => r.result.createObjectStore('img'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function img_put (k, blob) { try { const db = await idb(); db.transaction('img', 'readwrite').objectStore('img').put(blob, k); } catch (e) {} }
+async function img_del (k) { try { const db = await idb(); db.transaction('img', 'readwrite').objectStore('img').delete(k); } catch (e) {} }
+async function img_load_all () {
+  try {
+    const db = await idb(); const st = db.transaction('img').objectStore('img');
+    await new Promise(res => { const c = st.openCursor(); c.onsuccess = () => { const cur = c.result; if (!cur) return res(); set_img(cur.key, cur.value, false); cur.continue(); }; c.onerror = res; });
+  } catch (e) {}
+}
+function set_img (k, blob, store = true) {
+  if (String(k).startsWith('fxm_')) { fx_media_set(k, blob, store); return; }
+  const im = new Image(); im.onload = () => { IMG[k] = im; dirty = true; render(); }; im.src = URL.createObjectURL(blob);
+  if (store) img_put(k, blob);
+}
+
+/* ---------------- timeline simulation ---------------- */
+let SIM = null; // cached 120 Hz samples
+function sim () {
+  if (SIM) return SIM;
+  const R = 120, n = Math.ceil(S.dur * R) + 2;
+  const ev = S.events.slice().sort((a, b) => a.t - b.t);
+  // one HP track (real value, the bar shown, the delayed trail) for the hero and one for the boss
+  const track = (who, max, start) => {
+    const hp = new Float32Array(n), shown = new Float32Array(n), trail = new Float32Array(n);
+    let real = clamp(start, 0, max), cur = real, tr = real, k = 0, hold = 0;
+    const mine = ev.filter(e => (e.who || 'hero') === who);
+    for (let i = 0; i < n; i++) {
+      const tt = i / R;
+      while (k < mine.length && mine[k].t <= tt) {
+        const e = mine[k++], v = Math.abs(Number(e.v) || 0);
+        if (e.kind === 'dmg') { real = clamp(real - v, 0, max); hold = S.hp.hold; }
+        else if (e.kind === 'heal') real = clamp(real + v, 0, max);
+        else if (e.kind === 'set') real = clamp(v, 0, max);
+      }
+      const dt = 1 / R;
+      cur += (real - cur) * Math.min(1, dt * 18);           // the bar snaps quickly
+      if (real >= tr) tr = cur;                              // healing: the trail follows the bar
+      else if (hold > 0) hold -= dt; else tr += (real - tr) * Math.min(1, dt * S.hp.drain); // damage: the trail waits, then drains
+      hp[i] = real; shown[i] = cur; trail[i] = tr;
+    }
+    return { hp, shown, trail };
+  };
+  const mp = new Float32Array(n), mps = new Float32Array(n);
+  let rmp = clamp(S.mp.start, 0, S.mp.max), curm = rmp, k = 0;
+  for (let i = 0; i < n; i++) {
+    while (k < ev.length && ev[k].t <= i / R) { const e = ev[k++], v = Math.abs(Number(e.v) || 0); if (e.kind === 'mana-') rmp = clamp(rmp - v, 0, S.mp.max); else if (e.kind === 'mana+') rmp = clamp(rmp + v, 0, S.mp.max); }
+    curm += (rmp - curm) * Math.min(1, 10 / R); mp[i] = rmp; mps[i] = curm;
+  }
+  const h = track('hero', S.hp.max, S.hp.start), b = track('boss', S.boss.max, S.boss.start);
+  SIM = { R, hp: h.hp, shown: h.shown, trail: h.trail, mp: mps, ev, boss: b };
+  return SIM;
+}
+function clamp (v, a, b) { return Math.max(a, Math.min(b, v)); }
+function at (arr, tt) { const s = sim(); const i = clamp(Math.round(tt * s.R), 0, arr.length - 1); return arr[i]; }
+function invalidate () { SIM = null; dirty = true; save(); draw_marks(); }
+
+/* ---------------- drawing ---------------- */
+function rr (c, X, Y, w, h, r) { r = Math.min(r, w / 2, h / 2); c.beginPath(); c.moveTo(X + r, Y); c.arcTo(X + w, Y, X + w, Y + h, r); c.arcTo(X + w, Y + h, X, Y + h, r); c.arcTo(X, Y + h, X, Y, r); c.arcTo(X, Y, X + w, Y, r); c.closePath(); }
+function layout () {
+  const u = W / 1080 * S.hud.scale; const ox = S.hud.x * W, oy = S.hud.y * H;
+  const bw = 560 * u * S.hp.w, bh = 46 * u * S.hp.h, dy = bh - 46 * u, bx = ox + 200 * u;
+  const L = { u, ox, oy, flip: S.hud.flip, av: { x: ox, y: oy, s: 180 * u }, name: { x: bx, y: oy + 34 * u }, hp: { x: bx, y: oy + 58 * u, w: bw, h: bh, round: S.hp.round }, mp: { x: bx, y: oy + 116 * u + dy, w: 480 * u * S.hp.w, h: 26 * u, round: S.hp.round }, frame: { x: bx - 40 * u, y: oy + 28 * u, w: 640 * u * S.hp.w, h: 150 * u + dy }, panel: { x: ox - 20 * u, y: oy - 20 * u, w: 220 * u + 600 * u * S.hp.w, h: 220 * u + dy } };
+  if (L.flip) { // avatar on the right, bars grow from the right edge of the avatar to the left
+    const span = 200 * u + bw, m = r => { r.x = ox + span - (r.x - ox) - (r.w || r.s || 0); };
+    [L.av, L.hp, L.mp, L.frame, L.panel].forEach(m); L.name.x = ox + span - (L.name.x - ox);
+  }
+  L.w = 200 * u + bw; L.h = Math.max(180 * u, 150 * u + dy);
+  return L;
+}
+function draw_bar (c, b, frac, trail, col1, col2, back, fill, label, rtl, trailCol) {
+  const r = b.h / 2 * (b.round === undefined ? 1 : b.round);
+  c.save(); rr(c, b.x, b.y, b.w, b.h, r); c.fillStyle = back; c.fill(); c.clip();
+  if (rtl) { c.translate(b.x * 2 + b.w, 0); c.scale(-1, 1); } // bar drains toward the avatar on the right
+  if (trail !== null && trail > frac) { c.fillStyle = trailCol || S.hp.trail; c.fillRect(b.x, b.y, b.w * trail, b.h); }
+  if (fill) { const p = c.createPattern(fill, 'repeat-x'); const sc = b.h / fill.height; p.setTransform(new DOMMatrix().translate(b.x, b.y).scale(sc)); c.fillStyle = p; }
+  else { const g = c.createLinearGradient(0, b.y, 0, b.y + b.h); g.addColorStop(0, col1); g.addColorStop(1, col2); c.fillStyle = g; }
+  c.fillRect(b.x, b.y, b.w * Math.max(0, frac), b.h);
+  const gl = c.createLinearGradient(0, b.y, 0, b.y + b.h); gl.addColorStop(0, 'rgba(255,255,255,.35)'); gl.addColorStop(.5, 'rgba(255,255,255,0)'); c.fillStyle = gl; c.fillRect(b.x, b.y, b.w, b.h * 0.5);
+  c.restore();
+  c.save(); rr(c, b.x, b.y, b.w, b.h, r); c.lineWidth = Math.max(2, b.h * 0.08); c.strokeStyle = 'rgba(0,0,0,.65)'; c.stroke(); c.restore();
+  if (label) { c.save(); c.font = `800 ${Math.round(b.h * 0.56)}px system-ui,sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineWidth = b.h * 0.12; c.strokeStyle = 'rgba(0,0,0,.8)'; c.strokeText(label, b.x + b.w / 2, b.y + b.h / 2 + 1); c.fillStyle = '#fff'; c.fillText(label, b.x + b.w / 2, b.y + b.h / 2 + 1); c.restore(); }
+}
+function paint (c, tt, bg) {
+  c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.clearRect(0, 0, W, H);
+  if (bg === 'green') { c.fillStyle = '#00ff00'; c.fillRect(0, 0, W, H); } else if (bg === 'black') { c.fillStyle = '#000'; c.fillRect(0, 0, W, H); }
+  if (S.page === 'fx') { paint_fx(c, tt, bg === 'clear' && busy); paint_trans(c, tt); paint_vig(c, tt); return; }
+  if (S.page === 'count') { paint_count(c, tt); paint_vig(c, tt); return; }
+  if (S.page === 'end') { paint_end(c, tt); return; }
+  if (S.boss.on) paint_boss(c, tt);
+  if (S.hud.on) paint_hero(c, tt);
+  if (S.logo.on && IMG.logo) { const lw = S.logo.w * W, lh = lw * IMG.logo.height / IMG.logo.width; c.drawImage(IMG.logo, S.logo.x * W - lw / 2, S.logo.y * H - lh / 2, lw, lh); }
+  paint_vig(c, tt);
+}
+/* ---- 🏁 end card ---- */
+const EC_SLOTS = [
+  ['ecIcon', 'App icon', 'App icon', 1024, 1024, 'PNG vuông (tool tự bo góc)', 'square PNG (corners rounded here)'],
+  ['ecLogo', 'Logo game', 'Game logo', 1200, 600, 'PNG trong suốt', 'transparent PNG'],
+  ['ecBg', 'Ảnh nền cả khung (tuỳ chọn)', 'Full-frame background (optional)', 1080, 1920, 'JPG / PNG — làm mờ phía sau', 'JPG / PNG — blurred behind']
+];
+const ec_imgs = () => ({ icon: IMG.ecIcon, logo: IMG.ecLogo });
+/** when each part pops (s) */
+function ec_times () { const c = S.ec.layer, t1 = c.start + c.grow, o = { card: c.start }; GBEC.layout(c, W, H, ec_imgs()).list.forEach((b, i) => { o[b.p] = t1 + c.stagger * i; }); return o; }
+const ec_len = () => +(Math.max(...Object.values(ec_times())) + 0.5 + S.ec.hold).toFixed(2);
+function paint_end (c, tt) {
+  const E = S.ec, L = E.layer; if (!L || tt < L.start) return;
+  const fade = clamp((tt - L.start) / Math.max(0.01, L.grow), 0, 1);
+  // behind: the game (picture or the source video) blurred, or a sharp picture, or nothing
+  c.save(); c.globalAlpha = fade;
+  if (E.back === 'blur') {
+    if (IMG.ecBg) { const f = Math.max(2, E.blur / 2), w = Math.round(W / f), h = Math.round(H / f); fx_tmp.width = w; fx_tmp.height = h; const [dx, dy, dw, dh] = cover(IMG.ecBg, IMG.ecBg.width, IMG.ecBg.height); fx_tmp.getContext('2d').drawImage(IMG.ecBg, dx / f, dy / f, dw / f, dh / f); c.imageSmoothingQuality = 'high'; if (FILTER_OK) c.filter = `blur(${Math.round(E.blur / 3)}px)`; c.drawImage(fx_tmp, 0, 0, W, H); c.filter = 'none'; }
+    else blur_vid(c, E.blur * 1.5);
+  } else if (E.back === 'image' && IMG.ecBg) { const [dx, dy, dw, dh] = cover(IMG.ecBg, IMG.ecBg.width, IMG.ecBg.height); c.drawImage(IMG.ecBg, dx, dy, dw, dh); }
+  if (E.dim > 0) { c.globalAlpha = fade * E.dim; c.fillStyle = E.bgColor; c.fillRect(0, 0, W, H); }
+  c.restore();
+  GBEC.paint(c, W, H, tt, L, ec_imgs(), { guides: !busy && c === x });
+}
+function boss_rect () { const w = S.boss.w * W, h = S.boss.h * W / 1080; return { x: S.boss.x * W - w / 2, y: S.boss.y * H, w, h, round: S.boss.round }; }
+const LAYER_COL = ['#ff3d6e', '#ff9a3d', '#ffd34d', '#5dff8a', '#4da6ff', '#b36bff'];
+function paint_boss (c, tt) {
+  const s = sim().boss, B = S.boss, b = boss_rect(), k = W / 1080;
+  const real = at(s.hp, tt), shown = at(s.shown, tt), trail = at(s.trail, tt);
+  const hits = sim().ev.filter(e => e.who === 'boss' && e.kind === 'dmg' && e.t <= tt), lh = hits[hits.length - 1], since = lh ? tt - lh.t : 9;
+  const shake = S.hud.shake && since < 0.3 ? Math.sin(since * 80) * (1 - since / 0.3) * 6 * k : 0;
+  c.save(); c.translate(shake, 0);
+  // N layers ("x3"): every layer is a full bar; the colour under it is the next layer
+  const n = Math.max(1, B.layers | 0), per = B.max / n;
+  const li = Math.min(n - 1, Math.floor(Math.max(0, shown - 0.001) / per)), lf = (shown - li * per) / per, tf = clamp((trail - li * per) / per, 0, 1);
+  const col = n > 1 ? LAYER_COL[li % LAYER_COL.length] : B.c1, under = n > 1 && li > 0 ? LAYER_COL[(li - 1) % LAYER_COL.length] : B.back;
+  // name + layer count above the bar
+  c.font = `900 ${Math.round(b.h * 0.62)}px system-ui,sans-serif`; c.textBaseline = 'alphabetic'; c.lineWidth = b.h * 0.14; c.strokeStyle = 'rgba(0,0,0,.8)';
+  c.textAlign = 'center'; c.strokeText(B.name, b.x + b.w / 2, b.y - b.h * 0.25); c.fillStyle = '#fff'; c.fillText(B.name, b.x + b.w / 2, b.y - b.h * 0.25);
+  if (n > 1) { c.textAlign = 'right'; const lt = 'x' + (li + 1); c.strokeText(lt, b.x + b.w, b.y - b.h * 0.25); c.fillStyle = col; c.fillText(lt, b.x + b.w, b.y - b.h * 0.25); }
+  const label = B.numbers ? `${Math.round(shown)} / ${B.max}` : B.pct ? Math.max(0, Math.ceil(shown / B.max * 100)) + '%' : '';
+  const g2 = n > 1 ? col : B.c2;
+  draw_bar(c, b, lf, tf > lf ? tf : null, n > 1 ? col : B.c1, g2, under, IMG.bossFill, label, false, B.trail);
+  if (B.edge) { c.save(); rr(c, b.x - 3 * k, b.y - 3 * k, b.w + 6 * k, b.h + 6 * k, (b.h / 2 + 3 * k) * B.round); c.lineWidth = 3 * k; c.strokeStyle = B.edge; c.stroke(); c.restore(); }
+  if (since < 0.15) { c.save(); rr(c, b.x, b.y, b.w, b.h, b.h / 2 * B.round); c.fillStyle = `rgba(255,255,255,${0.5 * (1 - since / 0.15)})`; c.fill(); c.restore(); }
+  if (IMG.bossFrame) c.drawImage(IMG.bossFrame, b.x - b.w * 0.04, b.y - b.h * 0.9, b.w * 1.08, b.h * 2.4);
+  if (S.hud.popups) for (const e of sim().ev) {
+    if (e.who !== 'boss' || !['dmg', 'heal'].includes(e.kind)) continue; const a = tt - e.t; if (a < 0 || a > 0.9) continue;
+    const fx = b.x + b.w * clamp(at(s.hp, e.t + 0.01) / B.max, 0.05, 0.95), fy = b.y + b.h * 2 + a * 70 * k;
+    c.save(); c.globalAlpha = a < 0.6 ? 1 : 1 - (a - 0.6) / 0.3; const sz = (40 + 18 * Math.max(0, 1 - a * 6)) * k;
+    c.font = `900 ${sz}px system-ui,sans-serif`; c.textAlign = 'center'; c.lineWidth = sz * 0.14; c.strokeStyle = 'rgba(0,0,0,.85)';
+    const txt = (e.kind === 'dmg' ? '-' : '+') + Math.abs(e.v); c.strokeText(txt, fx, fy); c.fillStyle = e.kind === 'dmg' ? '#ffd34d' : '#5dff8a'; c.fillText(txt, fx, fy); c.restore();
+  }
+  c.restore();
+}
+/* countdown: the number shown at time tt (null before it starts) */
+function cd_value (tt) {
+  const C = S.cd, a = tt - C.start; if (a < 0) return null;
+  const down = C.from >= C.to, span = Math.abs(C.from - C.to);
+  if (a >= span) return { end: true, a: a - span, v: C.to };
+  const v = down ? C.from - a : C.from + a; return { end: false, a, v, frac: a / Math.max(1e-6, span) };
+}
+function cd_text (v) {
+  const C = S.cd, down = C.from >= C.to;
+  if (C.format === 'hms' || (C.format === 'auto' && Math.max(C.from, C.to) >= 3600)) { const s = Math.max(0, down ? Math.ceil(v - 1e-6) : Math.floor(v)); return Math.floor(s / 3600) + ':' + String(Math.floor(s / 60) % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+  if (C.format === 'auto' && Math.max(C.from, C.to) < 60) return String(Math.max(0, down ? Math.ceil(v - 1e-6) : Math.floor(v)));
+  if (C.format === 'mmss' || C.format === 'auto') { const s = Math.max(0, down ? Math.ceil(v - 1e-6) : Math.floor(v)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+  if (C.format === 'dec') return Math.max(0, v).toFixed(1);
+  if (C.format === 'dec2') return Math.max(0, v).toFixed(2);
+  return String(Math.max(0, down ? Math.ceil(v - 1e-6) : Math.floor(v)));
+}
+function paint_count (c, tt) {
+  const C = S.cd, r = cd_value(tt); if (!r) return;
+  const k = W / 1080, X = C.x * W, Y = C.y * H;
+  if (r.end && r.a > C.endHold) return;
+  let txt = r.end ? (C.end || cd_text(C.to)) : cd_text(r.v), sc = 1, alpha = 1;
+  if (C.pop) {
+    const whole = C.format === 's' || C.format === 'mmss' || C.format === 'hms' || C.format === 'auto';
+    const ph = r.end ? r.a : whole ? (Math.abs(C.from - r.v) % 1) : 0.5; // time since the number changed
+    sc = 1 + 0.35 * Math.max(0, 1 - ph / 0.18) - (whole ? 0.08 * Math.max(0, (ph - 0.7) / 0.3) : 0);
+    if (r.end) alpha = r.a > C.endHold - 0.25 ? Math.max(0, (C.endHold - r.a) / 0.25) : 1;
+  }
+  const warn = !r.end && C.warn > 0 && Math.abs(r.v - C.to) <= C.warn;
+  let size = C.size * k * (r.end ? 0.75 : 1);
+  // long clocks (59:59, 1:00:00) shrink to fit the frame width
+  x.save(); x.font = `${C.font} ${Math.round(size)}px system-ui,"Chakra Petch",sans-serif`; const tw = x.measureText(txt).width; x.restore(); if (tw > W * 0.92) size *= W * 0.92 / tw;
+  if (C.ring) {
+    const R = C.size * k * 0.62, f = r.end ? 1 : r.frac;
+    c.save(); c.globalAlpha = alpha; c.lineCap = 'round';
+    c.lineWidth = R * 0.12; c.strokeStyle = 'rgba(0,0,0,.45)'; c.beginPath(); c.arc(X, Y, R, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = warn ? C.warnColor : C.ringColor; c.beginPath(); c.arc(X, Y, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - f)); c.stroke(); c.restore();
+  }
+  c.save(); c.globalAlpha = alpha; c.translate(X, Y); c.scale(sc, sc);
+  c.font = `${C.font} ${Math.round(size)}px system-ui,"Chakra Petch",sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  if (C.glow) { c.shadowColor = warn ? C.warnColor : C.glow; c.shadowBlur = size * 0.12; }
+  if (C.sw > 0) { c.lineJoin = 'round'; c.lineWidth = C.sw * k * 2; c.strokeStyle = C.stroke; c.strokeText(txt, 0, size * 0.04); }
+  c.shadowBlur = 0; c.fillStyle = warn ? C.warnColor : C.color; c.fillText(txt, 0, size * 0.04);
+  c.restore();
+}
+function paint_hero (c, tt) {
+  const s = sim(), Lo = layout(), u = Lo.u;
+  // shake + flash after the last hit
+  const hits = s.ev.filter(e => (e.who || 'hero') === 'hero' && e.kind === 'dmg' && e.t <= tt); const lh = hits[hits.length - 1]; const since = lh ? tt - lh.t : 9;
+  const shake = S.hud.shake && since < 0.35 ? Math.sin(since * 70) * (1 - since / 0.35) * 10 * u : 0;
+  c.save(); c.translate(shake, shake * 0.4);
+  if (IMG.panel) c.drawImage(IMG.panel, Lo.panel.x, Lo.panel.y, Lo.panel.w, Lo.panel.h);
+  // avatar
+  const A = Lo.av; c.save();
+  if (S.hero.shape === 'circle') { c.beginPath(); c.arc(A.x + A.s / 2, A.y + A.s / 2, A.s / 2, 0, Math.PI * 2); } else if (S.hero.shape === 'hex') { c.beginPath(); for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + i * Math.PI / 3; c.lineTo(A.x + A.s / 2 + Math.cos(a) * A.s / 2, A.y + A.s / 2 + Math.sin(a) * A.s / 2); } c.closePath(); } else rr(c, A.x, A.y, A.s, A.s, A.s * 0.16);
+  c.fillStyle = '#1b2536'; c.fill(); c.clip();
+  if (IMG.avatar) { const im = IMG.avatar, k = Math.max(A.s / im.width, A.s / im.height); c.drawImage(im, A.x + (A.s - im.width * k) / 2, A.y + (A.s - im.height * k) / 2, im.width * k, im.height * k); } else { c.fillStyle = '#3a4a66'; c.font = `700 ${A.s * 0.42}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText((S.hero.name || '?')[0], A.x + A.s / 2, A.y + A.s / 2); }
+  if (since < 0.25) { c.fillStyle = `rgba(255,40,40,${0.45 * (1 - since / 0.25)})`; c.fillRect(A.x, A.y, A.s, A.s); }
+  c.restore();
+  if (IMG.avatarFrame) { const f = 224 * u; c.drawImage(IMG.avatarFrame, A.x + A.s / 2 - f / 2, A.y + A.s / 2 - f / 2, f, f); }
+  else { c.save(); c.lineWidth = 8 * u; c.strokeStyle = S.hero.ring; if (S.hero.shape === 'circle') { c.beginPath(); c.arc(A.x + A.s / 2, A.y + A.s / 2, A.s / 2, 0, Math.PI * 2); c.stroke(); } else if (S.hero.shape === 'hex') { c.beginPath(); for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + i * Math.PI / 3; c.lineTo(A.x + A.s / 2 + Math.cos(a) * A.s / 2, A.y + A.s / 2 + Math.sin(a) * A.s / 2); } c.closePath(); c.stroke(); } else { rr(c, A.x, A.y, A.s, A.s, A.s * 0.16); c.stroke(); } c.restore(); }
+  if (S.hero.showLevel) { const r = 30 * u, lx = A.x + A.s * 0.84, ly = A.y + A.s * 0.84; c.beginPath(); c.arc(lx, ly, r, 0, Math.PI * 2); c.fillStyle = '#111a2b'; c.fill(); c.lineWidth = 4 * u; c.strokeStyle = S.hero.ring; c.stroke(); c.fillStyle = '#fff'; c.font = `800 ${26 * u}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(S.hero.level), lx, ly + 1); }
+  // name
+  c.font = `800 ${38 * u}px system-ui,sans-serif`; c.textBaseline = 'alphabetic'; c.textAlign = Lo.flip ? 'right' : 'left'; c.lineWidth = 6 * u; c.strokeStyle = 'rgba(0,0,0,.75)'; c.strokeText(S.hero.name, Lo.name.x, Lo.name.y); c.fillStyle = '#fff'; c.fillText(S.hero.name, Lo.name.x, Lo.name.y);
+  // bars
+  if (S.hp.on) {
+    const shown = at(s.shown, tt) / S.hp.max, trail = at(s.trail, tt) / S.hp.max, real = at(s.hp, tt);
+    const low = S.hud.lowPulse && real / S.hp.max < 0.25 && real > 0 ? 0.5 + 0.5 * Math.sin(tt * 12) : 0;
+    draw_bar(c, Lo.hp, shown, trail, S.hp.c1, S.hp.c2, S.hp.back, IMG.hpFill, S.hp.numbers ? `${Math.round(at(s.shown, tt))} / ${S.hp.max}` : '', Lo.flip);
+    if (since < 0.18) { c.save(); rr(c, Lo.hp.x, Lo.hp.y, Lo.hp.w, Lo.hp.h, Lo.hp.h / 2 * S.hp.round); c.fillStyle = `rgba(255,255,255,${0.55 * (1 - since / 0.18)})`; c.fill(); c.restore(); }
+    if (low > 0) { c.save(); rr(c, Lo.hp.x - 4 * u, Lo.hp.y - 4 * u, Lo.hp.w + 8 * u, Lo.hp.h + 8 * u, Lo.hp.h); c.lineWidth = 5 * u; c.strokeStyle = `rgba(255,40,40,${0.8 * low})`; c.stroke(); c.restore(); }
+  }
+  if (S.mp.on) draw_bar(c, Lo.mp, at(s.mp, tt) / S.mp.max, null, S.mp.c1, S.mp.c2, '#0b1730', IMG.mpFill, S.mp.numbers ? `${Math.round(at(s.mp, tt))} / ${S.mp.max}` : '', Lo.flip);
+  if (IMG.barFrame) c.drawImage(IMG.barFrame, Lo.frame.x, Lo.frame.y, Lo.frame.w, Lo.frame.h);
+  // floating numbers
+  if (S.hud.popups) for (const e of s.ev) {
+    const a = tt - e.t; if (a < 0 || a > 0.9 || !['dmg', 'heal'].includes(e.kind) || (e.who || 'hero') !== 'hero') continue;
+    const fr = at(s.hp, e.t + 0.01) / S.hp.max, fx = Lo.flip ? Lo.hp.x + Lo.hp.w * (1 - fr) - 120 * u : Lo.hp.x + Lo.hp.w * fr + 30 * u, fy = Lo.hp.y - 10 * u - a * 90 * u;
+    c.save(); c.globalAlpha = a < 0.6 ? 1 : 1 - (a - 0.6) / 0.3; const sz = (44 + 20 * Math.max(0, 1 - a * 6)) * u;
+    c.font = `900 ${sz}px system-ui,sans-serif`; c.textAlign = 'left'; c.lineWidth = sz * 0.14; c.strokeStyle = 'rgba(0,0,0,.85)';
+    const txt = (e.kind === 'dmg' ? '-' : '+') + Math.abs(e.v); c.strokeText(txt, fx, fy); c.fillStyle = e.kind === 'dmg' ? '#ff4040' : '#5dff8a'; c.fillText(txt, fx, fy); c.restore();
+  }
+  c.restore();
+}
+
+/* ---------------- preview loop ---------------- */
+function resize () { [W, H] = SIZES[S.size] || SIZES['1080x1920']; cv.width = W; cv.height = H; dirty = true; }
+function loop (now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (playing) {
+    if (vid.src && (!vid.paused || vid.ended)) {
+      t = vid_off + vid.currentTime;
+      // end of one clip: go on with the next one
+      if ((vid.ended || vid.currentTime >= clip_len(vid) - 0.03) && vid_off + clip_len(vid) < clips_total() - 0.05) { t = vid_off + clip_len(vid) + 0.001; goto(t); }
+    } else t += dt;
+    if (t >= S.dur) { t = 0; goto(0); }
+    dirty = true;
+  }
+  if (S.page === 'fx' && playing) dirty = true;
+  for (const v of CLIPS) v.style.visibility = S.page === 'fx' || v !== vid ? 'hidden' : '';
+  if (dirty) {
+    if (!playing && S.page === 'fx') Object.values(FXV).forEach(v => { if (v.tagName === 'VIDEO' && v.paused && isFinite(v.duration) && v.duration > 0) { const m = S.fx.masks.find(q => FXV[q.id] === v); const want = (((t - ((m && m.t0) || 0)) % v.duration) + v.duration) % v.duration; if (Math.abs(v.currentTime - want) > 0.05) v.currentTime = want; } });
+    paint(x, t, S.bg === 'clear' ? 'clear' : S.bg); draw_head();
+    $('seek').value = String(Math.round(t / S.dur * 1000)); $('time').textContent = t.toFixed(2) + ' / ' + S.dur.toFixed(1) + ' s';
+    dirty = false;
+  }
+  requestAnimationFrame(loop);
+}
+function set_play (on) { playing = on; $('play').textContent = on ? '⏸' : '▶'; if (vid.src) { if (on) vid.play().catch(() => {}); else vid.pause(); } Object.values(FXV).forEach(v => { if (v.tagName === 'VIDEO') { if (on) v.play().catch(() => {}); else v.pause(); } }); }
+vid0.addEventListener('seeked', () => { dirty = true; }); vid0.addEventListener('loadeddata', () => { dirty = true; });
+$('play').onclick = () => set_play(!playing);
+$('seek').oninput = e => { t = Number(e.target.value) / 1000 * S.dur; goto(t); dirty = true; };
+/* the clip strip above the timeline: each video as a block, transitions drawn on top (purple) */
+const CLIP_COL = ['#2a6fdb', '#1f9e6e', '#b0562a', '#8a3bd1', '#c2337a', '#2a9bb0'];
+function draw_clips () {
+  const box = $('clips'), L = clip_list();
+  if (S.page !== 'fx' || !L.length) { box.innerHTML = ''; return; }
+  const D = Math.max(S.dur, 0.01); let off = 0, h = '';
+  L.forEach((v, i) => { const d = clip_len(v); const w = Math.max(0, Math.min(d, D - off)) / D * 100; h += `<div class="cl${v === vid ? ' on' : ''}" data-clip="${i}" style="width:${w}%;background:${CLIP_COL[i % CLIP_COL.length]}" title="${v.dataset.name || ''}"><b>${i + 1}. ${v.dataset.name || T('Video', 'Video', '영상')}</b><em>${d.toFixed(1)}s</em></div>`; off += d; });
+  h += `<div class="add" data-clipadd="1" title="${T('Nối thêm video vào sau (hoặc kéo thả video vào đây)', 'Join another video after it (or drop a video here)', '영상 이어 붙이기')}">＋ ${T('Video', 'Video', '영상')}</div>`;
+  for (const tr of S.fx.trans || []) h += `<div class="tj" style="left:${clamp((tr.t - tr.dur / 2) / D, 0, 1) * 100}%;width:${tr.dur / D * 100}%">${(TRANS.find(q => q[0] === tr.kind) || [])[1] || ''}</div>`;
+  h += '<div class="ph" id="clipph"></div>';
+  box.innerHTML = h;
+  box.querySelectorAll('[data-clip]').forEach(el => { el.onclick = e => { const r = el.getBoundingClientRect(), c = clip_list()[+el.dataset.clip]; let o = 0; for (const v of clip_list()) { if (v === c) break; o += clip_len(v); } t = clamp(o + (e.clientX - r.left) / r.width * clip_len(c), 0, S.dur); goto(t); dirty = true; draw_clips(); }; });
+  box.querySelector('[data-clipadd]').onclick = () => $('fVid2').click();
+  draw_head();
+}
+function draw_head () { const ph = $('clipph'); if (ph) ph.style.left = clamp(t / Math.max(S.dur, 0.01), 0, 1) * 100 + '%'; const on = clip_list().indexOf(vid); $('clips').querySelectorAll('[data-clip]').forEach(el => el.classList.toggle('on', +el.dataset.clip === on)); }
+/** add one more video after the others; a transition goes on the new join */
+function clip_add (file) {
+  if (!vid0.src) { vid0.src = URL.createObjectURL(file); vid0.dataset.name = file.name; vid0.style.opacity = '0.6'; vid0.onloadedmetadata = () => { S.dur = Math.round(clips_total() * 100) / 100; invalidate(); render(); }; return; }
+  const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.dataset.name = file.name; v.style.opacity = vid0.style.opacity; v.style.visibility = 'hidden';
+  v.addEventListener('seeked', () => { dirty = true; }); v.addEventListener('loadeddata', () => { dirty = true; });
+  const join = clips_total();
+  v.onloadedmetadata = () => {
+    S.dur = Math.round(clips_total() * 100) / 100;
+    S.fx.trans = S.fx.trans || []; if (!S.fx.trans.some(q => Math.abs(q.t - join) < 0.3)) { S.fx.trans.push({ id: 't' + Date.now().toString(36), kind: 'whip', t: Math.round(join * 100) / 100, dur: 0.6 }); S.fx.trans.sort((p, q) => p.t - q.t); }
+    S.fx.open = S.fx.open || {}; S.fx.open.trans = true; invalidate(); render();
+    msg(T(`Đã nối video ${clip_list().length} ở giây ${join.toFixed(2)} + thêm chuyển cảnh ở chỗ nối (đổi kiểu trong danh sách).`, `Joined video ${clip_list().length} at ${join.toFixed(2)} s, with a transition on the join (change its style in the list).`, `${join.toFixed(2)}초에 영상 연결 + 전환 추가`));
+  };
+  v.src = URL.createObjectURL(file); $('wrap').insertBefore(v, cv); CLIPS.push(v);
+}
+function clip_del (i) { const v = clip_list()[i]; if (!v) return; if (v === vid0) { for (const q of CLIPS.splice(1)) { q.pause(); q.remove(); } vid0.removeAttribute('src'); vid0.load(); } else { v.pause(); v.remove(); CLIPS.splice(CLIPS.indexOf(v), 1); } vid = vid0; vid_off = 0; if (clips_total() > 0) S.dur = Math.round(clips_total() * 100) / 100; invalidate(); render(); }
+$('clips').addEventListener('dragover', e => { e.preventDefault(); $('clips').classList.add('drop'); });
+$('clips').addEventListener('dragleave', () => $('clips').classList.remove('drop'));
+$('clips').addEventListener('drop', e => { e.preventDefault(); $('clips').classList.remove('drop'); for (const f of e.dataTransfer.files) if (f.type.startsWith('video/')) clip_add(f); });
+function draw_marks () {
+  draw_clips();
+  if (S.page === 'end') { const T0 = ec_times(); $('marks').innerHTML = Object.entries(T0).map(([n, v]) => `<i style="left:${clamp(v / S.dur, 0, 1) * 100}%;background:${n === 'card' ? '#F50359' : '#ffb020'}" title="${v.toFixed(2)}s ${n}"></i>`).join(''); return; }
+  if (S.page === 'fx') { $('marks').innerHTML = [...(S.fx.trans || []).map(tr => `<i style="left:${clamp(tr.t / S.dur, 0, 1) * 100}%;background:#b07cff" title="${tr.t}s ${tr.kind}"></i>`), ...(S.fx.vig.on ? (S.fx.vig.hits || []).map(h => `<i style="left:${clamp(h / S.dur, 0, 1) * 100}%;background:#ff3d3d" title="${h}s hit"></i>`) : [])].join(''); return; }
+  $('marks').innerHTML = S.page === 'count' ? '' : S.events.map(e => `<i style="left:${clamp(e.t / S.dur, 0, 1) * 100}%;background:${e.who === 'boss' ? '#ffd34d' : e.kind === 'dmg' ? '#ff5d5d' : e.kind === 'heal' ? '#5dff8a' : '#4da6ff'}" title="${e.t}s ${e.kind} ${e.v}"></i>`).join('');
+}
+// drag the HUD (or the logo) on the preview
+let drag = null;
+cv.addEventListener('pointerdown', e => {
+  if (S.page === 'fx') { fx_down(e); return; }
+  const r = cv.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+  const X = px * W, Y = py * H, b = boss_rect();
+  let what = 'hud';
+  if (S.page === 'count') what = 'cd';
+  else if (S.page === 'end') { const L = S.ec.layer, part = GBEC.hit(L, W, H, X, Y, ec_imgs()); if (part) { L.sel = part; const e2 = L.el[part]; drag = { what: 'ecpart', part, px, py, ox: e2.dx, oy: e2.dy }; cv.setPointerCapture(e.pointerId); render(); return; } what = 'ec'; }
+  else if (S.logo.on && IMG.logo && Math.abs(px - S.logo.x) < S.logo.w / 2 && Math.abs(py - S.logo.y) < 0.06) what = 'logo';
+  else if (S.boss.on && X > b.x - 20 && X < b.x + b.w + 20 && Y > b.y - b.h * 1.2 && Y < b.y + b.h * 1.6) what = 'boss';
+  else if (!S.hud.on && S.boss.on) what = 'boss';
+  const o = { logo: S.logo, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec.layer }[what];
+  drag = { what, px, py, ox: o.x, oy: o.y }; cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', e => {
+  if (S.page === 'fx') { fx_move(e); return; }
+  if (!drag) return; const r = cv.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+  if (drag.what === 'ecpart') { const e2 = S.ec.layer.el[drag.part], k = Math.min(W, H) / 1080; let ddx = (px - drag.px) * W / k, ddy = (py - drag.py) * H / k; if (e.shiftKey) { if (Math.abs(ddx) > Math.abs(ddy)) ddy = 0; else ddx = 0; } /* Shift: one axis, like After Effects */ let dx = drag.ox + ddx, dy = drag.oy + ddy; if (!e.altKey && Math.abs(dx) < 8) dx = 0; e2.dx = Math.round(dx); e2.dy = Math.round(dy); dirty = true; return; } // snaps to the centre line (Alt = free)
+  const o = { logo: S.logo, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec.layer }[drag.what];
+  let mx = px - drag.px, my = py - drag.py; if (e.shiftKey) { if (Math.abs(mx * W) > Math.abs(my * H)) my = 0; else mx = 0; } // Shift: one axis
+  let nx = clamp(drag.ox + mx, -0.2, 1.1), ny = clamp(drag.oy + my, -0.2, 1.1);
+  if (!e.altKey && (drag.what === 'cd' || drag.what === 'boss' || drag.what === 'ec')) { if (Math.abs(nx - 0.5) < 0.012) nx = 0.5; if ((drag.what === 'cd' || drag.what === 'ec') && Math.abs(ny - 0.5) < 0.012) ny = 0.5; } // snap to centre (Alt = free)
+  o.x = nx; o.y = ny; dirty = true;
+});
+cv.addEventListener('pointerup', () => { if (S.page === 'fx') { fx_up(); return; } if (drag) { drag = null; save(); render(); } });
+// drop a picture / video on a frame of the FX page (or on the preview: the selected frame, or a new one)
+cv.addEventListener('dragover', e => e.preventDefault());
+cv.addEventListener('drop', e => {
+  e.preventDefault(); const f = e.dataTransfer && e.dataTransfer.files[0]; if (!f || S.page !== 'fx') return;
+  const r = cv.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+  h_begin(); let m = [...S.fx.masks].reverse().find(q => q.type === 'media' && Math.abs(px - fx_pos(q, t).x) <= q.w / 2 && Math.abs(py - fx_pos(q, t).y) <= q.h / 2);
+  if (!m) { m = fx_add('media', 'rounded'); m.x = px; m.y = py; }
+  fx_media_set('fxm_' + m.id, f, true); S.fx.sel = m.id; save(); render(); h_soon();
+});
+/* nudge with the arrow keys: what was dragged last (or the countdown / HUD) moves 1 px, Shift = 10 px */
+function nudge (dx, dy) { const w = drag_last(); if (w === 'ec' && S.ec.layer.sel) { const e2 = S.ec.layer.el[S.ec.layer.sel]; e2.dx += dx; e2.dy += dy; dirty = true; save(); return; } const o = { logo: S.logo, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec }[w]; o.x += dx / W; o.y += dy / H; dirty = true; save(); }
+let last_drag = null; const drag_last = () => S.page === 'count' ? 'cd' : S.page === 'end' ? 'ec' : (last_drag || 'hud');
+cv.addEventListener('pointerdown', () => { if (drag) last_drag = drag.what; });
+/* snap presets for the selected element */
+function place (where) {
+  const w = drag_last(), o = { logo: S.logo, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec.layer }[w];
+  const m = 0.04, L = layout(), hw = L.w / W, hh = L.h / H, centred = w !== 'hud';
+  if (w === 'ec') { const LL = GBEC.layout(S.ec.layer, W, H, ec_imgs()), E = { cw: S.ec.layer.w * Math.min(W, H), ch: LL.total }, ew = E.cw / W / 2, eh = E.ch / H / 2; o.x = where[1] === 'l' ? m + ew : where[1] === 'r' ? 1 - m - ew : 0.5; o.y = where[0] === 't' ? m + eh : where[0] === 'b' ? 1 - m - eh : 0.5; dirty = true; save(); render(); return; }
+  const P = { tl: [m, m], tc: [0.5, m], tr: [1 - m, m], ml: [m, 0.5], mc: [0.5, 0.5], mr: [1 - m, 0.5], bl: [m, 1 - m], bc: [0.5, 1 - m], br: [1 - m, 1 - m] }[where];
+  if (!P) return; let [px, py] = P;
+  if (!centred) { px = where[1] === 'l' ? m : where[1] === 'r' ? 1 - m - hw : 0.5 - hw / 2; py = where[0] === 't' ? m : where[0] === 'b' ? 1 - m - hh : 0.5 - hh / 2; }
+  else if (w === 'boss') { py = where[0] === 't' ? 0.07 : where[0] === 'b' ? 0.9 : 0.5; px = 0.5; }
+  o.x = px; o.y = py; dirty = true; save(); render();
+}
+// record hits live: H = hit, J = heal, M = mana while the preview plays
+/* ---------------- undo / redo: Ctrl+Z / Cmd+Z, Ctrl+Shift+Z / Cmd+Shift+Z (Ctrl+Y also redoes) ---------------- */
+const HIST = { undo: [], redo: [], pending: null, timer: 0 };
+const snap = () => JSON.stringify(S);
+function h_begin () { if (HIST.pending === null) HIST.pending = snap(); }
+function h_commit () {
+  clearTimeout(HIST.timer); if (HIST.pending === null) return;
+  const before = HIST.pending; HIST.pending = null;
+  if (before === snap()) return;
+  HIST.undo.push(before); if (HIST.undo.length > 80) HIST.undo.shift(); HIST.redo.length = 0; h_buttons();
+}
+const h_soon = () => { clearTimeout(HIST.timer); HIST.timer = setTimeout(h_commit, 60); };
+function h_apply (st) { S = merge(structuredClone(DEF), JSON.parse(st)); resize(); invalidate(); render(); }
+function h_undo () { h_commit(); const st = HIST.undo.pop(); if (st === undefined) return; HIST.redo.push(snap()); h_apply(st); h_buttons(); }
+function h_redo () { h_commit(); const st = HIST.redo.pop(); if (st === undefined) return; HIST.undo.push(snap()); h_apply(st); h_buttons(); }
+function h_buttons () { $('undo').disabled = HIST.undo.length === 0; $('redo').disabled = HIST.redo.length === 0; }
+$('undo').onclick = h_undo; $('redo').onclick = h_redo;
+// every click / change in the panel, every drag on the preview, every key that adds a hit or nudges = one step
+const side_el = $('side');
+side_el.addEventListener('pointerdown', h_begin, true); side_el.addEventListener('focusin', h_begin, true);
+side_el.addEventListener('change', h_soon, true); side_el.addEventListener('click', h_soon, true); side_el.addEventListener('focusout', h_soon, true);
+cv.addEventListener('pointerdown', h_begin, true); addEventListener('pointerup', () => { if (HIST.pending !== null) h_soon(); });
+addEventListener('keydown', e => {
+  const typing = /^(TEXTAREA)$/.test(e.target.tagName) || (e.target.tagName === 'INPUT' && /^(text|number|)$/.test(e.target.type));
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.code === 'KeyZ' || e.code === 'KeyY')) {
+    if (typing) return;
+    e.preventDefault();
+    if (e.code === 'KeyY' || e.shiftKey) h_redo(); else h_undo();
+    return;
+  }
+  if (!typing && !e.ctrlKey && !e.metaKey && /^(KeyH|KeyJ|KeyM|KeyB|ArrowLeft|ArrowRight|ArrowUp|ArrowDown)$/.test(e.code)) { h_begin(); h_soon(); }
+}, true);
+addEventListener('keydown', e => {
+  if (/INPUT|SELECT|TEXTAREA/.test((e.target && e.target.tagName) || '')) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { e.preventDefault(); set_play(!playing); return; }
+  const ar = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] }[k];
+  if (ar) { e.preventDefault(); const m = e.shiftKey ? 10 : 1; nudge(ar[0] * m, ar[1] * m); return; }
+  if (S.page === 'fx') {
+    if (k === 'delete' || k === 'backspace') { const m = fx_sel(); if (m) { h_begin(); S.fx.masks = S.fx.masks.filter(q => q !== m); S.fx.sel = null; invalidate(); render(); h_soon(); } }
+    if (k === 'v') { h_begin(); S.fx.vig.on = true; S.fx.vig.hits = [...(S.fx.vig.hits || []), +t.toFixed(2)].sort((p, q) => p - q); invalidate(); render(); h_soon(); }
+    return;
+  }
+  if (S.page === 'count' || S.page === 'end') return;
+  const add = { h: ['dmg', S.lastDmg || 200, 'hero'], j: ['heal', 200, 'hero'], m: ['mana-', 60, 'hero'], b: ['dmg', S.lastBoss || 1500, 'boss'] }[k];
+  if (add) { const ev = { t: +t.toFixed(2), kind: add[0], v: add[1] }; if (add[2] === 'boss') ev.who = 'boss'; S.events.push(ev); invalidate(); render(); }
+});
+
+/* ---------------- export ---------------- */
+const toPng = c => new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('PNG')), 'image/png'));
+const enc8 = new TextEncoder();
+function mcat (arrs) { let n = 0; for (const a of arrs) n += a.length; const o = new Uint8Array(n); let p = 0; for (const a of arrs) { o.set(a, p); p += a.length; } return o; }
+const be32 = v => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v >>> 0); return b; };
+const be16 = v => { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, v & 0xffff); return b; };
+const be64 = v => { const b = new Uint8Array(8), d = new DataView(b.buffer); d.setUint32(0, Math.floor(v / 4294967296)); d.setUint32(4, v >>> 0); return b; };
+const cc = s => enc8.encode(s);
+const mbox = (type, ...parts) => { const body = mcat(parts.flat()); return mcat([be32(8 + body.length), cc(type), body]); };
+const mfull = (type, ver, flags, ...parts) => mbox(type, new Uint8Array([ver, (flags >> 16) & 255, (flags >> 8) & 255, flags & 255]), ...parts);
+const pstr = s => { const b = enc8.encode(s); return mcat([new Uint8Array([b.length]), b]); };
+const MATRIX = () => mcat([be32(0x00010000), be32(0), be32(0), be32(0), be32(0x00010000), be32(0), be32(0), be32(0), be32(0x40000000)]);
+/* QuickTime .mov with PNG frames: RGB + alpha that After Effects / Premiere / CapCut / DaVinci read */
+function buildMov (pngs, sizes, w, h, fps) {
+  const n = sizes.length;
+  const ftyp = mbox('ftyp', cc('qt  '), be32(0x20050300), cc('qt  '));
+  const dataLen = sizes.reduce((a, b) => a + b, 0);
+  const mdatHdr = mcat([be32(1), cc('mdat'), be64(16 + dataLen)]);
+  const base = ftyp.length + mdatHdr.length, offs = []; let o = base; for (const s of sizes) { offs.push(o); o += s; }
+  const name = new Uint8Array(32); const nm = cc('PNG'); name[0] = nm.length; name.set(nm, 1);
+  const entry = mbox('png ', new Uint8Array(6), be16(1), be16(0), be16(0), cc('appl'), be32(0), be32(1023), be16(w), be16(h), be32(72 << 16), be32(72 << 16), be32(0), be16(1), name, be16(32), be16(0xFFFF));
+  const stbl = mbox('stbl', mfull('stsd', 0, 0, be32(1), entry), mfull('stts', 0, 0, be32(1), be32(n), be32(1)), mfull('stsc', 0, 0, be32(1), be32(1), be32(1), be32(1)), mfull('stsz', 0, 0, be32(0), be32(n), ...sizes.map(be32)), mfull('co64', 0, 0, be32(n), ...offs.map(be64)));
+  const minf = mbox('minf', mfull('vmhd', 0, 1, be16(0x40), be16(0x8000), be16(0x8000), be16(0x8000)), mfull('hdlr', 0, 0, cc('dhlr'), cc('alis'), be32(0), be32(0), be32(0), pstr('DataHandler')), mbox('dinf', mfull('dref', 0, 0, be32(1), mfull('alis', 0, 1))), stbl);
+  const mdia = mbox('mdia', mfull('mdhd', 0, 0, be32(0), be32(0), be32(fps), be32(n), be16(0), be16(0)), mfull('hdlr', 0, 0, cc('mhlr'), cc('vide'), be32(0), be32(0), be32(0), pstr('VideoHandler')), minf);
+  const tkhd = mfull('tkhd', 0, 0xF, be32(0), be32(0), be32(1), be32(0), be32(n), new Uint8Array(8), be16(0), be16(0), be16(0), be16(0), MATRIX(), be32(w * 65536), be32(h * 65536));
+  const mvhd = mfull('mvhd', 0, 0, be32(0), be32(0), be32(fps), be32(n), be32(0x00010000), be16(0x0100), new Uint8Array(10), MATRIX(), be32(0), be32(0), be32(0), be32(0), be32(0), be32(0), be32(2));
+  return new Blob([ftyp, mdatHdr, ...pngs, mbox('moov', mvhd, mbox('trak', tkhd, mdia))], { type: 'video/quicktime' });
+}
+function download (blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 2000); }
+function prog (f, txt) { const p = $('eProg'); if (p) p.firstElementChild.style.width = (f * 100).toFixed(1) + '%'; if (txt !== undefined) msg(txt); }
+function msg (s, err) { const m = $('eMsg'); if (m) { m.textContent = s; m.className = 'msg' + (err ? ' err' : ''); } }
+async function export_mov () {
+  if (busy) return; busy = true; set_play(false);
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const n = Math.max(1, Math.round(S.dur * S.fps)), pngs = [], sizes = [];
+  try {
+    for (let i = 0; i < n; i++) { await fx_prep(i / S.fps); paint(g, i / S.fps, 'clear'); const b = await toPng(c); pngs.push(b); sizes.push(b.size); if (i % 5 === 0) { prog(i / n, T('Đang render .mov alpha… ', 'Rendering alpha .mov… ', '알파 .mov 렌더링… ') + (i + 1) + '/' + n); await new Promise(r => setTimeout(r, 0)); } }
+    const blob = buildMov(pngs, sizes, W, H, S.fps); download(blob, fname() + W + 'x' + H + '_alpha.mov'); prog(1, T('Đã lưu .mov alpha (PNG, không nền) — kéo thẳng vào AE / Premiere / CapCut.', 'Saved alpha .mov (PNG, no background) — drop it on top of your video.', '알파 .mov 저장됨.') + ' ' + (blob.size / 1048576).toFixed(1) + ' MB');
+  } catch (e) { msg(String(e.message || e), true); } finally { busy = false; }
+}
+async function export_mp4 () {
+  if (busy) return; busy = true; set_play(false);
+  if (S.page === 'fx' && clips_total() > 0) S.dur = Math.min(S.dur, Math.round(clips_total() * 100) / 100);
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const n = Math.max(1, Math.round(S.dur * S.fps)), bg = S.bg === 'clear' ? 'green' : S.bg;
+  try {
+    if (window.VideoEncoder && window.Mp4Muxer) {
+      let cfg = null;
+      for (const codec of ['avc1.640033', 'avc1.640028', 'avc1.4d0033', 'avc1.42003e']) { const k = { codec, width: W, height: H, bitrate: 14e6, framerate: S.fps }; try { if ((await VideoEncoder.isConfigSupported(k)).supported) { cfg = k; break; } } catch (e) {} }
+      if (cfg) {
+        const target = new Mp4Muxer.ArrayBufferTarget();
+        const mux = new Mp4Muxer.Muxer({ target, fastStart: 'in-memory', video: { codec: 'avc', width: W, height: H } });
+        let err = null; const enc = new VideoEncoder({ output: (ch, meta) => mux.addVideoChunk(ch, meta), error: e => { err = e; } });
+        enc.configure(cfg);
+        for (let i = 0; i < n; i++) {
+          await fx_prep(i / S.fps); paint(g, i / S.fps, bg);
+          const fr = new VideoFrame(c, { timestamp: Math.round(i * 1e6 / S.fps), duration: Math.round(1e6 / S.fps) });
+          enc.encode(fr, { keyFrame: i % (S.fps * 2) === 0 }); fr.close();
+          if (enc.encodeQueueSize > 8) await new Promise(r => setTimeout(r, 0));
+          if (i % 10 === 0) { prog(i / n, T('Đang xuất MP4… ', 'Exporting MP4… ', 'MP4 내보내는 중… ') + (i + 1) + '/' + n); await new Promise(r => setTimeout(r, 0)); }
+          if (err) throw err;
+        }
+        await enc.flush(); enc.close(); mux.finalize();
+        const blob = new Blob([target.buffer], { type: 'video/mp4' }); download(blob, fname() + W + 'x' + H + '_' + bg + '.mp4');
+        prog(1, T('Đã lưu MP4 ', 'Saved MP4 ', 'MP4 저장됨 ') + (bg === 'green' ? T('phông xanh (keylight trong AE / CapCut chroma key).', 'green screen (key it with Keylight / chroma key).', '그린 스크린.') : '') + ' ' + (blob.size / 1048576).toFixed(1) + ' MB');
+        return;
+      }
+    }
+    // fallback: real-time recording of the canvas
+    const mime = ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm'].find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
+    if (!mime) throw new Error(T('Trình duyệt này không xuất được video. Dùng Chrome / Edge bản mới.', 'This browser cannot export video. Use a recent Chrome / Edge.', '이 브라우저는 영상을 내보낼 수 없습니다.'));
+    const rec = new MediaRecorder(c.captureStream(S.fps), { mimeType: mime, videoBitsPerSecond: 14e6 }); const parts = []; rec.ondataavailable = e => e.data.size && parts.push(e.data);
+    const done = new Promise(r => rec.onstop = r); rec.start(250); const t0 = performance.now();
+    await new Promise(res => { const step = () => { const tt = (performance.now() - t0) / 1000; paint(g, Math.min(tt, S.dur), bg); prog(tt / S.dur, T('Đang ghi thời gian thực…', 'Recording in real time…', '실시간 녹화 중…')); if (tt >= S.dur + 0.1) { rec.stop(); res(); } else requestAnimationFrame(step); }; requestAnimationFrame(step); });
+    await done; const blob = new Blob(parts, { type: mime.split(';')[0] }); download(blob, fname() + bg + (mime.includes('mp4') ? '.mp4' : '.webm')); prog(1, T('Đã lưu.', 'Saved.', '저장됨.'));
+  } catch (e) { msg(String(e.message || e), true); } finally { busy = false; }
+}
+async function export_png () { const c = document.createElement('canvas'); c.width = W; c.height = H; busy = true; try { paint(c.getContext('2d'), t, 'clear'); } finally { busy = false; } download(await toPng(c), fname() + 'frame_' + t.toFixed(2) + 's.png'); }
+const fname = () => S.page === 'end' ? 'endcard_' : S.page === 'fx' ? 'video-fx_' : S.page === 'count' ? 'countdown_' : S.boss.on && !S.hud.on ? 'boss-hp_' : 'hp-bar_';
+const cd_len = () => +(S.cd.start + Math.abs(S.cd.from - S.cd.to) + (S.cd.end ? S.cd.endHold : 0.3) + 0.2).toFixed(2);
+function set_page (p) { if (p !== 'hp' && p !== 'count' && p !== 'fx' && p !== 'end') return; S.page = p; if (p === 'count') S.dur = Math.max(S.dur, cd_len()); if (p === 'end') S.dur = Math.max(S.dur, ec_len()); last_drag = null; invalidate(); render(); }
+
+/* image size guide: exact pixel size of every slot at this canvas + HUD scale, and a template to generate into */
+function slot_px (s) { const u = W / 1080 * S.hud.scale; if (s[0] === 'bossFill' || s[0] === 'bossFrame') { const b = boss_rect(); return s[0] === 'bossFill' ? [Math.round(b.w), Math.round(b.h)] : [Math.round(b.w * 1.08), Math.round(b.h * 2.4)]; } const k = s[0] === 'logo' ? S.logo.w * W / 400 : u; return [Math.round(s[3] * k), Math.round(s[4] * k)]; }
+async function template (s) {
+  const [w, h] = slot_px(s), W2 = w * 2, H2 = h * 2;
+  const c = document.createElement('canvas'); c.width = W2; c.height = H2; const g = c.getContext('2d');
+  g.setLineDash([12, 8]); g.lineWidth = 3; g.strokeStyle = 'rgba(255,176,32,.9)'; g.strokeRect(2, 2, W2 - 4, H2 - 4);
+  g.strokeStyle = 'rgba(26,163,255,.8)'; g.strokeRect(W2 * 0.05, H2 * 0.05, W2 * 0.9, H2 * 0.9);
+  if (s[0] === 'barFrame') { g.fillStyle = 'rgba(255,0,0,.18)'; const k = W2 / 640; g.fillRect(40 * k, 30 * k, 560 * k, 46 * k); g.fillStyle = 'rgba(0,120,255,.18)'; g.fillRect(40 * k, 88 * k, 480 * k, 26 * k); }
+  if (s[0] === 'avatarFrame') { g.fillStyle = 'rgba(255,0,0,.15)'; g.beginPath(); g.arc(W2 / 2, H2 / 2, W2 * 180 / 224 / 2, 0, Math.PI * 2); g.fill(); }
+  g.setLineDash([]); g.fillStyle = 'rgba(255,255,255,.85)'; g.font = `700 ${Math.max(14, Math.min(W2, H2) * 0.09)}px system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(`${s[2]} · ${W2}×${H2}`, W2 / 2, H2 / 2);
+  download(await toPng(c), `template_${s[0]}_${W2}x${H2}.png`);
+}
+
+/* ---------------- 🎬 video FX: blur / pixel masks that follow a point, frames with a picture / video inside, red damage corners ---------------- */
+function parse_hms (str) { const p = String(str).trim().split(':').map(Number); if (p.some(n => !isFinite(n))) return NaN; return p.reduce((a, n) => a * 60 + n, 0); }
+function hms_str (v) { v = Math.round(v); if (v < 60) return String(v); const h = Math.floor(v / 3600), m = Math.floor(v / 60) % 60, s = v % 60; return (h > 0 ? h + ':' + String(m).padStart(2, '0') : String(m)) + ':' + String(s).padStart(2, '0'); }
+const FX_SHAPES = [['rect', '▭', 'Chữ nhật', 'Rectangle'], ['rounded', '▢', 'Bo góc', 'Rounded'], ['ellipse', '◯', 'Tròn / elip', 'Circle / ellipse'], ['diamond', '◇', 'Thoi', 'Diamond'], ['hexagon', '⬡', 'Lục giác', 'Hexagon'], ['star', '★', 'Ngôi sao', 'Star'], ['heart', '♥', 'Trái tim', 'Heart'], ['quad', '⬚', '4 điểm tự do', '4 free points']];
+const FXV = {}; // media id -> HTMLImageElement | HTMLVideoElement
+let fx_drag = null, fx_tracking = false;
+const fx_sel = () => S.fx.masks.find(m => m.id === S.fx.sel);
+/** where a mask is at time tt: its keys (tracking) or its own place */
+function fx_pos (m, tt) {
+  const k = m.keys || []; if (k.length === 0) return { x: m.x, y: m.y };
+  if (tt <= k[0].t) return { x: k[0].x, y: k[0].y }; const l = k[k.length - 1]; if (tt >= l.t) return { x: l.x, y: l.y };
+  let i = 1; while (k[i].t < tt) i++; const a = k[i - 1], b = k[i], f = (tt - a.t) / Math.max(1e-6, b.t - a.t);
+  return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+}
+function fx_key (m, tt, x0, y0) {
+  m.keys = m.keys || []; const i = m.keys.findIndex(k => Math.abs(k.t - tt) < 0.5 / S.fps);
+  const k = { t: +tt.toFixed(3), x: x0, y: y0 }; if (i >= 0) m.keys[i] = k; else { m.keys.push(k); m.keys.sort((a, b) => a.t - b.t); }
+}
+/** shape path, box centred on (X, Y) of size w × h (px) */
+function fx_trace (c, m, X, Y, w, h) {
+  c.beginPath(); const sh = m.shape;
+  if (sh === 'ellipse') { c.ellipse(X, Y, w / 2, h / 2, 0, 0, Math.PI * 2); return; }
+  if (sh === 'rounded') { rr(c, X - w / 2, Y - h / 2, w, h, Math.min(w, h) * 0.18); return; }
+  if (sh === 'heart') { const x0 = X - w / 2, y0 = Y - h / 2; c.moveTo(X, y0 + h * 0.98); c.bezierCurveTo(x0 - w * 0.05, y0 + h * 0.55, x0 + w * 0.02, y0 - h * 0.05, X, y0 + h * 0.25); c.bezierCurveTo(x0 + w * 0.98, y0 - h * 0.05, x0 + w * 1.05, y0 + h * 0.55, X, y0 + h * 0.98); c.closePath(); return; }
+  let pts;
+  if (sh === 'quad') pts = m.quad || [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];
+  else if (sh === 'diamond') pts = [[0, -0.5], [0.5, 0], [0, 0.5], [-0.5, 0]];
+  else if (sh === 'hexagon') pts = [[-0.25, -0.5], [0.25, -0.5], [0.5, 0], [0.25, 0.5], [-0.25, 0.5], [-0.5, 0]];
+  else if (sh === 'star') pts = Array.from({ length: 10 }, (_, i) => { const r = i % 2 ? 0.21 : 0.5, a = i * Math.PI / 5; return [Math.sin(a) * r, -Math.cos(a) * r * 1.05 + 0.03]; });
+  else pts = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];
+  pts.forEach(([u, v], i) => { if (i === 0) c.moveTo(X + u * w, Y + v * h); else c.lineTo(X + u * w, Y + v * h); }); c.closePath();
+}
+/** the source video, filling the frame (cover) */
+function cover (src, sw, sh) { const k = Math.max(W / sw, H / sh); const dw = sw * k, dh = sh * k; return [(W - dw) / 2, (H - dh) / 2, dw, dh]; }
+const vid_ok = () => vid.src && vid.readyState >= 2 && vid.videoWidth > 0;
+function draw_vid (c) { if (!vid_ok()) return false; c.drawImage(vid, ...cover(vid, vid.videoWidth, vid.videoHeight)); return true; }
+const fx_tmp = document.createElement('canvas'), fx_tmp2 = document.createElement('canvas');
+/* strong blur that works in every browser: the video shrunk a lot, softened twice, then stretched back.
+   (Safari ignores the canvas 'filter' blur, so it only smooths on top where it exists.) */
+const FILTER_OK = (() => { try { const a = document.createElement('canvas'); a.width = a.height = 8; const g = a.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(4, 0, 4, 8); const b = document.createElement('canvas'); b.width = b.height = 8; const h = b.getContext('2d'); h.filter = 'blur(2px)'; h.drawImage(a, 0, 0); return h.getImageData(3, 4, 1, 1).data[0] > 10; } catch (e) { return false; } })();
+function blur_vid (c, radius) {
+  if (!vid_ok()) return;
+  const f = Math.max(2, radius / 2), w = Math.max(2, Math.round(W / f)), h = Math.max(2, Math.round(H / f));
+  fx_tmp.width = w; fx_tmp.height = h; const g = fx_tmp.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  const [dx, dy, dw, dh] = cover(vid, vid.videoWidth, vid.videoHeight); g.drawImage(vid, dx / f, dy / f, dw / f, dh / f);
+  // soften once more at half that size (removes the blocky look of a single shrink)
+  const w2 = Math.max(2, Math.round(w / 2)), h2 = Math.max(2, Math.round(h / 2)); fx_tmp2.width = w2; fx_tmp2.height = h2; const g2 = fx_tmp2.getContext('2d'); g2.imageSmoothingQuality = 'high'; g2.drawImage(fx_tmp, 0, 0, w2, h2);
+  g.clearRect(0, 0, w, h); g.drawImage(fx_tmp2, 0, 0, w, h);
+  c.save(); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; if (FILTER_OK) c.filter = `blur(${Math.round(radius / 3)}px)`; c.drawImage(fx_tmp, 0, 0, W, H); c.restore();
+}
+function paint_fx (c, tt, layer_only) {
+  const k = W / 1080;
+  if (!layer_only) { if (!draw_vid(c)) { c.fillStyle = '#10161f'; c.fillRect(0, 0, W, H); c.fillStyle = '#7f8ea3'; c.font = `600 ${40 * k}px system-ui`; c.textAlign = 'center'; c.fillText(T('🎞 Nạp video để làm mờ / ghép khung', '🎞 Load a video to blur / frame', '🎞 영상을 불러오세요'), W / 2, H / 2); } }
+  for (const m of S.fx.masks) {
+    if (tt < (m.t0 || 0) || (m.t1 != null && m.t1 !== '' && tt > m.t1)) continue;
+    const p = fx_pos(m, tt), X = p.x * W, Y = p.y * H, w = m.w * W, h = m.h * H;
+    c.save(); fx_trace(c, m, X, Y, w, h); c.clip();
+    if (m.type === 'media') {
+      const md = FXV[m.id];
+      if (md) { const sw = md.videoWidth || md.naturalWidth || md.width, sh = md.videoHeight || md.naturalHeight || md.height; if (sw > 0) { const f = m.fit === 'contain' ? Math.min(w / sw, h / sh) : Math.max(w / sw, h / sh); c.globalAlpha = m.opacity ?? 1; c.drawImage(md, X - sw * f / 2, Y - sh * f / 2, sw * f, sh * f); } }
+      else if (!layer_only) { c.fillStyle = 'rgba(26,163,255,.25)'; c.fillRect(X - w / 2, Y - h / 2, w, h); c.fillStyle = '#cfe9ff'; c.font = `600 ${Math.max(14, Math.min(w, h) * 0.09)}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(T('Thả ảnh / video vào đây', 'Drop a picture / video here', '이미지/영상 놓기'), X, Y); }
+    } else if (!layer_only && vid_ok()) {
+      if (m.type === 'pixel') {
+        const n = Math.max(2, Math.round(W / Math.max(4, m.amount * k))); fx_tmp.width = n; fx_tmp.height = Math.max(2, Math.round(n * H / W));
+        const g = fx_tmp.getContext('2d'); const [dx, dy, dw, dh] = cover(vid, vid.videoWidth, vid.videoHeight); const s2 = n / W; g.drawImage(vid, dx * s2, dy * s2, dw * s2, dh * s2);
+        c.imageSmoothingEnabled = false; c.drawImage(fx_tmp, 0, 0, W, H); c.imageSmoothingEnabled = true;
+      } else { blur_vid(c, Math.max(2, m.amount * k)); if (m.dark) { c.fillStyle = `rgba(0,0,0,${m.dark})`; c.fillRect(0, 0, W, H); } }
+    }
+    c.restore();
+    if (m.type === 'media' && m.bw > 0) { c.save(); fx_trace(c, m, X, Y, w, h); c.lineWidth = m.bw * k; c.strokeStyle = m.bc || '#ffffff'; c.stroke(); c.restore(); }
+  }
+  // editing: outline + handles of the selected mask (never in the exported frames)
+  if (!busy) {
+    const m = fx_sel(); if (m) {
+      const p = fx_pos(m, tt), X = p.x * W, Y = p.y * H, w = m.w * W, h = m.h * H;
+      c.save(); fx_trace(c, m, X, Y, w, h); c.setLineDash([12 * k, 8 * k]); c.lineWidth = 3 * k; c.strokeStyle = m.keys && m.keys.length ? '#ffb020' : '#1aa3ff'; c.stroke(); c.setLineDash([]);
+      c.fillStyle = '#fff'; const hs = 14 * k; c.fillRect(X + w / 2 - hs / 2, Y + h / 2 - hs / 2, hs, hs);
+      if (m.shape === 'quad') (m.quad || []).forEach(([u, v]) => { c.beginPath(); c.arc(X + u * w, Y + v * h, 10 * k, 0, 7); c.fill(); });
+      c.beginPath(); c.arc(X, Y, 7 * k, 0, 7); c.fillStyle = '#ffb020'; c.fill(); c.restore();
+    }
+  }
+}
+/* ---- 🎬 transitions (Motion Bro style): punch zoom, whip pan, flash, dip, glitch, shake, spin, iris, blur, light leak.
+   Each one acts on the whole frame around its time and is strongest in the middle of its length. ---- */
+const TRANS = [['zoom', '🔍', 'Zoom punch', 'Zoom giật'], ['whip', '💨', 'Whip pan', 'Lia máy (whip)'], ['flash', '⚡', 'White flash', 'Chớp trắng'], ['dip', '⬛', 'Dip to black', 'Tối đen'], ['glitch', '📺', 'Glitch', 'Nhiễu glitch'], ['shake', '🫨', 'Shake', 'Rung máy'], ['spin', '🌀', 'Spin', 'Xoay'], ['iris', '⭕', 'Iris (circle)', 'Khép tròn'], ['blur', '🌫', 'Blur in / out', 'Mờ vào / ra'], ['leak', '🔥', 'Light leak', 'Loé sáng']];
+const fx_tc = document.createElement('canvas'), fx_tb = document.createElement('canvas');
+function rnd (n) { const x2 = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x2 - Math.floor(x2); }
+function paint_trans (c, tt) {
+  for (const tr of S.fx.trans || []) {
+    const a = tt - (tr.t - tr.dur / 2); if (a < 0 || a > tr.dur) continue;
+    const p = a / tr.dur, k = 1 - Math.abs(2 * p - 1);
+    if (fx_tc.width !== W || fx_tc.height !== H) { fx_tc.width = W; fx_tc.height = H; }
+    const g = fx_tc.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); g.drawImage(c.canvas, 0, 0);
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
+    const redraw = (f) => { c.clearRect(0, 0, W, H); c.fillStyle = '#000'; c.fillRect(0, 0, W, H); c.save(); f(); c.restore(); };
+    switch (tr.kind) {
+      case 'zoom': { const s2 = 1 + 0.35 * k * k; redraw(() => { c.translate(W / 2, H / 2); c.scale(s2, s2); c.translate(-W / 2, -H / 2); c.drawImage(fx_tc, 0, 0); }); break; }
+      case 'whip': { const dir = p < 0.5 ? -1 : 1, off = W * 0.35 * k * dir; redraw(() => { for (let i = 0; i < 6; i++) { c.globalAlpha = i === 0 ? 1 : 0.22; c.drawImage(fx_tc, off + i * k * W * 0.03 * dir, 0); c.drawImage(fx_tc, off + i * k * W * 0.03 * dir - W * dir, 0); } }); break; }
+      case 'flash': c.fillStyle = `rgba(255,255,255,${k})`; c.fillRect(0, 0, W, H); break;
+      case 'dip': c.fillStyle = `rgba(0,0,0,${k})`; c.fillRect(0, 0, W, H); break;
+      case 'glitch': {
+        const f = Math.floor(tt * 30);
+        for (let i = 0; i < 9; i++) { if (rnd(f * 13 + i) > 0.35 + 0.5 * k) continue; const y = rnd(f * 7 + i) * H, h = H * (0.02 + 0.08 * rnd(f + i * 3)), dx = (rnd(f * 3 + i) - 0.5) * W * 0.25 * k; c.drawImage(fx_tc, 0, y, W, h, dx, y, W, h); }
+        c.globalCompositeOperation = 'screen'; c.globalAlpha = 0.45 * k;
+        c.fillStyle = 'rgb(255,0,80)'; c.fillRect(0, 0, W, H * 0.002 + 2); c.drawImage(fx_tc, W * 0.012 * k, 0); c.globalCompositeOperation = 'multiply'; c.fillStyle = `rgba(120,255,255,${0.3 * k})`; c.fillRect(0, 0, W, H);
+        break;
+      }
+      case 'shake': { const f = Math.floor(tt * 40), dx = (rnd(f) - 0.5) * W * 0.06 * k, dy = (rnd(f + 99) - 0.5) * H * 0.04 * k; redraw(() => { c.translate(dx, dy); c.drawImage(fx_tc, 0, 0); }); break; }
+      case 'spin': { const ang = (p - 0.5) * Math.PI * 1.2 * k, s2 = 1 + 0.4 * k; redraw(() => { c.translate(W / 2, H / 2); c.rotate(ang); c.scale(s2, s2); c.translate(-W / 2, -H / 2); c.drawImage(fx_tc, 0, 0); }); break; }
+      case 'iris': { const R = Math.hypot(W, H) / 2 * Math.max(0, 1 - k); c.fillStyle = '#000'; c.beginPath(); c.rect(0, 0, W, H); c.arc(W / 2, H / 2, R, 0, Math.PI * 2, true); c.fill('evenodd'); break; }
+      case 'blur': { const f2 = 1 + 30 * k, w2 = Math.max(2, Math.round(W / f2)), h2 = Math.max(2, Math.round(H / f2)); fx_tb.width = w2; fx_tb.height = h2; fx_tb.getContext('2d').drawImage(fx_tc, 0, 0, w2, h2); c.imageSmoothingQuality = 'high'; c.drawImage(fx_tb, 0, 0, W, H); break; }
+      case 'leak': { const gx = W * (0.2 + 0.6 * p), gr = c.createRadialGradient(gx, H * 0.3, 0, gx, H * 0.3, Math.hypot(W, H) * 0.7); gr.addColorStop(0, `rgba(255,190,90,${0.95 * k})`); gr.addColorStop(0.5, `rgba(255,80,40,${0.45 * k})`); gr.addColorStop(1, 'rgba(255,40,0,0)'); c.globalCompositeOperation = 'screen'; c.fillStyle = gr; c.fillRect(0, 0, W, H); break; }
+    }
+    c.restore();
+  }
+}
+/** red corners when the hero is hit: S.fx.vig.hits + the hits of the health bar page */
+function vig_level (tt) {
+  const V = S.fx.vig; const hits = [...(V.hits || [])]; if (V.fromHp) S.events.forEach(e => { if (e.kind === 'dmg' && e.who !== 'boss') hits.push(e.t); });
+  let a = 0; for (const h of hits) { const d = tt - h; if (d < 0 || d > V.dur) continue; a = Math.max(a, d < 0.06 ? d / 0.06 : 1 - (d - 0.06) / Math.max(0.01, V.dur - 0.06)); }
+  if (V.low) a = Math.max(a, 0.35 + 0.25 * Math.sin(tt * Math.PI * 2 * 1.2));
+  return a;
+}
+function paint_vig (c, tt) {
+  const V = S.fx.vig; if (!V.on) return; const a = vig_level(tt); if (a <= 0.001) return;
+  const R = Math.hypot(W, H) / 2, g = c.createRadialGradient(W / 2, H / 2, R * (1 - V.size), W / 2, H / 2, R);
+  const col = V.color, rgb = [1, 3, 5].map(i => parseInt(col.slice(i, i + 2), 16)).join(',');
+  g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(0.55, `rgba(${rgb},${0.45 * V.strength * a})`); g.addColorStop(1, `rgba(${rgb},${V.strength * a})`);
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = g; c.fillRect(0, 0, W, H); c.restore();
+}
+/* media of the frames (kept in IndexedDB like the HUD pictures) */
+function fx_media_set (k, blob, store) {
+  const id = k.slice(4); const url = URL.createObjectURL(blob);
+  if (/^video\//.test(blob.type)) { const v = document.createElement('video'); v.muted = true; v.loop = true; v.playsInline = true; v.src = url; v.onloadeddata = () => { FXV[id] = v; dirty = true; render(); }; v.addEventListener('seeked', () => { dirty = true; }); }
+  else { const im = new Image(); im.onload = () => { FXV[id] = im; dirty = true; render(); }; im.src = url; }
+  if (store) img_put(k, blob);
+}
+function fx_add (type, shape) {
+  const m = { id: 'm' + Date.now().toString(36), type, shape, x: 0.5, y: 0.45, w: type === 'media' ? 0.5 : 0.3, h: type === 'media' ? 0.5 * W / H : 0.12, amount: type === 'pixel' ? 28 : 50, dark: 0, t0: 0, t1: null, keys: [], fit: 'cover', bw: type === 'media' ? 8 : 0, bc: '#ffffff', opacity: 1 };
+  if (shape === 'quad') m.quad = [[-0.5, -0.5], [0.5, -0.45], [0.45, 0.5], [-0.5, 0.45]];
+  if (shape === 'ellipse' || shape === 'heart' || shape === 'star' || shape === 'hexagon') m.h = m.w * W / H;
+  S.fx.masks.push(m); S.fx.sel = m.id; invalidate(); render(); return m;
+}
+/* ---- mouse on the preview (FX page): move, resize (white corner), move a 4-point corner; with keys / ⏺ the move is a key at this time ---- */
+function fx_down (e) {
+  const r = cv.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height, s = r.width / W;
+  const cur = fx_sel();
+  if (cur) {
+    const p = fx_pos(cur, t), X = p.x * W, Y = p.y * H, w = cur.w * W, h = cur.h * H, mx = px * W, my = py * H, tol = 18 / s;
+    if (Math.abs(mx - (X + w / 2)) < tol && Math.abs(my - (Y + h / 2)) < tol) { fx_drag = { mode: 'size', m: cur, px, py, w: cur.w, h: cur.h }; cv.setPointerCapture(e.pointerId); return; }
+    if (cur.shape === 'quad') { const i = (cur.quad || []).findIndex(([u, v]) => Math.hypot(mx - (X + u * w), my - (Y + v * h)) < tol); if (i >= 0) { fx_drag = { mode: 'corner', m: cur, i }; cv.setPointerCapture(e.pointerId); return; } }
+  }
+  // topmost mask under the mouse
+  const hit = [...S.fx.masks].reverse().find(m => { const p = fx_pos(m, t); return Math.abs(px - p.x) <= m.w / 2 && Math.abs(py - p.y) <= m.h / 2; });
+  S.fx.sel = hit ? hit.id : null;
+  if (hit) { const p = fx_pos(hit, t); fx_drag = { mode: 'move', m: hit, px, py, ox: p.x, oy: p.y }; cv.setPointerCapture(e.pointerId); }
+  dirty = true; render();
+}
+function fx_move (e) {
+  const d = fx_drag; if (!d) return; const r = cv.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height, m = d.m;
+  if (d.mode === 'size') { m.w = clamp(d.w + (px - d.px) * 2, 0.02, 2); m.h = e.shiftKey ? m.w * W / H : clamp(d.h + (py - d.py) * 2, 0.01, 2); }
+  else if (d.mode === 'corner') { const p = fx_pos(m, t); m.quad[d.i] = [clamp((px - p.x) / m.w, -2, 2), clamp((py - p.y) / m.h, -2, 2)]; }
+  else { const nx = d.ox + px - d.px, ny = d.oy + py - d.py; if (S.fx.rec || (m.keys && m.keys.length)) fx_key(m, t, nx, ny); else { m.x = nx; m.y = ny; } }
+  dirty = true;
+}
+function fx_up () { if (fx_drag) { fx_drag = null; save(); render(); } }
+/* ---- 🎯 auto track: follow what is inside the mask, frame by frame (template matching on a small grey copy) ---- */
+function seek (v, tt) { return new Promise(res => { if (!v.src || !isFinite(v.duration)) return res(); const target = Math.min(Math.max(0, tt), Math.max(0, v.duration - 0.001)); if (Math.abs(v.currentTime - target) < 1e-3 && v.readyState >= 2) return res(); const done = () => { v.removeEventListener('seeked', done); clearTimeout(to); res(); }; const to = setTimeout(done, 1500); v.addEventListener('seeked', done); v.currentTime = target; }); }
+async function fx_prep (tt) {
+  if (S.page !== 'fx') return;
+  await seek_g(tt);
+  for (const m of S.fx.masks) { const v = FXV[m.id]; if (v && v.tagName === 'VIDEO' && isFinite(v.duration) && v.duration > 0) await seek(v, ((tt - (m.t0 || 0)) % v.duration + v.duration) % v.duration); }
+}
+async function fx_track () {
+  const m = fx_sel(); if (!m || !vid.src) { msg(T('Chọn một mask và nạp video trước.', 'Pick a mask and load the video first.', '마스크와 영상을 먼저.'), true); return; }
+  if (fx_tracking) { fx_tracking = false; return; }
+  fx_tracking = true; set_play(false); render();
+  const sc = 0.25, tw = Math.round(W * sc), th = Math.round(H * sc), cvt = document.createElement('canvas'); cvt.width = tw; cvt.height = th; const g = cvt.getContext('2d', { willReadFrequently: true });
+  const grey = () => { g.drawImage(vid, ...cover(vid, vid.videoWidth, vid.videoHeight).map(v => v * sc)); const d = g.getImageData(0, 0, tw, th).data, o = new Float32Array(tw * th); for (let i = 0; i < o.length; i++) o[i] = d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11; return o; };
+  const step = 1 / 15; let tt = t; await seek_g(tt); let img = grey();
+  const p0 = fx_pos(m, tt); let cx = p0.x * tw, cy = p0.y * th;
+  const pw = clamp(Math.round(m.w * tw * 0.8), 6, 64), ph = clamp(Math.round(m.h * th * 0.8), 6, 64);
+  const tpl = new Float32Array(pw * ph); const cut = (im, x0, y0, out) => { for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) { const X = clamp(Math.round(x0 + i), 0, tw - 1), Y = clamp(Math.round(y0 + j), 0, th - 1); out[j * pw + i] = im[Y * tw + X]; } };
+  cut(img, cx - pw / 2, cy - ph / 2, tpl); const cur = new Float32Array(pw * ph);
+  m.keys = (m.keys || []).filter(k => k.t < tt - 1e-3); fx_key(m, tt, cx / tw, cy / th);
+  const R = Math.max(6, Math.round(Math.max(pw, ph) * 0.6));
+  try {
+    while (fx_tracking && tt + step <= S.dur + 1e-6) {
+      tt += step; await seek_g(tt); img = grey();
+      let best = Infinity, bx = cx, by = cy;
+      const score = (x, y) => { let s2 = 0; for (let j = 0; j < ph; j += 1) { const Y = clamp(Math.round(y - ph / 2 + j), 0, th - 1); for (let i = 0; i < pw; i++) { const X = clamp(Math.round(x - pw / 2 + i), 0, tw - 1); s2 += Math.abs(img[Y * tw + X] - tpl[j * pw + i]); } } return s2; };
+      for (let dy = -R; dy <= R; dy += 2) for (let dx = -R; dx <= R; dx += 2) { const sc2 = score(cx + dx, cy + dy); if (sc2 < best) { best = sc2; bx = cx + dx; by = cy + dy; } }
+      const x2 = bx, y2 = by; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const sc2 = score(x2 + dx, y2 + dy); if (sc2 < best) { best = sc2; bx = x2 + dx; by = y2 + dy; } }
+      cx = bx; cy = by; fx_key(m, tt, cx / tw, cy / th);
+      // the look of the object drifts slowly (turns, light): the template follows a little
+      cut(img, cx - pw / 2, cy - ph / 2, cur); for (let i = 0; i < tpl.length; i++) tpl[i] = tpl[i] * 0.85 + cur[i] * 0.15;
+      t = tt; dirty = true; prog(tt / S.dur, T('Đang tracking… ', 'Tracking… ', '추적 중… ') + tt.toFixed(1) + ' s');
+      await new Promise(r => setTimeout(r, 0));
+    }
+    prog(1, T(`Xong: ${m.keys.length} mốc. Kéo mask ở giây nào để sửa mốc giây đó.`, `Done: ${m.keys.length} keys. Drag the mask at any second to fix that key.`, `완료: 키 ${m.keys.length}개`));
+  } finally { fx_tracking = false; save(); render(); }
+}
+
+function wire_fx () {
+  const side = $('side');
+  side.querySelectorAll('[data-fxadd]').forEach(b => { b.onclick = () => { h_begin(); fx_add(b.dataset.fxadd, b.dataset.shape); h_soon(); }; });
+  side.querySelectorAll('[data-fxsel]').forEach(b => { b.onclick = () => { S.fx.sel = b.dataset.fxsel; dirty = true; render(); }; });
+  side.querySelectorAll('[data-fxdel]').forEach(b => { b.onclick = () => { S.fx.masks = S.fx.masks.filter(q => q.id !== b.dataset.fxdel); img_del('fxm_' + b.dataset.fxdel); delete FXV[b.dataset.fxdel]; if (S.fx.sel === b.dataset.fxdel) S.fx.sel = null; invalidate(); render(); }; });
+  side.querySelectorAll('[data-fxk]').forEach(el => {
+    el.oninput = el.onchange = () => {
+      const m = fx_sel(); if (!m) return; const k = el.dataset.fxk; let v = el.type === 'range' || el.type === 'number' ? Number(el.value) : el.value;
+      if (el.dataset.pct) v = v / 100; if (k === 't1' && el.value === '') v = null;
+      if (k === 'shape' && v === 'quad' && !m.quad) m.quad = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];
+      m[k] = v; invalidate(); if (el.tagName === 'SELECT') render();
+    };
+  });
+  side.querySelectorAll('[data-vig]').forEach(el => { el.onchange = () => { S.fx.vig.hits = el.value.split(/[,; ]+/).map(Number).filter(n => isFinite(n) && el.value.trim() !== ''); invalidate(); }; });
+  side.querySelectorAll('[data-fxx]').forEach(b => {
+    b.onclick = () => {
+      const a = b.dataset.fxx, m = fx_sel();
+      if (a === 'track') { fx_track(); return; }
+      if (a === 'rec') S.fx.rec = !S.fx.rec;
+      if (a === 'media') { $('fFx').click(); return; }
+      if (a === 'mediaoff' && m) { delete FXV[m.id]; img_del('fxm_' + m.id); }
+      if (a === 'keyhere' && m) { const p = fx_pos(m, t); fx_key(m, t, p.x, p.y); }
+      if (a === 'keysoff' && m) { const p = fx_pos(m, t); m.x = p.x; m.y = p.y; m.keys = []; }
+      if (a === 'vighere') { S.fx.vig.hits = [...(S.fx.vig.hits || []), +t.toFixed(2)].sort((p, q) => p - q); }
+      invalidate(); render();
+    };
+  });
+  const ff = $('fFx'); if (ff) ff.onchange = e => { const f = e.target.files[0], m = fx_sel(); if (f && m) { m.type = 'media'; fx_media_set('fxm_' + m.id, f, true); save(); } e.target.value = ''; };
+}
+/* ---------------- panel ---------------- */
+/* every section of the panel folds: click its title (remembered per title) */
+function fold_sections () {
+  let st = {}; try { st = JSON.parse(localStorage.getItem('gb.hpbar.fold') || '{}'); } catch (e) {}
+  $('side').querySelectorAll('section > h3').forEach(h => {
+    const sec = h.parentElement, key = (S.page || 'hp') + ':' + h.textContent.replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (h.querySelector('.fold')) return;
+    const ic = document.createElement('span'); ic.className = 'fold'; ic.textContent = st[key] ? '▸' : '▾'; ic.style.cssText = 'margin-left:auto;color:var(--muted);cursor:pointer;padding:0 4px'; h.appendChild(ic); h.style.cursor = 'pointer';
+    const apply = () => { [...sec.children].forEach(ch => { if (ch !== h) ch.style.display = st[key] ? 'none' : ''; }); ic.textContent = st[key] ? '▸' : '▾'; };
+    h.addEventListener('click', ev => { if (ev.target.closest('input,label,button,select')) return; st[key] = !st[key]; try { localStorage.setItem('gb.hpbar.fold', JSON.stringify(st)); } catch (e) {} apply(); });
+    apply();
+  });
+}
+function render () { render_panel(); fold_sections(); }
+function render_panel () {
+  const side = $('side'); const sy = side.scrollTop;
+  const ev = S.events.map((e, i) => `<tr><td><input type="number" step="0.05" min="0" data-ev="${i}" data-f="t" value="${e.t}"></td>${S.boss.on ? `<td><select data-ev="${i}" data-f="who"><option value="hero">Hero</option><option value="boss"${e.who === 'boss' ? ' selected' : ''}>Boss</option></select></td>` : ''}<td><select data-ev="${i}" data-f="kind">${[['dmg', T('Bị đánh', 'Hit', '피격')], ['heal', T('Hồi máu', 'Heal', '회복')], ['set', T('Đặt HP', 'Set HP', 'HP 설정')], ['mana-', T('Mất mana', 'Use mana', '마나 사용')], ['mana+', T('Hồi mana', 'Mana +', '마나 회복')]].map(([v, l]) => `<option value="${v}"${e.kind === v ? ' selected' : ''}>${l}</option>`).join('')}</select></td><td><input type="number" step="10" data-ev="${i}" data-f="v" value="${e.v}"></td><td><button data-del="${i}" title="${T('Xoá', 'Delete', '삭제')}">✕</button></td></tr>`).join('');
+  const imgrow = s => `<div class="img"><span>${T(s[1], s[2], s[2])}</span><img ${IMG[s[0]] ? `src="${IMG[s[0]].src}"` : ''} alt=""><button data-up="${s[0]}">⬆</button>${IMG[s[0]] ? `<button data-rm="${s[0]}">✕</button>` : ''}</div>`;
+  const tabs = `<div class="row" style="margin:0 0 4px"><button data-page="hp"${S.page === 'hp' ? ' class="pri"' : ''}>❤️ ${T('Thanh máu', 'Health bar', '체력 바')}</button><button data-page="count"${S.page === 'count' ? ' class="pri"' : ''}>⏱ ${T('Đếm ngược', 'Countdown', '카운트다운')}</button><button data-page="fx"${S.page === 'fx' ? ' class="pri"' : ''}>🎬 ${T('Video FX', 'Video FX', '비디오 FX')}</button><button data-page="end"${S.page === 'end' ? ' class="pri"' : ''}>🏁 End card</button></div>`;
+  const pos = `<div class="sm" style="margin-top:4px">${T('Căn nhanh', 'Snap to', '빠른 정렬')} (${S.page === 'count' ? T('số đếm', 'number', '숫자') : T('phần vừa kéo: ', 'last dragged: ', '마지막: ') + ({ hud: 'HUD hero', boss: 'Boss', logo: 'Logo' })[drag_last()]})</div>
+    <div class="grid9">${['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].map(k => `<button data-place="${k}">${{ tl: '↖', tc: '↑', tr: '↗', ml: '←', mc: '•', mr: '→', bl: '↙', bc: '↓', br: '↘' }[k]}</button>`).join('')}</div>
+    <div class="sm">${T('Kéo trên khung hình để đặt · phím mũi tên dịch 1 px (Shift = 10 px) · tự hít vào giữa (giữ Alt để kéo tự do)', 'Drag on the preview to place · arrow keys move 1 px (Shift = 10 px) · snaps to the centre (hold Alt to move freely)', '드래그 배치 · 방향키 1px (Shift 10px) · 가운데 스냅 (Alt 자유)')}</div>`;
+  const frameSec = `<section><h3><b>1</b>${T('Khung video', 'Video frame', '비디오 프레임')}</h3>
+    <label><span>${T('Kích thước', 'Size', '크기')}</span><select data-k="size">${Object.keys(SIZES).map(k => `<option${S.size === k ? ' selected' : ''}>${k}</option>`).join('')}</select></label>
+    <label><span>FPS</span><select data-k="fps">${[24, 25, 30, 60].map(f => `<option${S.fps === f ? ' selected' : ''}>${f}</option>`).join('')}</select><span style="min-width:0">${T('Dài', 'Length', '길이')}</span><input type="number" data-k="dur" min="1" max="3600" step="0.5" value="${S.dur}"> s</label>
+    <label><span>${T('Nền', 'Background', '배경')}</span><select data-k="bg"><option value="green"${S.bg === 'green' ? ' selected' : ''}>${T('Xanh lá (keylight)', 'Green (for Keylight)', '그린')}</option><option value="black"${S.bg === 'black' ? ' selected' : ''}>${T('Đen', 'Black', '검정')}</option><option value="clear"${S.bg === 'clear' ? ' selected' : ''}>${T('Trong suốt', 'Transparent', '투명')}</option></select></label>
+    <div class="row"><button data-x="vid">🎞 ${T('Video gốc để canh giây', 'Source video for timing', '타이밍용 원본 영상')}</button>${vid0.src ? `<button data-x="vidoff">✕</button>` : ''}</div>
+    ${S.page === 'fx' ? `${clip_list().map((v, i) => `<div class="row" style="flex-wrap:nowrap;gap:4px"><span class="sm" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="color:${CLIP_COL[i % CLIP_COL.length]}">■</b> ${i + 1}. ${v.dataset.name || ''} · ${clip_len(v).toFixed(1)}s</span><button data-clipdel="${i}" style="flex:0 0 auto">✕</button></div>`).join('')}
+    <div class="row"><button data-x="vid2">＋ ${T('Nối thêm video (ghép cảnh)', 'Join another video (cut to it)', '영상 이어 붙이기')}</button></div>
+    <div class="sm">${T('Các video nằm nối nhau trên dải màu phía trên thanh thời gian; chỗ nối tự có chuyển cảnh. Kéo thả video vào dải đó cũng được.', 'The videos sit one after another on the coloured strip above the timeline; each join gets a transition. You can also drop videos on that strip.', '영상들이 타임라인 위에 이어지고, 이음새마다 전환이 들어갑니다.')}</div>` : ''}
+    <label><span>${T('Hiện video', 'Show video', '영상 표시')}</span><input type="range" data-k="vidop" min="0" max="100" value="${Math.round(Number(vid0.style.opacity || 0) * 100)}"></label>
+    <div class="sm">${T('Video gốc chỉ để xem và canh giây, không xuất ra. Kéo khung HUD / logo trên khung hình để đặt vị trí.', 'The source video is only for timing, it is not exported. Drag the HUD / logo on the preview to place it.', '원본 영상은 타이밍용이며 내보내지지 않습니다.')}</div>
+  </section>`;
+  const exportSec = (n) => `<section><h3><b>${n}</b>${T('Xuất', 'Export', '내보내기')}</h3>
+    <div class="row"><button class="alpha" data-x="mov">⬇ .MOV alpha ${T('(không nền)', '(no background)', '(배경 없음)')}</button><button data-x="mp4">⬇ MP4 ${S.bg === 'black' ? T('nền đen', 'black', '검정') : T('phông xanh', 'green screen', '그린')}</button></div>
+    <div class="sm">${T('Thay cho keyframe trong After Effects: chỉnh ở đây rồi xuất .MOV alpha, kéo thẳng lên video (AE / Premiere / CapCut), không cần Keylight.', 'Instead of keyframing in After Effects: set it up here, export the alpha .MOV and drop it on your video (AE / Premiere / CapCut), no Keylight needed.', '애프터이펙트 키프레임 대신: 여기서 만들고 알파 .MOV로 내보내 영상 위에 올리세요. Keylight 불필요.')}</div>
+    <div class="row"><button data-x="png">🖼 PNG ${T('khung hiện tại', 'current frame', '현재 프레임')}</button><button data-x="json">💾 ${T('Lưu dự án', 'Save project', '프로젝트 저장')}</button><button data-x="open">📂</button></div>
+    <div class="prog" id="eProg"><i></i></div><div class="msg" id="eMsg"></div>
+    <div class="sm">${T('.MOV alpha = PNG trong QuickTime, có kênh trong suốt thật: đặt thẳng lên video gốc, không cần key. MP4 phông xanh: key bằng Keylight (AE) hoặc Chroma key (CapCut / Premiere).', '.MOV alpha = PNG in QuickTime with a real alpha channel: lay it straight over the video, no keying. Green MP4: key it with Keylight (AE) or Chroma key (CapCut / Premiere).', '.MOV 알파는 실제 투명 채널이 있습니다.')}</div>
+  </section>`;
+  const C = S.cd, fmt = [['s', T('Giây: 10 9 8…', 'Seconds: 10 9 8…', '초')], ['auto', T('Tự động: 59 → 59:59 → 1:00:00', 'Auto: 59 → 59:59 → 1:00:00', '자동')], ['mmss', 'mm:ss  (59:30)'], ['hms', T('giờ:phút:giây (1:05:00)', 'h:mm:ss (1:05:00)', '시:분:초')], ['dec', T('Có lẻ: 9.8', 'Tenths: 9.8', '소수 1자리')], ['dec2', T('2 số lẻ: 9.75', 'Hundredths: 9.75', '소수 2자리')]];
+  const countHtml = `${frameSec}
+  <section><h3><b>2</b>${T('Đếm ngược', 'Countdown', '카운트다운')}</h3>
+    <label><span>${T('Từ → đến', 'From → to', '시작 → 끝')}</span><input type="text" data-k="cd.from" data-time="1" value="${hms_str(C.from)}" title="${T('giây, hoặc 59:30, hoặc 1:00:00', 'seconds, or 59:30, or 1:00:00', '초 또는 59:30, 1:00:00')}"><span style="min-width:0">→</span><input type="text" data-k="cd.to" data-time="1" value="${hms_str(C.to)}"></label>
+    <div class="sm">${T('Gõ giây (90), phút:giây (59:30) hoặc giờ:phút:giây (1:00:00). Video chỉ cần dài vài giây: số bắt đầu từ đây rồi chạy.', 'Type seconds (90), min:sec (59:30) or h:min:sec (1:00:00). The video can be a few seconds long: the clock starts at this number and runs.', '초, 분:초, 시:분:초 입력')}</div>
+    <label><span>${T('Bắt đầu ở giây', 'Starts at second', '시작 시각')}</span><input type="number" data-k="cd.start" step="0.1" min="0" value="${C.start}"></label>
+    <label><span>${T('Kiểu số', 'Format', '형식')}</span><select data-k="cd.format">${fmt.map(([v, l]) => `<option value="${v}"${C.format === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label><span>${T('Chữ kết thúc', 'End text', '종료 문구')}</span><input type="text" data-k="cd.end" value="${(C.end || '').replace(/"/g, '&quot;')}" placeholder="GO! / ${T('trống = giữ số cuối', 'empty = keep last number', '비우면 숫자 유지')}"><input type="number" data-k="cd.endHold" step="0.1" min="0" value="${C.endHold}" title="${T('giữ bao lâu (s)', 'hold (s)', '유지(초)')}"></label>
+    <div class="row"><button data-x="cdlen">⏲ ${T('Độ dài video = vừa khớp lượt đếm', 'Video length = fit the countdown', '영상 길이 맞추기')} (${cd_len()} s)</button></div>
+  </section>
+  <section><h3><b>3</b>${T('Kiểu chữ & căn chỉnh', 'Style & placement', '스타일 & 배치')}</h3>
+    <label><span>${T('Cỡ số', 'Size', '크기')}</span><input type="range" data-k="cd.size" min="60" max="1200" value="${C.size}"><output>${C.size}px</output></label>
+    <label><span>${T('Độ đậm', 'Weight', '굵기')}</span><select data-k="cd.font">${['400', '600', '800', '900'].map(v => `<option${C.font === v ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
+    <label><span>${T('Màu số · viền', 'Fill · outline', '색 · 외곽선')}</span><input type="color" data-k="cd.color" value="${C.color}"><input type="color" data-k="cd.stroke" value="${C.stroke}"><input type="range" data-k="cd.sw" min="0" max="40" value="${C.sw}"></label>
+    <label><span>${T('Ánh sáng', 'Glow', '글로우')}</span><input type="color" data-k="cd.glow" value="${C.glow || '#000000'}"><label style="margin:0"><input type="checkbox" data-x2="noglow"${C.glow ? '' : ' checked'}> ${T('tắt', 'off', '끄기')}</label></label>
+    <label><span>${T('Cảnh báo', 'Warning', '경고')}</span><input type="number" data-k="cd.warn" min="0" step="1" value="${C.warn}"><span style="min-width:0">${T('số cuối đổi màu', 'last numbers turn', '마지막 숫자 색')}</span><input type="color" data-k="cd.warnColor" value="${C.warnColor}"></label>
+    <div class="row"><label><input type="checkbox" data-k="cd.pop"${C.pop ? ' checked' : ''}> ${T('Nảy mỗi số', 'Pop each tick', '틱마다 팝')}</label><label><input type="checkbox" data-k="cd.ring"${C.ring ? ' checked' : ''}> ${T('Vòng tròn chạy', 'Progress ring', '진행 링')}</label><input type="color" data-k="cd.ringColor" value="${C.ringColor}"></div>
+    <label><span>X · Y (%)</span><input type="number" data-k="cd.x" data-pct="1" step="0.5" value="${+(C.x * 100).toFixed(1)}"><input type="number" data-k="cd.y" data-pct="1" step="0.5" value="${+(C.y * 100).toFixed(1)}"></label>
+    ${pos}
+  </section>
+  ${exportSec(4)}`;
+  const B = S.boss;
+  const bossSec = `<section><h3><b>4</b>${T('Máu boss (1 thanh lớn)', 'Boss HP (one big bar)', '보스 HP (큰 바)')} <label style="margin:0 0 0 auto"><input type="checkbox" data-k="boss.on"${B.on ? ' checked' : ''}> ${T('Bật', 'On', '켜기')}</label></h3>
+    ${B.on ? `<label><span>${T('Tên boss', 'Boss name', '보스 이름')}</span><input type="text" data-k="boss.name" value="${(B.name || '').replace(/"/g, '&quot;')}"></label>
+    <label><span>HP max</span><input type="number" data-k="boss.max" value="${B.max}"><span style="min-width:0">${T('Bắt đầu', 'Start', '시작')}</span><input type="number" data-k="boss.start" value="${B.start}"></label>
+    <label><span>${T('Số lớp thanh (x3…)', 'Bar layers (x3…)', '바 레이어 (x3…)')}</span><input type="number" data-k="boss.layers" min="1" max="12" value="${B.layers}"></label>
+    <label><span>${T('Dài · dày', 'Length · thickness', '길이 · 두께')}</span><input type="range" data-k="boss.w" data-pct="1" min="20" max="100" value="${Math.round(B.w * 100)}"><input type="range" data-k="boss.h" min="16" max="160" value="${B.h}"></label>
+    <label><span>${T('Bo góc', 'Rounding', '둥글기')}</span><input type="range" data-k="boss.round" data-pct="1" min="0" max="100" value="${Math.round(B.round * 100)}"></label>
+    <label><span>${T('Màu', 'Colours', '색')}</span><input type="color" data-k="boss.c1" value="${B.c1}"><input type="color" data-k="boss.c2" value="${B.c2}"><span style="min-width:0">${T('vệt · nền · viền', 'trail · back · edge', '잔상·배경·테두리')}</span><input type="color" data-k="boss.trail" value="${B.trail}"><input type="color" data-k="boss.back" value="${B.back}"><input type="color" data-k="boss.edge" value="${B.edge || '#000000'}"></label>
+    <div class="row"><label><input type="checkbox" data-k="boss.pct"${B.pct ? ' checked' : ''}> ${T('Hiện %', 'Show %', '% 표시')}</label><label><input type="checkbox" data-k="boss.numbers"${B.numbers ? ' checked' : ''}> ${T('Số HP', 'Numbers', '숫자')}</label><label><input type="checkbox" data-k="hud.on"${S.hud.on ? ' checked' : ''}> ${T('Vẫn hiện HUD hero', 'Keep the hero HUD', '영웅 HUD 유지')}</label></div>
+    ${imgrow(SLOTS[7])}${imgrow(SLOTS[8])}
+    <div class="sm">${T('Trong bảng mốc chọn cột Hero / Boss. Đang phát bấm B = boss bị đánh.', 'Pick Hero / Boss in the events table. While playing press B = boss hit.', '이벤트 표에서 Hero/Boss 선택. 재생 중 B = 보스 피격.')}</div>` : ''}
+  </section>`;
+  const adjSec = `<section><h3><b>3b</b>${T('Chỉnh thanh máu hero', 'Adjust the hero bar', '영웅 바 조정')}</h3>
+    <label><span>${T('Dài · dày', 'Length · thickness', '길이 · 두께')}</span><input type="range" data-k="hp.w" data-pct="1" min="40" max="200" value="${Math.round(S.hp.w * 100)}"><input type="range" data-k="hp.h" data-pct="1" min="40" max="250" value="${Math.round(S.hp.h * 100)}"></label>
+    <label><span>${T('Bo góc', 'Rounding', '둥글기')}</span><input type="range" data-k="hp.round" data-pct="1" min="0" max="100" value="${Math.round(S.hp.round * 100)}"></label>
+    <label><span>${T('Vệt trắng: chờ · tốc độ tụt', 'Trail: wait · drain speed', '잔상: 대기 · 속도')}</span><input type="number" data-k="hp.hold" min="0" max="3" step="0.05" value="${S.hp.hold}"><input type="range" data-k="hp.drain" min="1" max="20" value="${S.hp.drain}"></label>
+    <div class="row"><label><input type="checkbox" data-k="hud.flip"${S.hud.flip ? ' checked' : ''}> ${T('Avatar bên phải (lật)', 'Avatar on the right (mirror)', '아바타 오른쪽')}</label><label><input type="checkbox" data-k="hud.on"${S.hud.on ? ' checked' : ''}> ${T('Hiện HUD hero', 'Show the hero HUD', '영웅 HUD')}</label></div>
+    <label><span>X · Y (%)</span><input type="number" data-k="hud.x" data-pct="1" step="0.5" value="${+(S.hud.x * 100).toFixed(1)}"><input type="number" data-k="hud.y" data-pct="1" step="0.5" value="${+(S.hud.y * 100).toFixed(1)}"></label>
+    ${pos}
+  </section>`;
+  if (S.page === 'fx') {
+    const F = S.fx, m = fx_sel(), V = F.vig;
+    const sb = (sh, type) => `<button data-fxadd="${type}" data-shape="${sh[0]}" title="${T(sh[2], sh[3], sh[3])}" style="flex:0 0 auto;min-width:38px">${sh[1]}</button>`;
+    const list = F.masks.map((q, i) => `<div class="row" style="flex-wrap:nowrap"><button data-fxsel="${q.id}" style="text-align:left;${q.id === F.sel ? 'border-color:#ffb020' : ''}">${{ blur: '💧', pixel: '▦', media: '🖼' }[q.type]} ${FX_SHAPES.find(x => x[0] === q.shape)?.[1] || ''} #${i + 1}${q.keys && q.keys.length ? ' · 🎯' + q.keys.length : ''}</button><button data-fxdel="${q.id}" style="flex:0 0 auto">✕</button></div>`).join('');
+    const mhtml = !m ? `<div class="sm">${T('Chọn một mask (bấm trên khung hình hoặc trong danh sách).', 'Pick a mask (click it on the preview or in the list).', '마스크를 선택하세요.')}</div>` : `
+      <label><span>${T('Hình', 'Shape', '모양')}</span><select data-fxk="shape">${FX_SHAPES.map(x => `<option value="${x[0]}"${m.shape === x[0] ? ' selected' : ''}>${x[1]} ${T(x[2], x[3], x[3])}</option>`).join('')}</select></label>
+      <label><span>${T('Loại', 'Kind', '종류')}</span><select data-fxk="type"><option value="blur"${m.type === 'blur' ? ' selected' : ''}>💧 ${T('Làm mờ (blur)', 'Blur', '블러')}</option><option value="pixel"${m.type === 'pixel' ? ' selected' : ''}>▦ ${T('Vỡ hạt (pixel)', 'Pixelate', '픽셀')}</option><option value="media"${m.type === 'media' ? ' selected' : ''}>🖼 ${T('Khung chứa ảnh / video', 'Frame with a picture / video', '이미지/영상 프레임')}</option></select></label>
+      ${m.type !== 'media' ? `<label><span>${T('Độ mờ', 'Strength', '강도')}</span><input type="range" data-fxk="amount" min="4" max="160" value="${m.amount}"></label><label><span>${T('Tối đi', 'Darken', '어둡게')}</span><input type="range" data-fxk="dark" data-pct="1" min="0" max="80" value="${Math.round((m.dark || 0) * 100)}"></label>`
+        : `<div class="row"><button data-fxx="media">⬆ ${T('Ảnh / video vào khung', 'Picture / video into the frame', '이미지/영상')}</button>${FXV[m.id] ? `<button data-fxx="mediaoff" style="flex:0 0 auto">✕</button>` : ''}</div>
+        <label><span>${T('Vừa khung', 'Fit', '맞춤')}</span><select data-fxk="fit"><option value="cover"${m.fit !== 'contain' ? ' selected' : ''}>${T('Lấp đầy (cắt mép)', 'Fill (crop)', '채우기')}</option><option value="contain"${m.fit === 'contain' ? ' selected' : ''}>${T('Hiện đủ', 'Show all', '전체')}</option></select></label>
+        <label><span>${T('Viền', 'Border', '테두리')}</span><input type="color" data-fxk="bc" value="${m.bc || '#ffffff'}"><input type="range" data-fxk="bw" min="0" max="40" value="${m.bw || 0}"></label>`}
+      <label><span>${T('Hiện từ → đến (s)', 'Shown from → to (s)', '표시 구간')}</span><input type="number" data-fxk="t0" step="0.1" min="0" value="${m.t0 || 0}"><input type="number" data-fxk="t1" step="0.1" min="0" value="${m.t1 ?? ''}" placeholder="${T('hết', 'end', '끝')}"></label>
+      <div class="sm" style="margin-top:6px"><b>${T('Bám theo vật (tracking)', 'Follow an object (tracking)', '추적')}</b> · ${m.keys && m.keys.length ? T(`${m.keys.length} mốc`, `${m.keys.length} keys`, `키 ${m.keys.length}`) : T('đang đứng yên', 'not moving', '고정')}</div>
+      <div class="row"><button data-fxx="track"${fx_tracking ? ' class="on"' : ''}>${fx_tracking ? '⏹ ' + T('Dừng', 'Stop', '정지') : '🎯 ' + T('Tự bám vật từ giây này', 'Auto track from here', '여기서 자동 추적')}</button><button data-fxx="rec" class="${F.rec ? 'on' : ''}" title="${T('Bật rồi phát video và kéo mask theo vật: mỗi lần kéo ghi một mốc ở giây đó', 'Turn on, play the video and drag the mask along: every drag writes a key at that second', '켜고 재생하며 드래그')}">⏺ ${T('Kéo tay ghi mốc', 'Drag to record keys', '드래그로 키')}</button></div>
+      <div class="row"><button data-fxx="keyhere">＋ ${T('Mốc tại giây này', 'Key at this second', '현재 키')}</button><button data-fxx="keysoff">✕ ${T('Xoá mốc', 'Clear keys', '키 삭제')}</button></div>`;
+    // fold-out cards, opened / closed state remembered
+    const card = (key, title, body, head = '') => `<details class="fxc" data-card="${key}"${F.open && F.open[key] ? ' open' : ''}><summary>${title}${head}</summary><div class="fxb">${body}</div></details>`;
+    const blurList = F.masks.filter(q => q.type !== 'media'), mediaList = F.masks.filter(q => q.type === 'media');
+    const listOf = arr => arr.map(q => { const i = F.masks.indexOf(q); return `<div class="row" style="flex-wrap:nowrap"><button data-fxsel="${q.id}" style="text-align:left;${q.id === F.sel ? 'border-color:#ffb020' : ''}">${{ blur: '💧', pixel: '▦', media: '🖼' }[q.type]} ${FX_SHAPES.find(x => x[0] === q.shape)?.[1] || ''} #${i + 1}${q.keys && q.keys.length ? ' · 🎯' + q.keys.length : ''}</button><button data-fxdel="${q.id}" style="flex:0 0 auto">✕</button></div>`; }).join('');
+    const selIn = type => m && ((type === 'media') === (m.type === 'media')) ? `<div style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px"><b class="sm">${T('Đang chọn', 'Selected', '선택')}</b>${mhtml}</div>` : '';
+    const trList = (F.trans || []).map((tr, i) => `<div class="row" style="flex-wrap:nowrap;gap:4px"><select data-tr="${i}" data-f="kind" style="flex:1.4">${TRANS.map(x => `<option value="${x[0]}"${tr.kind === x[0] ? ' selected' : ''}>${x[1]} ${T(x[3], x[2], x[2])}</option>`).join('')}</select><input type="number" data-tr="${i}" data-f="t" step="0.05" min="0" value="${tr.t}" title="${T('giây', 'second', '초')}" style="width:62px;flex:0 0 auto"><input type="number" data-tr="${i}" data-f="dur" step="0.05" min="0.1" value="${tr.dur}" title="${T('dài (s)', 'length (s)', '길이')}" style="width:56px;flex:0 0 auto"><button data-trgo="${i}" title="${T('Xem', 'Go to', '보기')}" style="flex:0 0 auto">▶</button><button data-trdel="${i}" style="flex:0 0 auto">✕</button></div>`).join('');
+    side.innerHTML = tabs + frameSec
+      + card('blur', `🌫 ${T('Làm mờ / che một vùng', 'Blur / hide an area', '블러')} <span class="sm">(${blurList.length})</span>`, `
+        <div class="sm">${T('Chọn hình mask, kéo lên vật cần che. Chỉ vùng trong mask bị mờ.', 'Pick a shape, drag it over what to hide. Only inside the mask is blurred.', '모양 선택 후 드래그')}</div>
+        <div class="row" style="flex-wrap:wrap">${FX_SHAPES.map(x => sb(x, 'blur')).join('')}<button data-fxadd="pixel" data-shape="rect" title="${T('Vỡ hạt', 'Pixelate', '픽셀')}" style="flex:0 0 auto">▦</button></div>
+        ${listOf(blurList)}${selIn('blur')}`)
+      + card('media', `🖼 ${T('Khung chứa ảnh / video', 'Picture / video frames', '프레임')} <span class="sm">(${mediaList.length})</span>`, `
+        <div class="sm">${T('Thêm khung rồi bấm ⬆ (hoặc kéo thả file vào khung): ảnh / video chỉ nằm gọn trong khung.', 'Add a frame, then ⬆ (or drop a file on it): the picture / video stays inside.', '프레임 안에만 표시')}</div>
+        <div class="row" style="flex-wrap:wrap">${FX_SHAPES.map(x => sb(x, 'media')).join('')}</div>
+        ${listOf(mediaList)}${selIn('media')}`)
+      + card('trans', `🎬 ${T('Chuyển cảnh', 'Transitions', '전환')} <span class="sm">(${(F.trans || []).length})</span>`, `
+        <div class="sm">${T('Bấm một kiểu để thêm ở giây đang xem (kiểu Motion Bro). Mạnh nhất ở giữa độ dài.', 'Click a style to add it at this second (Motion Bro style). Strongest in the middle of its length.', '현재 초에 추가')}</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px">${TRANS.map(x => `<button data-tradd="${x[0]}" style="text-align:left;font-size:12px">${x[1]} ${T(x[3], x[2], x[2])}</button>`).join('')}</div>
+        ${trList ? `<div class="sm" style="margin-top:6px">${T('Kiểu · giây · dài', 'Style · second · length', '종류 · 초 · 길이')}</div>${trList}` : ''}`)
+      + card('vig', `🩸 ${T('Viền đỏ khi trúng đòn', 'Red damage corners', '피격 붉은 테두리')}`, `
+        <label><input type="checkbox" data-k="fx.vig.on"${V.on ? ' checked' : ''}> ${T('Bật', 'On', '켜기')}</label>
+        ${V.on ? `<label><span>${T('Màu · độ đậm', 'Colour · strength', '색 · 강도')}</span><input type="color" data-k="fx.vig.color" value="${V.color}"><input type="range" data-k="fx.vig.strength" data-pct="1" min="10" max="100" value="${Math.round(V.strength * 100)}"></label>
+        <label><span>${T('Độ lấn vào', 'How far in', '범위')}</span><input type="range" data-k="fx.vig.size" data-pct="1" min="10" max="90" value="${Math.round(V.size * 100)}"></label>
+        <label><span>${T('Mỗi cú kéo dài', 'Each hit lasts', '지속')}</span><input type="number" data-k="fx.vig.dur" step="0.1" min="0.1" value="${V.dur}"> s</label>
+        <label><span>${T('Các giây trúng đòn', 'Hit times (s)', '피격 시각')}</span><input type="text" data-vig="hits" value="${(V.hits || []).join(', ')}"></label>
+        <div class="row"><button data-fxx="vighere">＋ ${T('Trúng đòn tại giây này (V)', 'Hit at this second (V)', '현재 피격 (V)')}</button></div>
+        <label><input type="checkbox" data-k="fx.vig.fromHp"${V.fromHp ? ' checked' : ''}> ${T('Cùng lúc hero bị đánh ở trang Thanh máu', 'Also when the hero is hit on the Health bar page', 'HP 페이지 피격 시에도')}</label>
+        <label><input type="checkbox" data-k="fx.vig.low"${V.low ? ' checked' : ''}> ${T('Nhấp nháy liên tục (sắp chết)', 'Keep pulsing (low HP)', '계속 깜빡임')}</label>` : ''}`)
+      + exportSec(6)
+      + `<div class="sm">${T('MP4 ở trang này = video gốc + mask + khung + chuyển cảnh + viền đỏ (không có tiếng). .MOV alpha = chỉ khung ảnh và viền đỏ.', 'The MP4 here = the source video + masks + frames + transitions + red corners (no sound). Alpha .MOV = frames and red corners only.', 'MP4 = 원본+효과')}</div>
+      <input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden><input type="file" id="fFx" accept="image/*,video/*" hidden>`;
+    side.querySelectorAll('details.fxc').forEach(d => { d.addEventListener('toggle', () => { F.open = F.open || {}; F.open[d.dataset.card] = d.open; save(); }); });
+    side.querySelectorAll('[data-tradd]').forEach(b => { b.onclick = () => { h_begin(); F.trans = F.trans || []; F.trans.push({ id: 't' + Date.now().toString(36), kind: b.dataset.tradd, t: +t.toFixed(2), dur: b.dataset.tradd === 'flash' || b.dataset.tradd === 'shake' ? 0.35 : 0.6 }); F.trans.sort((p, q) => p.t - q.t); invalidate(); render(); h_soon(); }; });
+    side.querySelectorAll('[data-tr]').forEach(el => { el.onchange = () => { const tr = F.trans[Number(el.dataset.tr)]; if (!tr) return; const f = el.dataset.f; tr[f] = f === 'kind' ? el.value : Math.max(f === 'dur' ? 0.1 : 0, Number(el.value)); invalidate(); }; });
+    side.querySelectorAll('[data-trdel]').forEach(b => { b.onclick = () => { h_begin(); F.trans.splice(Number(b.dataset.trdel), 1); invalidate(); render(); h_soon(); }; });
+    side.querySelectorAll('[data-trgo]').forEach(b => { b.onclick = () => { const tr = F.trans[Number(b.dataset.trgo)]; if (!tr) return; set_play(false); t = Math.max(0, tr.t - tr.dur / 2); goto(t); dirty = true; setTimeout(() => set_play(true), 50); }; });
+    side.scrollTop = sy; $('hint').textContent = T('Bấm mask để chọn · kéo dời · Delete xoá · V thêm cú trúng đòn · Space phát / dừng', 'Click a mask to pick it · drag to move · Delete removes · V adds a hit · Space play / pause', '클릭 선택 · 드래그 · Delete · V · Space');
+    wire(); wire_fx(); return;
+  }
+  if (S.page === 'end') {
+    const E = S.ec;
+    side.innerHTML = tabs + frameSec + `
+  <section><h3><b>2</b>${T('Ảnh của end card', 'End card pictures', '엔드카드 이미지')}</h3>
+    ${EC_SLOTS.map(s => imgrow(s) + `<div class="sm" style="margin:-2px 0 6px">${T('Nên gen', 'Generate at', '권장')} <b>${s[3]}×${s[4]}</b> · ${T(s[5], s[6], s[6])}</div>`).join('')}
+  </section>
+  <section><h3><b>3</b>${T('Từng phần tử: cỡ, khoảng cách, điểm neo, căn giữa', 'Each part: size, spacing, anchor, centring', '요소별: 크기, 간격, 앵커, 정렬')}</h3>
+    <div class="sm">${T('Bấm một phần tử trên khung xem trước để chọn và kéo; kéo chỗ trống để dời cả khối. Giữ Shift khi kéo = chỉ đi ngang hoặc dọc (như After Effects); mũi tên dịch 1 px, Shift + mũi tên 10 px; Alt = không hít vào giữa.', 'Click a part on the preview to pick and drag it; drag empty space to move the whole card. Hold Shift while dragging = straight across or down only (like After Effects); arrows nudge 1 px, Shift + arrows 10 px; Alt = no centre snap.', '요소 클릭·드래그, Shift = 한 축, 방향키 1px, Shift+방향키 10px')}</div>
+    <div id="ecPanel"></div>
+    <label><span>${T('Giữ sau cùng', 'Hold at the end', '유지')}</span><input type="number" data-k="ec.hold" step="0.5" min="0" value="${E.hold}"> s</label>
+    <div class="row"><button data-x="eclen">⏲ ${T('Độ dài video = vừa khớp end card', 'Video length = fit the end card', '영상 길이 맞추기')} (${ec_len()} s)</button></div>
+  </section>
+  <section><h3><b>4</b>${T('Phía sau', 'Behind it', '배경')}</h3>
+    <label><span>${T('Nền', 'Backdrop', '배경')}</span><select data-k="ec.back"><option value="blur"${E.back === 'blur' ? ' selected' : ''}>${T('Game làm mờ (ảnh nền hoặc video gốc)', 'The game, blurred (background picture or the source video)', '게임 블러')}</option><option value="image"${E.back === 'image' ? ' selected' : ''}>${T('Ảnh nền rõ', 'Background picture, sharp', '배경 이미지')}</option><option value="none"${E.back === 'none' ? ' selected' : ''}>${T('Trong suốt', 'Transparent', '투명')}</option></select></label>
+    <label><span>${T('Độ mờ', 'Blur', '블러')}</span><input type="range" data-k="ec.blur" min="4" max="60" value="${E.blur}"></label>
+    <label><span>${T('Phủ tối', 'Dark veil', '어둡게')}</span><input type="color" data-k="ec.bgColor" value="${E.bgColor}"><input type="range" data-k="ec.dim" data-pct="1" min="0" max="100" value="${Math.round(E.dim * 100)}"></label>
+    ${pos}
+  </section>
+  ${exportSec(6)}
+  <div class="sm">${T('.MOV alpha giữ trong suốt quanh thẻ (lớp phủ tối thành bán trong suốt): thả thẳng lên cuối video gameplay.', 'The alpha .MOV keeps everything around the card transparent (the veil stays half see-through): drop it on the end of the gameplay video.', '알파 .MOV: 카드 주변 투명.')}</div>
+  <input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden>`;
+    side.scrollTop = sy; $('hint').textContent = T('Kéo thẻ trên khung hình để đặt · mũi tên dịch từng px · Space phát / dừng', 'Drag the card on the preview · arrow keys nudge · Space play / pause', '카드 드래그 · Space');
+    wire();
+    GBEC.panel($('ecPanel'), S.ec.layer, { kind: 'simple', lang: () => L, change: () => { if (S.dur < ec_len()) S.dur = ec_len(); invalidate(); }, upload: k => { up_slot = k === 'icon' ? 'ecIcon' : 'ecLogo'; $('fImg').click(); }, hasImg: k => !!IMG[k === 'icon' ? 'ecIcon' : 'ecLogo'] });
+    return;
+  }
+  if (S.page === 'count') { side.innerHTML = tabs + countHtml + `<input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden>`; side.scrollTop = sy; $('hint').textContent = T('Kéo số trên khung hình để căn · mũi tên dịch từng px · Space phát / dừng', 'Drag the number on the preview · arrow keys nudge · Space play / pause', '숫자 드래그 · 방향키 · Space'); wire(); return; }
+  side.innerHTML = tabs + frameSec + `
+  <section><h3><b>2</b>${T('Nhân vật & khung', 'Hero & frame', '영웅 & 프레임')}</h3>
+    <label><span>${T('Tên', 'Name', '이름')}</span><input type="text" data-k="hero.name" value="${(S.hero.name || '').replace(/"/g, '&quot;')}"></label>
+    <label><span>${T('Cấp', 'Level', '레벨')}</span><input type="number" data-k="hero.level" value="${S.hero.level}"><input type="checkbox" data-k="hero.showLevel"${S.hero.showLevel ? ' checked' : ''}></label>
+    <label><span>${T('Dáng khung', 'Frame shape', '프레임 모양')}</span><select data-k="hero.shape">${[['circle', T('Tròn', 'Circle', '원')], ['square', T('Vuông bo', 'Rounded', '사각')], ['hex', T('Lục giác', 'Hexagon', '육각')]].map(([v, l]) => `<option value="${v}"${S.hero.shape === v ? ' selected' : ''}>${l}</option>`).join('')}</select><input type="color" data-k="hero.ring" value="${S.hero.ring}"></label>
+    <label><span>${T('Cỡ HUD', 'HUD size', 'HUD 크기')}</span><input type="range" data-k="hud.scale" min="40" max="200" value="${Math.round(S.hud.scale * 100)}"></label>
+    ${imgrow(SLOTS[0])}${imgrow(SLOTS[1])}${imgrow(SLOTS[6])}
+  </section>
+  <section><h3><b>3</b>${T('Thanh máu (HP)', 'Health bar (HP)', '체력 바 (HP)')}</h3>
+    <label><span>HP max</span><input type="number" data-k="hp.max" value="${S.hp.max}"><span style="min-width:0">${T('Bắt đầu', 'Start', '시작')}</span><input type="number" data-k="hp.start" value="${S.hp.start}"></label>
+    <label><span>${T('Màu', 'Colours', '색')}</span><input type="color" data-k="hp.c1" value="${S.hp.c1}"><input type="color" data-k="hp.c2" value="${S.hp.c2}"><span style="min-width:0">${T('vệt', 'trail', '잔상')}</span><input type="color" data-k="hp.trail" value="${S.hp.trail}"><input type="color" data-k="hp.back" value="${S.hp.back}"></label>
+    <div class="row"><label><input type="checkbox" data-k="hp.numbers"${S.hp.numbers ? ' checked' : ''}> ${T('Số HP', 'Numbers', '숫자')}</label><label><input type="checkbox" data-k="hud.popups"${S.hud.popups ? ' checked' : ''}> ${T('Số bay -250', 'Popups -250', '-250 팝업')}</label><label><input type="checkbox" data-k="hud.shake"${S.hud.shake ? ' checked' : ''}> ${T('Rung khi bị đánh', 'Shake on hit', '피격 흔들림')}</label><label><input type="checkbox" data-k="hud.lowPulse"${S.hud.lowPulse ? ' checked' : ''}> ${T('Nháy khi máu thấp', 'Pulse when low', '저체력 깜빡임')}</label></div>
+    ${imgrow(SLOTS[2])}${imgrow(SLOTS[3])}
+  </section>
+  ${adjSec}
+  ${bossSec}
+  <section><h3><b>4b</b>Mana <label style="margin:0 0 0 auto"><input type="checkbox" data-k="mp.on"${S.mp.on ? ' checked' : ''}> ${T('Bật', 'On', '켜기')}</label></h3>
+    <label><span>Mana max</span><input type="number" data-k="mp.max" value="${S.mp.max}"><span style="min-width:0">${T('Bắt đầu', 'Start', '시작')}</span><input type="number" data-k="mp.start" value="${S.mp.start}"></label>
+    <label><span>${T('Màu', 'Colours', '색')}</span><input type="color" data-k="mp.c1" value="${S.mp.c1}"><input type="color" data-k="mp.c2" value="${S.mp.c2}"><label style="margin:0"><input type="checkbox" data-k="mp.numbers"${S.mp.numbers ? ' checked' : ''}> ${T('Số', 'Numbers', '숫자')}</label></label>
+    ${imgrow(SLOTS[4])}
+  </section>
+  <section><h3><b>5</b>Logo <label style="margin:0 0 0 auto"><input type="checkbox" data-k="logo.on"${S.logo.on ? ' checked' : ''}> ${T('Bật', 'On', '켜기')}</label></h3>
+    ${imgrow(SLOTS[5])}
+    <label><span>${T('Cỡ logo', 'Logo size', '로고 크기')}</span><input type="range" data-k="logo.w" min="5" max="90" value="${Math.round(S.logo.w * 100)}"></label>
+  </section>
+  <section><h3><b>6</b>${T('Hero bị tấn công lúc nào', 'When the hero is hit', '피격 타이밍')}</h3>
+    <table><tr><th>${T('Giây', 'Second', '초')}</th>${S.boss.on ? '<th>Ai</th>' : ''}<th>${T('Loại', 'Type', '종류')}</th><th>${T('Lượng', 'Amount', '양')}</th><th></th></tr>${ev}</table>
+    <div class="row"><button data-x="addHit">＋ ${T('Bị đánh tại giây hiện tại', 'Hit at the playhead', '현재 위치 피격')}</button><button data-x="addHeal">＋ ${T('Hồi máu', 'Heal', '회복')}</button>${S.boss.on ? `<button data-x="addBoss">＋ ${T('Boss bị đánh', 'Boss hit', '보스 피격')}</button>` : ''}</div>
+    <div class="row"><button data-x="sort">↕ ${T('Sắp theo giây', 'Sort by time', '시간순')}</button><button data-x="clearEv">🗑 ${T('Xoá hết', 'Clear all', '모두 삭제')}</button></div>
+    <div class="sm">${T('Đang phát: bấm H = bị đánh, J = hồi máu, M = dùng mana, Space = phát / dừng — mốc được ghi đúng giây.', 'While playing: H = hit, J = heal, M = use mana, Space = play / pause — keys are stamped at that second.', '재생 중 H=피격, J=회복, M=마나, Space=재생/정지.')}</div>
+  </section>
+  <section><h3><b>7</b>${T('Kích thước ảnh để gen / upload', 'Image sizes to generate / upload', '이미지 크기')}</h3>
+    <table><tr><th>${T('Khung', 'Slot', '슬롯')}</th><th>${T('Trên video', 'On video', '영상')}</th><th>${T('Nên gen', 'Generate at', '권장')}</th><th></th></tr>
+    ${SLOTS.map(s => { const [w, h] = slot_px(s); return `<tr><td>${T(s[1], s[2], s[2])}<div class="sm">${T(s[5], s[6], s[6])}</div></td><td>${w}×${h}</td><td><b>${w * 2}×${h * 2}</b></td><td><button data-tpl="${s[0]}" title="${T('Tải template đúng cỡ', 'Download a template at that size', '템플릿 다운로드')}">⬇</button></td></tr>`; }).join('')}</table>
+    <div class="sm">${T('Gen ảnh ở cột "Nên gen" (gấp 2 cho nét), tỉ lệ đúng như vậy; PNG nền trong suốt cho khung / logo. Template có viền an toàn và vùng lỗ (đỏ = chỗ thanh / avatar).', 'Generate at the "Generate at" size (2× for sharpness) with that exact ratio; transparent PNG for frames / logo. Templates show the safe area and the holes (red = where the bars / avatar go).', '권장 크기(2배)로 생성하세요.')}</div>
+  </section>
+  ${exportSec(8)}
+  <input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden>`;
+  side.scrollTop = sy;
+  $('hint').textContent = T('Kéo trên khung hình để đặt HUD / logo · Space phát / dừng · H ghi cú đánh', 'Drag on the preview to place the HUD / logo · Space play / pause · H stamps a hit', '드래그로 HUD 위치 · Space 재생 · H 피격');
+  wire();
+}
+let up_slot = null;
+function setk (path, v) { const p = path.split('.'); let o = S; for (let i = 0; i < p.length - 1; i++) o = o[p[i]]; o[p[p.length - 1]] = v; }
+function wire () {
+  const side = $('side');
+  side.querySelectorAll('[data-k]').forEach(el => {
+    const k = el.dataset.k;
+    el.oninput = el.onchange = () => {
+      let v = el.type === 'checkbox' ? el.checked : el.type === 'number' || el.type === 'range' ? Number(el.value) : el.value;
+      if (el.dataset.time) { v = parse_hms(el.value); if (!isFinite(v)) return; }
+      if (k === 'vidop') { for (const q of CLIPS) q.style.opacity = String(v / 100); return; }
+      if (k === 'hud.scale' || k === 'logo.w' || el.dataset.pct) v = v / 100;
+      if (el.type === 'range' && el.nextElementSibling && el.nextElementSibling.tagName === 'OUTPUT') el.nextElementSibling.textContent = v + 'px';
+      if (k === 'fps') v = Number(v);
+      setk(k, v);
+      if (k === 'size') resize();
+      if (k.startsWith('cd.') && S.dur < cd_len() && cd_len() <= 120) S.dur = cd_len();
+      if (k.startsWith('ec.') && S.dur < ec_len()) S.dur = ec_len();
+      if (k === 'boss.on' && v && !S.events.some(e => e.who === 'boss')) S.events.push({ t: 1.5, kind: 'dmg', v: 2500, who: 'boss' }, { t: 3.5, kind: 'dmg', v: 4000, who: 'boss' }, { t: 7, kind: 'dmg', v: 6000, who: 'boss' });
+      invalidate();
+      if (el.type !== 'text' && el.type !== 'range' && el.type !== 'number' && el.type !== 'color') render();
+    };
+  });
+  side.querySelectorAll('[data-ev]').forEach(el => { el.onchange = () => { const e = S.events[Number(el.dataset.ev)]; const f = el.dataset.f; e[f] = f === 'kind' || f === 'who' ? el.value : Number(el.value); if (f === 'who' && el.value === 'hero') delete e.who; if (f === 'v' && e.kind === 'dmg') { if (e.who === 'boss') S.lastBoss = e.v; else S.lastDmg = e.v; } invalidate(); }; });
+  side.querySelectorAll('[data-page]').forEach(b => { b.onclick = () => set_page(b.dataset.page); });
+  side.querySelectorAll('[data-place]').forEach(b => { b.onclick = () => place(b.dataset.place); });
+  side.querySelectorAll('[data-x2="noglow"]').forEach(b => { b.onchange = () => { S.cd.glow = b.checked ? '' : '#ffb020'; invalidate(); render(); }; });
+  side.querySelectorAll('[data-del]').forEach(b => { b.onclick = () => { S.events.splice(Number(b.dataset.del), 1); invalidate(); render(); }; });
+  side.querySelectorAll('[data-up]').forEach(b => { b.onclick = () => { up_slot = b.dataset.up; $('fImg').click(); }; });
+  side.querySelectorAll('[data-rm]').forEach(b => { b.onclick = () => { delete IMG[b.dataset.rm]; img_del(b.dataset.rm); dirty = true; render(); }; });
+  side.querySelectorAll('[data-tpl]').forEach(b => { b.onclick = () => template(SLOTS.find(s => s[0] === b.dataset.tpl)); });
+  side.querySelectorAll('[data-x]').forEach(b => {
+    b.onclick = () => {
+      const a = b.dataset.x;
+      if (a === 'addHit') S.events.push({ t: +t.toFixed(2), kind: 'dmg', v: S.lastDmg || 200 });
+      else if (a === 'addHeal') S.events.push({ t: +t.toFixed(2), kind: 'heal', v: 200 });
+      else if (a === 'addBoss') S.events.push({ t: +t.toFixed(2), kind: 'dmg', v: S.lastBoss || 1500, who: 'boss' });
+      else if (a === 'cdlen') S.dur = cd_len();
+      else if (a === 'eclen') S.dur = ec_len();
+      else if (a === 'sort') S.events.sort((p, q) => p.t - q.t);
+      else if (a === 'clearEv') { if (!confirm(T('Xoá hết mốc?', 'Clear every event?', '모두 삭제할까요?'))) return; S.events = []; }
+      else if (a === 'vid') { $('fVid').click(); return; }
+      else if (a === 'vidoff') { clip_del(0); return; }
+      else if (a === 'vid2') { $('fVid2').click(); return; }
+      else if (a === 'mp4') { export_mp4(); return; } else if (a === 'mov') { export_mov(); return; } else if (a === 'png') { export_png(); return; }
+      else if (a === 'json') { download(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }), 'hp-bar-project.json'); return; }
+      else if (a === 'open') { $('fJson').click(); return; }
+      invalidate(); render();
+    };
+  });
+  $('fImg').onchange = e => { const f = e.target.files[0]; if (f && up_slot) { set_img(up_slot, f); if (up_slot === 'logo') S.logo.on = true; save(); } e.target.value = ''; };
+  $('fVid').onchange = e => { const f = e.target.files[0]; if (!f) return; vid0.src = URL.createObjectURL(f); vid0.dataset.name = f.name; vid0.style.opacity = '0.6'; vid0.onloadedmetadata = () => { if (clips_total() > 0) { S.dur = Math.round(clips_total() * 100) / 100; invalidate(); render(); } }; e.target.value = ''; };
+  $('fVid2').onchange = e => { for (const f of e.target.files) clip_add(f); e.target.value = ''; };
+  side.querySelectorAll('[data-clipdel]').forEach(b => { b.onclick = () => clip_del(Number(b.dataset.clipdel)); });
+  $('fJson').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { S = merge(structuredClone(DEF), JSON.parse(await f.text())); resize(); invalidate(); render(); } catch (err) { msg(String(err), true); } e.target.value = ''; };
+}
+resize(); render(); draw_marks(); img_load_all(); requestAnimationFrame(loop);
+window.__gbHp = { set_page, busy: () => busy, pause: () => set_play(false), state: () => S, paint: (tt) => { paint(x, tt, S.bg); }, export_mov, export_mp4,
+  refresh: () => { resize(); invalidate(); render(); }, snapshot: () => { paint(x, t, S.bg === 'clear' ? 'black' : S.bg); const c = document.createElement('canvas'); const k = Math.min(1, 720 / H); c.width = Math.round(W * k); c.height = Math.round(H * k); c.getContext('2d').drawImage(cv, 0, 0, c.width, c.height); dirty = true; return c.toDataURL('image/jpeg', 0.85); } };
+})();
+</script>
+</body>
+</html>

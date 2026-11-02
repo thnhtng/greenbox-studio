@@ -7,6 +7,7 @@
 import * as THREE from 'three'
 import { type Bone } from 'three'
 import { RIGIFY_DEF } from './BoneNames'
+import CONTROLS_PY from './greenbox_controls.py?raw'
 
 type P = [number, number, number]
 
@@ -18,6 +19,8 @@ export interface RigifyOptions {
   glb?: string
   /** joints turned off for hyper-casual: their meta-rig fingers are removed too */
   off?: string[]
+  /** IK or FK per limb (arm.L, arm.R, leg.L, leg.R), as set in Greenbox's pose controls */
+  modes?: Record<string, 'IK' | 'FK'>
 }
 
 export function rigify_metarig_script (bones: Bone[], model_name = 'Greenbox character', opt: RigifyOptions = {}): string {
@@ -76,6 +79,8 @@ if h_meta > 1e-6 and h_char > 1e-6:
 OFF = set(${JSON.stringify(opt.off ?? [])})
 GLB_NAME = ${JSON.stringify(opt.glb ?? '')}
 MAP = ${JSON.stringify(RIGIFY_DEF)}
+MODES = ${JSON.stringify(opt.modes ?? {})}
+CONTROLS = ${JSON.stringify(CONTROLS_PY)}
 
 bpy.ops.object.mode_set(mode='EDIT')
 eb = rig.data.edit_bones
@@ -163,11 +168,13 @@ for s, S in (("l", "L"), ("r", "R")):
 
 bpy.ops.object.mode_set(mode='OBJECT')
 
-# one deform bone per arm / leg part, so Greenbox's skin weights map 1:1 onto Rigify's DEF- bones
+# P2M-style limbs: every arm / leg part is cut in 4 twist segments (DEF-upper_arm.L, .001, .002, .003 ...);
+# Greenbox's weight of each part is spread along its segments after the rig is generated (see below)
+SEGMENTS = 4
 for n in ("upper_arm.L", "upper_arm.R", "thigh.L", "thigh.R"):
     pb = rig.pose.bones.get(n)
     try:
-        pb.rigify_parameters.segments = 1
+        pb.rigify_parameters.segments = SEGMENTS
     except Exception:
         pass
 print("Greenbox: meta-rig placed.")
@@ -218,6 +225,16 @@ else:
     bpy.ops.pose.rigify_generate()
     gen = getattr(rig.data, "rigify_target_rig", None) or bpy.context.view_layer.objects.active
     for m in meshes:
+        # the forearm twist bone of the GLB goes back into the forearm (Rigify's segments do the twist)
+        for s_ in ("l", "r"):
+            tw = m.vertex_groups.get("lowerarm_twist_01_" + s_); fo = m.vertex_groups.get("lowerarm_" + s_)
+            if tw is not None and fo is not None:
+                for v in m.data.vertices:
+                    w = next((g.weight for g in v.groups if g.group == tw.index), 0.0)
+                    if w > 0:
+                        w0 = next((g.weight for g in v.groups if g.group == fo.index), 0.0)
+                        fo.add([v.index], min(1.0, w0 + w), 'REPLACE')
+                m.vertex_groups.remove(tw)
         for vg in m.vertex_groups:
             if vg.name in MAP:
                 vg.name = MAP[vg.name]
@@ -227,11 +244,103 @@ else:
         mw = m.matrix_world.copy()
         m.parent = gen
         m.matrix_world = mw
+    # ---- P2M-style deformation ----
+    # 1. each limb part's weight spread along its twist segments (soft overlap, like P2M's DEF chains)
+    def spread(m, base):
+        segs = [b for b in [gen.data.bones.get(base)] + [gen.data.bones.get("%s.%03d" % (base, i)) for i in range(1, SEGMENTS)] if b is not None]
+        g0 = m.vertex_groups.get(base)
+        if g0 is None or len(segs) < 2:
+            return
+        A = gen.matrix_world @ segs[0].head_local; B = gen.matrix_world @ segs[-1].tail_local; L = (B - A).length or 1.0
+        groups = [m.vertex_groups.get(b.name) or m.vertex_groups.new(name=b.name) for b in segs]
+        n = len(segs); mw = m.matrix_world
+        for v in m.data.vertices:
+            w = next((g.weight for g in v.groups if g.group == g0.index), 0.0)
+            if w <= 0:
+                continue
+            t = max(0.0, min(1.0, ((mw @ v.co) - A).dot(B - A) / (L * L))) * n - 0.5
+            for i, gr in enumerate(groups):
+                share = max(0.0, 1.0 - abs(t - i)) if 0 < i < n - 1 else (max(0.0, min(1.0, 1.0 - (t - i))) if i == 0 else max(0.0, min(1.0, 1.0 + (t - i))))
+                gr.add([v.index], w * share, 'REPLACE') if share > 0 else gr.remove([v.index])
+    # 2. a SMOOTH group on the joints + Corrective Smooth (P2M: factor 0.3, 5 rounds, simple, rest = original)
+    joints = []
+    for nm in ("DEF-upper_arm.L", "DEF-upper_arm.R", "DEF-forearm.L", "DEF-forearm.R", "DEF-hand.L", "DEF-hand.R", "DEF-thigh.L", "DEF-thigh.R", "DEF-shin.L", "DEF-shin.R", "DEF-foot.L", "DEF-foot.R", "DEF-spine.004"):
+        b = gen.data.bones.get(nm)
+        if b is not None:
+            joints.append((gen.matrix_world @ b.head_local, max(0.02, b.length * 0.6)))
+    for m in meshes:
+        for S_ in ("L", "R"):
+            for base in ("DEF-upper_arm", "DEF-forearm", "DEF-thigh", "DEF-shin"):
+                spread(m, base + "." + S_)
+        sm = m.vertex_groups.get("SMOOTH") or m.vertex_groups.new(name="SMOOTH")
+        mw = m.matrix_world
+        for v in m.data.vertices:
+            p = mw @ v.co; w = 0.0
+            for c, r in joints:
+                w = max(w, 1.0 - (p - c).length / r)
+            if w > 0:
+                sm.add([v.index], min(1.0, w * 1.5), 'REPLACE')
+        if not any(md.type == 'CORRECTIVE_SMOOTH' for md in m.modifiers):
+            cs = m.modifiers.new("CorrectiveSmooth", 'CORRECTIVE_SMOOTH')
+            cs.factor = 0.3; cs.iterations = 5; cs.smooth_type = 'SIMPLE'; cs.rest_source = 'ORCO'; cs.vertex_group = "SMOOTH"
+    for nm in [b.name for b in gen.data.bones if b.name.startswith("DEF-")]:
+        try:
+            gen.data.bones[nm].bbone_segments = max(gen.data.bones[nm].bbone_segments, 10 if any(k in nm for k in ("upper_arm", "forearm", "thigh", "shin", "spine")) else 1)
+        except Exception:
+            pass
+    print("Greenbox: P2M-style deformation (4 twist segments per limb part, SMOOTH group + Corrective Smooth, B-bones)")
     if src is not None:
         src.name = "Greenbox animations (original skeleton)"
         src.hide_set(True)
     rig.hide_set(True)
     print("Greenbox: Rigify rig '%s' generated, %d mesh(es) bound. File: %s" % (gen.name, len(meshes), path))
+    # the pose made in Greenbox (clip "Greenbox_Pose") goes onto the Rigify controls, IK and FK alike
+    GB_POSE_MAP = [("torso", "pelvis"), ("chest", "spine_03"), ("neck", "neck_01"), ("head", "head")]
+    for s_, S_ in (("l", "L"), ("r", "R")):
+        GB_POSE_MAP += [("upper_arm_fk." + S_, "upperarm_" + s_), ("forearm_fk." + S_, "lowerarm_" + s_), ("hand_fk." + S_, "hand_" + s_),
+                        ("upper_arm_ik." + S_, "upperarm_" + s_), ("hand_ik." + S_, "hand_" + s_),
+                        ("thigh_fk." + S_, "thigh_" + s_), ("shin_fk." + S_, "calf_" + s_), ("foot_fk." + S_, "foot_" + s_), ("toe_fk." + S_, "ball_" + s_),
+                        ("thigh_ik." + S_, "thigh_" + s_), ("foot_ik." + S_, "foot_" + s_), ("toe_ik." + S_, "ball_" + s_)]
+        for f, mf in (("index", "f_index"), ("middle", "f_middle"), ("ring", "f_ring"), ("pinky", "f_pinky"), ("thumb", "thumb")):
+            for k in ("01", "02", "03"):
+                GB_POSE_MAP.append((mf + "." + k + "." + S_, f + "_" + k + "_" + s_))
+    act = next((a for a in bpy.data.actions if a.name.startswith("Greenbox_Pose")), None)
+    if src is not None and act is not None:
+        try:
+            src.animation_data_create()
+            src.animation_data.action = act
+            try:
+                if len(act.slots) > 0 and src.animation_data.action_slot is None:
+                    src.animation_data.action_slot = act.slots[0]
+            except Exception:
+                pass
+            bpy.context.scene.frame_set(int(act.frame_range[0]))
+            bpy.context.view_layer.update()
+            for ctrl, sb in GB_POSE_MAP:
+                c = gen.pose.bones.get(ctrl)
+                b = src.pose.bones.get(sb) or src.pose.bones.get(MAP.get(sb, ""))
+                if c is None or b is None:
+                    continue
+                S1 = src.matrix_world @ b.matrix
+                S0 = src.matrix_world @ b.bone.matrix_local
+                C0 = gen.matrix_world @ c.bone.matrix_local
+                c.matrix = gen.matrix_world.inverted() @ (S1 @ S0.inverted() @ C0)
+                bpy.context.view_layer.update()
+            print("Greenbox: pose from Greenbox applied")
+        except Exception as e:
+            print("Greenbox: could not apply the pose:", e)
+    for limb, mode in MODES.items():
+        prop = {"arm.L": "upper_arm_parent.L", "arm.R": "upper_arm_parent.R", "leg.L": "thigh_parent.L", "leg.R": "thigh_parent.R"}.get(limb)
+        pb = gen.pose.bones.get(prop) if prop else None
+        if pb is not None:
+            pb["IK_FK"] = 1.0 if mode == "FK" else 0.0
+    gen.update_tag(); bpy.context.view_layer.update()
+
+    # the Greenbox IK / FK panel (sidebar N > Greenbox), saved inside the .blend so it is there next time too
+    txt = bpy.data.texts.get("greenbox_controls.py") or bpy.data.texts.new("greenbox_controls.py")
+    txt.clear(); txt.write(CONTROLS); txt.use_module = True
+    exec(compile(CONTROLS, "greenbox_controls.py", "exec"), {"__name__": "greenbox_controls"})
+
     # ready to pose: the new rig selected, in Pose mode
     try:
         bpy.ops.object.select_all(action='DESELECT')

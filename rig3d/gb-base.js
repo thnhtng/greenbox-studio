@@ -66,9 +66,8 @@
     if ((n === 'src' || n === 'data-src') && /^(IMG|VIDEO|SOURCE)$/.test(this.nodeName)) v = fix(v);
     return osa.call(this, n, v);
   };
-  /* Some Mesh2Motion controls build <img> tags through innerHTML. Rewrite those URLs before the browser
-     parses the markup; waiting for the mutation observer would work visually but still causes one avoidable
-     404 request to the site root first (notably the GitHub and animation mirror icons). */
+  /* Some Mesh2Motion controls build image markup through innerHTML. Rewrite those URLs before parsing so
+     the browser never sends a stray request to the site root (notably for navigation and mirror icons). */
   var dih = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
   if (dih && dih.set) Object.defineProperty(Element.prototype, 'innerHTML', {
     configurable: true, enumerable: dih.enumerable, get: dih.get,
@@ -101,14 +100,31 @@
   var embed = window.self !== window.top;
   var m = location.pathname.match(/^(.*\/rig3d\/)/);
   var ROOT = m ? m[1] : '/';
+  /* Mesh2Motion's links are absolute ("/" = Explore, "/create.html"…). Under …/rig3d/ they would leave the 3D
+     app: "/" opened the site root, which redirects to the cockpit, so the cockpit opened inside its own 3D tab,
+     again and again. Point them into rig3d/. */
+  function local(href) {
+    if (!href || ROOT === '/' || href.charAt(0) !== '/' || href.charAt(1) === '/') return null;
+    if (href.indexOf(ROOT) === 0) return null;
+    return ROOT + href.slice(1);
+  }
+  function fix_links(root) {
+    (root || document).querySelectorAll('a[href^="/"]').forEach(function (a) { var h = local(a.getAttribute('href')); if (h) a.setAttribute('href', h); });
+  }
   function page(a) {
     try {
-      var u = new URL(a.getAttribute('href'), location.href);
+      var h = a.getAttribute('href'); var u = new URL(local(h) || h, location.href);
       if (u.origin !== location.origin || u.pathname.indexOf(ROOT) !== 0) return null;
-      return u.pathname.slice(ROOT.length) || 'create.html';
+      return u.pathname.slice(ROOT.length) || 'index.html';
     } catch (e) { return null; }
   }
+  // links added later (Explore cards, menus) are fixed at click time
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="/"]'); if (!a) return;
+    var h = local(a.getAttribute('href')); if (h) a.setAttribute('href', h);
+  }, true);
   function setup() {
+    fix_links(document)
     var nav = document.querySelector('nav'); if (!nav || document.getElementById('gb-back')) return;
     var back = document.createElement('a');
     back.id = 'gb-back'; back.href = '#'; back.textContent = '←';
@@ -200,7 +216,8 @@
       case 'create:animations-export': return [
         ['#animations-items, #animations-listing', T('Try the animations', 'Thử animation', '애니메이션 미리보기'), T('Click any animation to play it on your character. Torn skin? Go Back and fix the joints or the skin sizes.', 'Bấm animation bất kỳ để xem trên nhân vật. Da bị rách thì Quay lại sửa khớp hoặc độ dày da.', '아무 애니메이션이나 클릭해 재생. 찢어지면 뒤로 가서 수정.')],
         ['#easy-export-glb', T('Save', 'Lưu file', '저장'), T('GLB for Blender / web, FBX for Unity / Unreal. All animations go in one file.', 'GLB cho Blender / web, FBX cho Unity / Unreal. Tất cả animation trong 1 file.', 'GLB는 Blender/웹, FBX는 Unity/Unreal. 모든 애니메이션이 한 파일에.')],
-        ['#easy-rigify-kit', T('Blender Rigify (no Blender skills needed)', 'Blender Rigify (không cần biết Blender)', 'Blender Rigify (Blender 몰라도 됨)'), T('Downloads 2 files. In Blender: 1) top bar → <b>Scripting</b> tab, 2) in the middle panel press <b>Open</b> and pick <b>greenbox-rigify.py</b> from Downloads, 3) press <b>▶</b> (Run Script), 4) wait a few seconds: your character stands on a Rigify rig. Click the rig, press <b>Ctrl+Tab</b> (Pose mode), click a control and press <b>R</b> to turn it.', 'Tải về 2 file. Trong Blender: 1) thanh trên cùng → tab <b>Scripting</b>, 2) ở khung giữa bấm <b>Open</b>, chọn <b>greenbox-rigify.py</b> trong Downloads, 3) bấm nút <b>▶</b> (Run Script), 4) đợi vài giây: nhân vật đứng trên rig Rigify. Bấm vào rig, nhấn <b>Ctrl+Tab</b> (Pose mode), bấm 1 tay điều khiển rồi nhấn <b>R</b> để xoay.', '파일 2개 다운로드. Blender: 1) 상단 <b>Scripting</b> 탭, 2) 가운데 <b>Open</b> → <b>greenbox-rigify.py</b>, 3) <b>▶</b>(Run Script), 4) 몇 초 후 Rigify 리그 완성. 리그 클릭 → <b>Ctrl+Tab</b>(포즈 모드) → 컨트롤 클릭 후 <b>R</b>로 회전.')],
+        ['#easy-pose-on, #easy-pose-ui', T('Pose by hand: IK / FK', 'Tạo dáng bằng tay: IK / FK', '직접 포즈: IK / FK'), T('Each arm / leg has an IK / FK switch. <b>FK</b>: click a ring at the shoulder / elbow / wrist and turn it. <b>IK</b>: drag the box at the hand / foot, the elbow / knee follows; the yellow ball says where it points. Switching never moves the limb. The same panel is in Blender: press <b>N</b> → tab <b>Greenbox</b>.', 'Mỗi tay / chân có công tắc IK / FK. <b>FK</b>: bấm vòng ở vai / khuỷu / cổ tay rồi xoay. <b>IK</b>: kéo hộp ở bàn tay / bàn chân, khuỷu / gối tự gập theo; bóng vàng quyết định khuỷu / gối chĩa hướng nào. Đổi chế độ không làm tay chân nhảy. Trong Blender có y hệt bảng này: nhấn <b>N</b> → tab <b>Greenbox</b>.', '팔/다리마다 IK/FK 스위치. <b>FK</b>: 어깨/팔꿈치/손목 링을 클릭해 회전. <b>IK</b>: 손/발 박스를 끌면 팔꿈치/무릎이 따라옴, 노란 공이 방향. 전환해도 자세 유지. Blender에도 같은 패널: <b>N</b> → <b>Greenbox</b> 탭.')],
+        ['#easy-rigify-open, #easy-rigify-kit', T('Blender Rigify (no Blender skills needed)', 'Blender Rigify (không cần biết Blender)', 'Blender Rigify (Blender 몰라도 됨)'), T('Downloads 2 files. In Blender: 1) top bar → <b>Scripting</b> tab, 2) in the middle panel press <b>Open</b> and pick <b>greenbox-rigify.py</b> from Downloads, 3) press <b>▶</b> (Run Script), 4) wait a few seconds: your character stands on a Rigify rig. Click the rig, press <b>Ctrl+Tab</b> (Pose mode), click a control and press <b>R</b> to turn it.', 'Tải về 2 file. Trong Blender: 1) thanh trên cùng → tab <b>Scripting</b>, 2) ở khung giữa bấm <b>Open</b>, chọn <b>greenbox-rigify.py</b> trong Downloads, 3) bấm nút <b>▶</b> (Run Script), 4) đợi vài giây: nhân vật đứng trên rig Rigify. Bấm vào rig, nhấn <b>Ctrl+Tab</b> (Pose mode), bấm 1 tay điều khiển rồi nhấn <b>R</b> để xoay.', '파일 2개 다운로드. Blender: 1) 상단 <b>Scripting</b> 탭, 2) 가운데 <b>Open</b> → <b>greenbox-rigify.py</b>, 3) <b>▶</b>(Run Script), 4) 몇 초 후 Rigify 리그 완성. 리그 클릭 → <b>Ctrl+Tab</b>(포즈 모드) → 컨트롤 클릭 후 <b>R</b>로 회전.')],
         ['#easy-playtest', T('Play it', 'Chơi thử', '플레이'), T('Sends the character to Play test (WASD, jump, attack, climb) or Video mocap.', 'Gửi nhân vật sang Chơi thử (WASD, nhảy, đánh, leo) hoặc Mocap từ video.', '플레이 테스트(WASD, 점프, 공격, 오르기) 또는 영상 모캡으로 보냅니다.')]
       ];
       case 'vehicle.html': return [
@@ -328,4 +345,40 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup); else setup();
   void embed;
+})();
+
+/* Greenbox: hide / show the big side panel (tool panel, Explore list, vehicle / play test / mocap settings) with a
+   tab on its edge, so the 3D view can use the whole width. Remembered per page. */
+(function () {
+  function lang () { var l = (document.documentElement.lang || 'en').slice(0, 2); return l; }
+  function T (en, vi, ko) { var l = lang(); return l === 'vi' ? vi : l === 'ko' ? ko : en; }
+  function setup () {
+    var P = document.querySelector('#tool-panel') || document.querySelector('main > aside');
+    if (!P || document.getElementById('gb-panel-toggle')) return;
+    var main = P.parentElement && P.parentElement.tagName === 'MAIN' ? P.parentElement : null;
+    var KEY = 'gb.panel.hidden.' + location.pathname.replace(/^.*rig3d\//, '');
+    var b = document.createElement('button'); b.id = 'gb-panel-toggle'; b.type = 'button';
+    b.style.cssText = 'position:fixed;top:50%;z-index:60;transform:translateY(-50%);width:20px;height:64px;padding:0;border:1px solid #1f1f1f;border-right:0;border-radius:8px 0 0 8px;background:#4a4a4a;color:#eee;font:700 13px system-ui,sans-serif;cursor:pointer;box-shadow:-2px 0 6px rgba(0,0,0,.35)';
+    document.body.appendChild(b);
+    var cols = main ? getComputedStyle(main).gridTemplateColumns : '';
+    function place () {
+      var hidden = P.style.display === 'none';
+      b.style.right = hidden ? '0px' : (P.getBoundingClientRect().width || 0) + 'px';
+      b.textContent = hidden ? '‹' : '›';
+      b.title = hidden ? T('Show the panel', 'Hiện bảng điều khiển', '패널 표시') : T('Hide the panel (more room for the 3D view)', 'Ẩn bảng điều khiển (rộng chỗ cho khung 3D)', '패널 숨기기 (3D 화면 넓게)');
+    }
+    function set (hide) {
+      P.style.display = hide ? 'none' : '';
+      if (main) main.style.gridTemplateColumns = hide ? 'minmax(0,1fr)' : '';
+      try { localStorage.setItem(KEY, hide ? '1' : '0'); } catch (e) { /* ignore */ }
+      place();
+      setTimeout(function () { dispatchEvent(new Event('resize')); }, 30); // 3D views re-measure
+    }
+    b.onclick = function () { set(P.style.display !== 'none'); };
+    try { if (localStorage.getItem(KEY) === '1') set(true); } catch (e) { /* ignore */ }
+    if (window.ResizeObserver) new ResizeObserver(place).observe(P);
+    addEventListener('resize', place); place();
+    void cols;
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(setup, 300); }); else setTimeout(setup, 300);
 })();

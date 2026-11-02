@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="./gb-base.js?v=202611021034"></script>
+<script src="./gb-theme.js?v=202611021034"></script>
+<meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Target smash - Greenbox 3D</title>
+  <link rel="icon" type="image/png" href="./images/favicon.png" />
+  <style>
+    :root{--bg:#303030;--bg2:#3d3d3d;--bg3:#474747;--nav:#232323;--txt:#e6e6e6;--mut:#b4b4b4;--blue:#4772b3;--org:#f5a623;--line:#545454}
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+    nav{height:40px;display:flex;align-items:center;gap:4px;background:var(--nav);border-bottom:1px solid #111;padding:0 8px}
+    nav a{color:var(--mut);text-decoration:none;padding:0 12px;height:40px;display:inline-flex;align-items:center}
+    nav a:hover{color:var(--txt);background:#2b2b2b}
+    nav a.on{color:var(--txt);background:var(--bg2)}
+    .logo{font:800 17px/1 system-ui,-apple-system,sans-serif;letter-spacing:.12em;color:var(--txt);display:inline-flex;align-items:center;gap:8px;padding:0 14px}
+    .logo i{width:10px;height:10px;border-radius:50%;background:#3cdc8c;box-shadow:0 0 8px #3cdc8c;display:inline-block}
+    .logo span{color:var(--org)}
+    main{display:grid;grid-template-columns:minmax(0,1fr) 330px;height:calc(100% - 40px)}
+    #vh-view{position:relative;min-width:0;overflow:hidden}
+    #vh-view canvas{display:block}
+    #vh-hint{position:absolute;left:10px;bottom:10px;font-size:12px;color:var(--mut);background:rgba(0,0,0,.35);padding:6px 10px;border-radius:6px;pointer-events:none}
+    aside{background:var(--bg);border-left:1px solid #1f1f1f;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+    section{background:var(--bg2);border:1px solid #2a2a2a;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+    section.disabled{opacity:.45;pointer-events:none}
+    h3{margin:0;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);display:flex;gap:8px;align-items:center}
+    h3 b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px}
+    button{appearance:none;border:1px solid #1f1f1f;background:var(--line);color:var(--txt);border-radius:5px;padding:6px 10px;font:inherit;cursor:pointer}
+    button:hover{background:#606060}
+    button.pri{background:var(--blue);border-color:#2f5b9a}
+    button.pri:hover{background:#5482c6}
+    button.on{background:var(--org);color:#111;border-color:#a86d00}
+    .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .sm{font-size:12px;color:var(--mut)}
+    select,input[type=range]{width:100%}
+    select{background:var(--bg3);color:var(--txt);border:1px solid #222;border-radius:5px;padding:5px}
+    #vh-status{font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;background:rgba(71,114,179,.25)}
+    #vh-status.warn{background:rgba(245,166,35,.22)}
+    #vh-anims{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+    .vh-anim{font-size:12px;padding:5px 6px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .vh-anim.on{background:var(--org);color:#111}
+    .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--mut)}
+    .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+    @media (max-width:800px){main{grid-template-columns:1fr;grid-template-rows:55vh auto}}
+  </style>
+  <style>
+    main{grid-template-columns:minmax(0,1fr) 320px}
+    #sm-stage{position:relative;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px;background:repeating-conic-gradient(rgba(255,255,255,.04) 0 25%,transparent 0 50%) 0 0/24px 24px}
+    #sm-canvas{display:block;height:100%;max-width:100%;aspect-ratio:9/16;object-fit:contain;border-radius:10px;cursor:crosshair;touch-action:none;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+    #sm-status{font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;background:rgba(71,114,179,.25)}
+    #sm-status.warn{background:rgba(245,166,35,.22)}
+    #sm-grid{width:100%;max-width:300px;image-rendering:pixelated;border-radius:6px;cursor:crosshair;touch-action:none;align-self:center}
+    label.sm{display:flex;gap:6px;align-items:center}
+    textarea{background:var(--bg3);color:var(--txt);border:1px solid #222}
+  </style>
+  <script>window.__GB_PAGE="smash"</script><script defer src="./gb3d-files.js"></script><script defer src="./gb3d.js"></script>
+
+  <script src="./gb-i18n.js?v=202611021034"></script>
+</head>
+<body>
+  <nav>
+    <a class="logo" href="./create.html"><i></i>GREENBOX <span>3D</span></a>
+    <a href="./index.html">Explore</a>
+    <a href="./create.html">Use Your Model</a>
+    <a href="./retarget/index.html">Use Your Rigged Model</a>
+    <a href="./vehicle.html">Vehicles</a>
+    <a href="./playtest.html">Play test</a>
+    <a href="./mocap.html">Video mocap</a>
+    <a class="on" href="./smash.html">Target smash</a>
+  </nav>
+  <main>
+    <div id="sm-stage"></div>
+    <aside id="sm-side"></aside>
+  </main>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="./gb-base.js?v=202611021034"></script>
+<script src="./gb-theme.js?v=202611021034"></script>
+<meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vehicle - Greenbox 3D</title>
+  <link rel="icon" type="image/png" href="./images/favicon.png" />
+  <style>
+    :root{--bg:#303030;--bg2:#3d3d3d;--bg3:#474747;--nav:#232323;--txt:#e6e6e6;--mut:#b4b4b4;--blue:#4772b3;--org:#f5a623;--line:#545454}
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+    nav{height:40px;display:flex;align-items:center;gap:4px;background:var(--nav);border-bottom:1px solid #111;padding:0 8px}
+    nav a{color:var(--mut);text-decoration:none;padding:0 12px;height:40px;display:inline-flex;align-items:center}
+    nav a:hover{color:var(--txt);background:#2b2b2b}
+    nav a.on{color:var(--txt);background:var(--bg2)}
+    .logo{font:800 17px/1 system-ui,-apple-system,sans-serif;letter-spacing:.12em;color:var(--txt);display:inline-flex;align-items:center;gap:8px;padding:0 14px}
+    .logo i{width:10px;height:10px;border-radius:50%;background:#3cdc8c;box-shadow:0 0 8px #3cdc8c;display:inline-block}
+    .logo span{color:var(--org)}
+    main{display:grid;grid-template-columns:minmax(0,1fr) 330px;height:calc(100% - 40px)}
+    #vh-view{position:relative;min-width:0;overflow:hidden}
+    #vh-view canvas{display:block}
+    #vh-hint{position:absolute;left:10px;bottom:10px;font-size:12px;color:var(--mut);background:rgba(0,0,0,.35);padding:6px 10px;border-radius:6px;pointer-events:none}
+    aside{background:var(--bg);border-left:1px solid #1f1f1f;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+    section{background:var(--bg2);border:1px solid #2a2a2a;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+    section.disabled{opacity:.45;pointer-events:none}
+    h3{margin:0;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);display:flex;gap:8px;align-items:center}
+    h3 b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px}
+    button{appearance:none;border:1px solid #1f1f1f;background:var(--line);color:var(--txt);border-radius:5px;padding:6px 10px;font:inherit;cursor:pointer}
+    button:hover{background:#606060}
+    button.pri{background:var(--blue);border-color:#2f5b9a}
+    button.pri:hover{background:#5482c6}
+    button.on{background:var(--org);color:#111;border-color:#a86d00}
+    .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .sm{font-size:12px;color:var(--mut)}
+    select,input[type=range]{width:100%}
+    select{background:var(--bg3);color:var(--txt);border:1px solid #222;border-radius:5px;padding:5px}
+    #vh-status{font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;background:rgba(71,114,179,.25)}
+    #vh-status.warn{background:rgba(245,166,35,.22)}
+    #vh-anims{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+    .vh-anim{font-size:12px;padding:5px 6px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .vh-anim.on{background:var(--org);color:#111}
+    #vh-presets{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px}
+    .vh-preset{font-size:11px;padding:5px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.15;text-align:center}
+    .vh-preset span{font-size:17px}
+    .tools{display:grid;grid-template-columns:auto 1fr 1fr;gap:4px 6px;align-items:center}
+    .tools button{font-size:12px;padding:5px 6px}
+    .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--mut)}
+    .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+    details.card{background:var(--bg2);border:1px solid #2a2a2a;border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;gap:8px}
+    details.card>summary{list-style:none;cursor:pointer}
+    details.card>summary::-webkit-details-marker{display:none}
+    details.card[open]>summary{margin-bottom:6px}
+    details.card[open]{display:flex}
+    details.card>*:not(summary){margin-top:6px}
+    details.hl{border-color:#f5a623;box-shadow:0 0 0 1px rgba(245,166,35,.35)}
+    details.sub{border-top:1px solid #2a2a2a;padding-top:6px}
+    details.sub>summary{cursor:pointer;padding:2px 0}
+    details.sub[open]>summary{margin-bottom:6px}
+    details.sub>.row,details.sub>.tools,details.sub>label,details.sub>button{margin-top:6px}
+    section.disabled#vh-anim-box{display:none}
+    #vh-sample-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+    .vh-card{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;font-size:10.5px;line-height:1.15;text-align:center}
+    .vh-card span{font-size:20px}
+    .vh-card.on{background:var(--org);color:#111;border-color:#a86d00}
+    @media (max-width:800px){main{grid-template-columns:1fr;grid-template-rows:55vh auto}}
+  </style>
+  <script>window.__GB_PAGE="vehicle"</script><script defer src="./gb3d-files.js"></script><script defer src="./gb3d.js"></script>
+
+
+
+
+
+</head>
+<body>
+  <nav>
+    <a class="logo" href="./create.html"><i></i>GREENBOX <span>3D</span></a>
+    <a href="./index.html">Explore</a>
+    <a href="./create.html">Use Your Model</a>
+    <a href="./retarget/index.html">Use Your Rigged Model</a>
+    <a class="on" href="./vehicle.html">Vehicles</a>
+        <a href="./playtest.html">Play test</a>
+        <a href="./mocap.html">Video mocap</a>
+  </nav>
+  <main>
+    <div id="vh-view"><div id="vh-hint">Right-drag: rotate · Middle-drag: pan · Wheel: zoom · Left-click: select part · Left-drag with a tool: box / paint · Delete: remove selected</div></div>
+    <aside>
+      <div id="vh-status">Loading…</div>
+      <div class="row"><button id="vh-undo" title="Ctrl+Z / Cmd+Z">↶ Undo</button><button id="vh-redo" title="Ctrl+Shift+Z / Cmd+Shift+Z">↷ Redo</button></div>
+
+      <section id="vh-step1">
+        <h3><b>1</b>Rig to copy</h3>
+        <div class="sm">Pick a ready rig, or upload a vehicle that already has a rig.</div>
+        <div id="vh-sample-cards"></div>
+        <div class="row"><button id="vh-clone-src" title="A vehicle that ALREADY has a rig / animations (GLB, FBX)">⬆ Vehicle WITH a rig</button><button id="vh-clone-none" title="No rig to copy: the wheels are found by themselves">— None</button></div>
+        <div class="sm" id="vh-clone-src-st">—</div>
+        <select id="vh-clone-sample" hidden></select>
+        <input type="file" id="vh-clone-file" multiple accept=".glb,.gltf,.fbx,.dae,.zip,.bin,.png,.jpg,.jpeg" hidden>
+      </section>
+
+      <section id="vh-step2">
+        <h3><b>2</b>Your vehicle (no rig)</h3>
+        <div class="row"><button class="pri" id="vh-clone-target">⬆ Upload your vehicle</button></div>
+        <div class="sm" id="vh-clone-tgt-st">—</div>
+        <div id="vh-vehicles" style="display:none"></div>
+        <div class="sm">The green arrow must point to the FRONT.</div>
+        <div class="row"><button id="vh-rotate">↻ Turn 90°</button><button id="vh-flip">⇅ Front / back</button></div>
+        <details class="sub"><summary class="sm">🧹 Objects in the file (<span id="vh-objects-count">0</span>) — remove lamp posts, houses, floor…</summary>
+          <div id="vh-objects" style="display:flex;flex-direction:column;gap:3px;max-height:180px;overflow:auto;margin-top:6px"></div>
+          <div class="sm">✕ removes · ◎ selects · ↺ brings back.</div>
+        </details>
+      </section>
+
+      <section id="vh-step3">
+        <h3><b>3</b>Copy the rig</h3>
+        <button class="pri" id="vh-clone-apply">🧬 Copy the rig onto my vehicle</button>
+        <label class="row sm"><input type="checkbox" id="vh-clone-auto" checked> Do it as soon as 1 and 2 are there</label>
+        <label class="row sm"><input type="checkbox" id="vh-clone-flip"> The rig's vehicle faces backwards (flip it)</label>
+        <div class="sm" id="vh-clone-note"></div>
+      </section>
+
+      <section id="vh-step4">
+        <h3><b>4</b>Fix parts</h3>
+        <div class="row"><button class="pri" id="vh-autorig" title="One click: what was learned from rigs rated 4–5 stars on a vehicle of the same shape, then the shape scan, the bones and every keyframed animation">⚡ Auto rig + keyframes</button></div>
+        <div class="row"><button id="vh-autocut" title="Finds wheels, tracks, blade / bucket and its arms, turret + gun, rotors by their shape and cuts them out">🪄 Auto cut all parts</button></div>
+        <div class="vh-rate" style="display:flex;flex-direction:column;gap:4px;border:1px solid #2a2a2a;border-radius:10px;padding:8px">
+          <div class="row" style="align-items:center;gap:6px"><span class="sm">Rate this rig</span><span style="display:flex;gap:2px"><button data-vh-star="1" title="1" style="min-width:0;padding:2px 6px;font-size:18px;line-height:1;color:#ffb400;background:transparent;border:0;cursor:pointer">☆</button><button data-vh-star="2" title="2" style="min-width:0;padding:2px 6px;font-size:18px;line-height:1;color:#ffb400;background:transparent;border:0;cursor:pointer">☆</button><button data-vh-star="3" title="3" style="min-width:0;padding:2px 6px;font-size:18px;line-height:1;color:#ffb400;background:transparent;border:0;cursor:pointer">☆</button><button data-vh-star="4" title="4" style="min-width:0;padding:2px 6px;font-size:18px;line-height:1;color:#ffb400;background:transparent;border:0;cursor:pointer">☆</button><button data-vh-star="5" title="5" style="min-width:0;padding:2px 6px;font-size:18px;line-height:1;color:#ffb400;background:transparent;border:0;cursor:pointer">☆</button></span></div>
+          <div class="sm">Rigs rated 4–5 ★ are learned: the next vehicle of the same shape gets their type, parts and settings from ⚡ Auto rig.</div>
+          <div class="sm" id="vh-mem-info"></div>
+          <div class="row"><button id="vh-mem-export" title="Save the rig memory as a .json to share with the team">⬇ Export memory</button><label class="btn" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid #3a3a3a;border-radius:8px">⬆ Import<input type="file" id="vh-mem-import" accept=".json" hidden></label></div>
+        </div>
+        <div class="row"><button class="pri" id="vh-quad" title="Click 4 corners around the part on the model">⬚ Select 4 points</button><button id="vh-wpaint" title="Brush / eraser / smooth, exact weights per point, Ctrl+Z / Cmd+Z">🖌 Paint weight</button></div>
+        <div class="sm">Click 4 corners around a part. You are then asked what it is: hood, wheel, door (with its window), trunk, track, drill…</div>
+        <label class="sm">Parts <select id="vh-wheel-select"></select></label>
+        <div id="vh-door-box" style="display:none;flex-direction:column;gap:6px;border-top:1px solid #2a2a2a;padding-top:8px">
+          <label class="sm" id="vh-angle-row">Opens by <span id="vh-door-angle-val">70°</span> <input type="range" id="vh-door-angle" min="15" max="120" value="70"></label>
+          <label class="sm" id="vh-links-row" style="display:none">Track links (bones in the loop) <span id="vh-links-val">auto</span> <input type="range" id="vh-links" min="0" max="120" value="0"></label>
+          <div class="row"><button id="vh-door-test">▶ Try it</button><label class="row sm" style="margin:0"><input type="checkbox" id="vh-part-flip"> Other way</label></div>
+          <div id="vh-hinge-row"><label class="sm">Hinge
+          <select id="vh-hinge">
+            <option value="auto">Auto</option>
+            <option value="front">Front edge (normal door)</option>
+            <option value="back">Back edge</option>
+            <option value="top">Top edge (opens up)</option>
+            <option value="scissor">Scissor</option>
+            <option value="hood">Hood (hinge at the windshield)</option>
+            <option value="trunk">Trunk / tailgate</option>
+          </select></label></div>
+          <label class="sm" id="vh-axis-row" style="display:none">Turns around
+            <select id="vh-axis"><option value="auto">Auto</option><option value="x">X (side to side)</option><option value="y">Y (up)</option><option value="z">Z (front to back)</option></select></label>
+          <div class="sm">Pivot <b id="vh-hinge-used" style="color:#f5a623;font-weight:600"></b></div>
+          <details class="sub"><summary class="sm">More</summary>
+            <label class="sm">Name <input id="vh-part-name"></label>
+            <label class="sm">Hangs on <select id="vh-part-parent"></select></label>
+            <button id="vh-del-wheel" title="Delete key">🗑 Remove this part</button>
+          </details>
+        </div>
+      </section>
+
+      <section id="vh-anim-box" class="disabled">
+        <h3><b>5</b>Try the animations &amp; export</h3>
+        <div id="vh-anims"></div>
+        <div class="row"><button id="vh-pause" title="Space">⏸ Pause</button><button id="vh-stop">⏹ Stop</button></div>
+        <label class="sm">Speed <input type="range" id="vh-speed" min="10" max="300" value="100"></label>
+        <div class="row"><button class="pri" id="vh-export-glb">⬇ GLB (all animations)</button><button id="vh-export-fbx">⬇ FBX (all animations)</button></div>
+      </section>
+
+      <details class="card" id="vh-advanced">
+        <summary><h3>⚙ Advanced</h3></summary>
+        <div class="row"><button id="vh-upload">⬆ Upload GLB / FBX</button><select id="vh-sample" style="flex:1;min-width:0;width:auto"></select><button id="vh-sample-load">🚗 Load sample</button></div>
+        <input type="file" id="vh-file" multiple accept=".glb,.gltf,.fbx,.obj,.mtl,.dae,.stl,.ply,.3mf,.zip,.bin,.png,.jpg,.jpeg,.tga,.webp" hidden>
+        <label class="sm">Vehicle type
+          <select id="vh-type">
+            <option value="car">Car (front wheels steer, stunts)</option>
+            <option value="truck">Truck / bus / van (heavy, no stunts)</option>
+            <option value="tracked">Tracked: tank, bulldozer, excavator (turns on the spot)</option>
+            <option value="roller">Road roller / compactor (slow, drum vibrates)</option>
+          </select></label>
+        <div class="row"><button id="vh-build">⚙ Build rig again</button><button id="vh-scan">🔍 Find wheels again</button><button id="vh-find-tracks">⛓ Find tracks</button></div>
+        <div class="row"><button id="vh-circle" title="Drag a circle from its centre">◯ Circle select</button><button id="vh-analyze">🔎 Anchors + bones</button></div>
+        <label class="row sm"><input type="checkbox" id="vh-regions" checked> Colour the parts</label>
+        <div class="row"><button id="vh-new-wheel">＋ Wheel</button><select id="vh-part-kind" style="width:auto;flex:1;min-width:0">
+            <option value="door">🚪 Door / hood / trunk</option><option value="turret">🔄 Turret / cab</option><option value="barrel">💥 Gun barrel</option><option value="blade">🚜 Blade</option><option value="boom">🏗 Boom</option><option value="arm">🦾 Digger arm</option><option value="bucket">🪣 Bucket</option><option value="hook">🪝 Hook</option><option value="cable">〰 Cable</option><option value="spin">🌀 Spinner / drill</option><option value="slide">↔ Slider / piston</option><option value="wobble">〽 Antenna</option><option value="track">⛓ Track</option><option value="bone">🦴 Free bone</option>
+          </select><button id="vh-new-door">＋ Part</button></div>
+        <div class="row"><button id="vh-place-bones">🦴 Place bones</button><input id="vh-bone-name" placeholder="name" style="flex:1;min-width:0"><button id="vh-mirror-bones">🪞 Mirror L/R</button><button id="vh-clone-rig" hidden></button></div>
+        <details class="sub"><summary class="sm">⭐ Ready-made parts</summary><div id="vh-presets"></div></details>
+        <details class="sub" id="vh-tools-box"><summary class="sm">🖌 Other selection tools</summary>
+        <div class="tools">
+          <span class="sm">Piece</span><button id="vh-piece-add">🧩 ＋</button><button id="vh-piece-remove">🧩 －</button>
+          <span class="sm">Box</span><button id="vh-box-add">▭ ＋</button><button id="vh-box-remove">▭ －</button>
+          <span class="sm">Lasso</span><button id="vh-lasso-add">➰ ＋</button><button id="vh-lasso-remove">➰ －</button>
+          <span class="sm">Pen</span><button id="vh-pen-add">✒ ＋</button><button id="vh-pen-remove">✒ －</button>
+        </div>
+        <label class="row sm"><input type="checkbox" id="vh-box-through"> Select through</label>
+        <button id="vh-separate">✂ Separate selected part + fill holes</button>
+        <div class="row"><button id="vh-add">＋ Paint</button><button id="vh-remove">－ Erase</button></div>
+        <label class="sm">Brush size <input type="range" id="vh-brush" min="1" max="20" value="6"></label>
+        </details>
+        <div class="sm"><b>[ ]</b> ring size · <b>O</b> hide rings · <b>G</b> drag a selection out · <b>Delete</b> remove it</div>
+        <span id="vh-wheel-count" hidden>0</span><span id="vh-door-count" hidden>0</span>
+      </details>
+    </aside>
+  </main>
+    <script src="./gb-i18n.js?v=202611021034"></script>
+</body>
+</html>

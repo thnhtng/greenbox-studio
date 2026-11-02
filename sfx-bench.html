@@ -1,4 +1,20 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><style id="gb-vibrant">
+html.gbv,html.gbv.gb-embed{--bg:#fff;--panel:#fff;--sunk:#F4F4F5;--ink:#000;--muted:#565C65;--line:#B9B9BB;--wave:#D83933;--wave-dim:#f0b6b3;--accent:#D83933;--accent-ink:#fff;--mark:#D83933;--sel:#0000EE;--sel-bg:#e3e3ff;--ok:#1f8a4c;--warn:#b7791f;--r:16px;color-scheme:light}
+html.gbv body{font-family:"Public Sans",system-ui,sans-serif}
+html.gbv :is(h1,h2,h3){font-family:Inter,system-ui,sans-serif;font-weight:700;color:#000!important}
+html.gbv button{border-radius:50px;transition:transform .2s,background .2s}
+html.gbv button:hover:not(:disabled){transform:scale(1.05)}
+html.gbv :is(input[type=text],input[type=number],select){background:#000;color:#fff;border:1px solid #565C65}
+html.gbv :is(input[type=range],input[type=checkbox]){accent-color:#D83933}
+html.gbv :is(button,input,select,summary):focus-visible{outline:.25rem solid rgb(36,145,255);outline-offset:2px}
+</style>
+<style id="gb-kode">
+body,button,input,select,textarea{font-family:Roboto,system-ui,-apple-system,"Segoe UI",sans-serif!important}
+html.gbk.gb-embed,html.gbk{--panel:#0d3028;--sunk:#10382f;--ink:#effbf8;--muted:#a8d8cd;--line:rgba(159,246,225,.22);--accent:#19df62;--accent-ink:#fff;--mark:#4fed89;--wave:#4fed89;--wave-dim:#1d5e40;--sel:#37966a;--sel-bg:#14463a;--r:15px}
+html.gbk button{border-radius:15px}
+html.gbk :is(input[type=range],input[type=checkbox]){accent-color:#19df62}
+</style>
+</head><body>
 <title>SFX Sync Bench</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7,6 +23,9 @@
 <script src="./vendor/mp4-muxer-5.1.3.js"></script>
 <script src="./vendor/fflate.umd.js"></script>
 <!-- ===== Greenbox embed: cockpit theme + VI / EN / KO (active only when opened inside Greenbox) ===== -->
+<script>(function(){var r=document.documentElement,set=function(v){r.classList.toggle("gbv",v==="v");r.classList.toggle("gbk",v!=="v"&&v!=="d")};try{set(localStorage.getItem("gbc.ui")||"k")}catch(e){set("k")}addEventListener("message",function(e){if(e.origin===location.origin&&e.data&&e.data.gbTheme)set(e.data.gbTheme)})})();</script>
+<script src="./gb-xp.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Public+Sans:wght@400;500;700&family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,900&display=swap">
 <style id="gb-embed-css">
 html.gb-embed{--bg:transparent;--panel:#0e1a2e;--sunk:#081222;--ink:#e8f1ff;--muted:#94a9c6;--line:rgba(120,190,255,.22);
   --wave:#3cf0ff;--wave-dim:#1d5a78;--accent:#1aa3ff;--accent-ink:#fff;--mark:#ffb020;--sel:#9b8bff;--sel-bg:#22204a;--ok:#47C27A;--warn:#E3B04B;color-scheme:dark}
@@ -60,6 +79,8 @@ html.gb-embed button.primary{background:linear-gradient(180deg,#1aa3ff,#0b6fd6)!
     'Gain/start changes shift every selected clip by the same amount.':['Đổi âm lượng/điểm bắt đầu sẽ dời mọi clip đang chọn cùng một lượng.','게인/시작 변경은 선택된 모든 클립에 같은 양만큼 적용됩니다.'],
     'play ·':['phát ·','재생 ·'], 'frame ·':['khung ·','프레임 ·'], 'cue ·':['cue ·','큐 ·'], 'marker ·':['marker ·','마커 ·'],
     'add SFX at playhead ·':['thêm SFX tại đầu phát ·','플레이헤드에 SFX 추가 ·'], 'remove clip':['xoá clip','클립 삭제'],
+    '⚡ Put the armed sound on EVERY cue':['⚡ Gắn âm đang chọn vào TẤT CẢ điểm va chạm','⚡ 선택한 사운드를 모든 큐에'],
+    'One click: the sound you armed (click it in the list) lands on every hit found in step 2.':['Một nút bấm: âm bạn đang chọn (bấm vào nó trong danh sách) được gắn vào mọi điểm va chạm tìm được ở bước 2.','한 번 클릭: 선택한 사운드를 2단계의 모든 큐에 배치합니다.'],
     '▶ Hear part':['▶ Nghe đoạn','▶ 구간 듣기'], '＋ At playhead':['＋ Tại đầu phát','＋ 플레이헤드에'], 'Full':['Cả âm','전체'], 'Remove':['Xoá','제거']
   };
   function lang(){ try{ return localStorage.getItem('gbc.lang') || 'vi'; }catch(e){ return 'vi'; } }
@@ -261,7 +282,8 @@ select{font:13px var(--f-body);padding:5px 6px;border:1px solid var(--line);bord
             <button id="bAddSnd">＋ Add audio files</button>
             <span class="tag">or drop audio files anywhere on this step</span>
             <input type="file" id="aFile" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac" multiple class="sr">
-            <button id="bPack" class="primary" title="Each sound cut to its selection, renamed, as WAV files in one zip">⇩ Export SFX pack (.zip)</button>
+            <button id="bAll" class="primary" title="One click: the sound you armed (click it in the list) lands on every hit found in step 2.">⚡ Put the armed sound on EVERY cue</button>
+            <button id="bPack" title="Each sound cut to its selection, renamed, as WAV files in one zip">⇩ Export SFX pack (.zip)</button>
             <label class="ctl"><input type="checkbox" id="alignHit" checked> align loudest point to cue</label>
             <span class="tag">built-in sounds are synthesized for quick blocking</span>
           </div>
@@ -622,6 +644,18 @@ function addClipAt(t, fromCue) {
   const x = X(c.start); if (x < 0 || x > sc.clientWidth - 80) sc.scrollLeft = Math.max(0, sc.scrollLeft + x - 80);
   S.flash = { id: c.id, t: performance.now() }; drawTL(); showInsp(); stepState(); if (!vid.paused) scheduleLive();
 }
+/** ⚡ one click: the armed sound on every cue (a cue that already has this sound is skipped) */
+function addAllCues(libName) {
+  if (libName) { const L = S.lib.find(l => l.name.toLowerCase() === String(libName).toLowerCase()) || S.lib.find(l => l.name.toLowerCase().includes(String(libName).toLowerCase())); if (L) { S.selLib = L.id; renderLib(); } }
+  const L = S.lib.find(l => l.id === S.selLib); if (!L || !S.url || !S.cues.length) return 0;
+  pushUndo(); let n = 0;
+  for (const cu of S.cues) {
+    if (S.clips.some(c => c.libId === L.id && Math.abs((c.cue ?? -9) - cu.t) < 0.05)) continue;
+    let start = cu.t; if ($('alignHit').checked) start = cu.t - (peakIn(L, L.inS, L.outS) - L.inS);
+    S.clips.push({ id: uid(), libId: L.id, name: L.name, inS: L.inS, outS: L.outS, start: Math.max(0, start), gain: 0, fadeIn: 0, fadeOut: 40, cue: cu.t }); n++;
+  }
+  packLanes(); drawTL(); showInsp(); stepState(); return n;
+}
 function packLanes() {
   const lanes = []; for (const c of [...S.clips].sort((a, b) => a.start - b.start)) { const end = c.start + (c.outS - c.inS);
     let k = lanes.findIndex(e => e <= c.start + 1e-3); if (k < 0) { k = lanes.length; lanes.push(0); } lanes[k] = end; c.lane = k; }
@@ -899,6 +933,12 @@ async function offerFile(name, bytes, statusId) {
   const blob = new Blob([bytes], { type: 'application/zip' });
   await saveAny(name, blob, statusId);
 }
+$('bAll').onclick = () => {
+  const vi = (localStorage.getItem('gbc.lang') || 'vi') === 'vi';
+  if (!S.url) return setStatus('aStatus', vi ? 'Thả video ở bước 1 trước.' : 'Drop a video in step 1 first.', 'warn');
+  if (!S.cues || !S.cues.length) return setStatus('aStatus', vi ? 'Bấm "Phân tích video" ở bước 2 trước để có điểm va chạm.' : 'Press "Analyze video" in step 2 first to get the hits.', 'warn');
+  const n = addAllCues(); setStatus('aStatus', vi ? `Đã gắn ${n} âm vào ${S.cues.length} điểm va chạm. Bước 4: Xuất MP4 có âm thanh.` : `Placed ${n} sounds on ${S.cues.length} cues. Step 4: render the MP4 with sound.`);
+};
 $('bPack').onclick = async () => {
   if (!window.fflate) return setStatus('aStatus', 'Zip library did not load; reload the page.', 'err');
   if (!S.lib.length) return setStatus('aStatus', 'Add at least one sound first.', 'err');
@@ -947,6 +987,10 @@ async function openProject(f) {
   layoutTL(); stepState();
 })();
 window.__S = S;
+// for Claude (MCP gb_run_js) and automation: the steps of the page as calls
+window.__sfx = { analyze: () => analyze(), sounds: () => S.lib.map(l => l.name), cues: () => (S.cues || []).map(c => c.t), arm: name => { const L = S.lib.find(l => l.name.toLowerCase().includes(String(name).toLowerCase())); if (L) { S.selLib = L.id; renderLib(); } return L ? L.name : null; }, add_all: name => addAllCues(name), clips: () => S.clips.length,
+  load: async (name, b64) => { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); await loadVideo(new File([u], name, { type: /\.mov$/i.test(name) ? 'video/quicktime' : /\.webm$/i.test(name) ? 'video/webm' : 'video/mp4' })); },
+  render: async () => { S.outBlob = null; $('bExport').click(); for (let i = 0; i < 4000 && !S.outBlob; i++) { if (/err/.test($('eStatus').className)) throw new Error($('eStatus').textContent); await new Promise(r => setTimeout(r, 150)); } if (!S.outBlob) throw new Error('render timed out'); return { blob: S.outBlob, name: (S.file.name.replace(/\.[^.]+$/, '') || 'video') + '_sfx.' + S.outExt }; } };
 })();
 </script>
 

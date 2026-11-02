@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vehicle rig test</title>
+<style>
+  body{margin:0;background:#151a22;color:#e8edf3;font:13px/1.45 system-ui,sans-serif}
+  header{padding:10px 14px;display:flex;gap:10px;align-items:center;border-bottom:1px solid #2c3440;flex-wrap:wrap}
+  button{background:#1f2630;color:inherit;border:1px solid #39424f;border-radius:7px;padding:6px 10px;cursor:pointer}
+  main{display:grid;grid-template-columns:1fr 760px;height:calc(100vh - 56px)}
+  iframe{width:100%;height:100%;border:0;border-right:1px solid #2c3440}
+  #out{overflow:auto;padding:10px}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  td,th{padding:3px 5px;border-bottom:1px solid #2c3440;text-align:left;vertical-align:top}
+  .bad{color:#ff7a7a}.ok{color:#7ee2a0}.mid{color:#ffd166}
+</style>
+</head>
+<body>
+<!--
+  Dev tool (not part of the app): checks the vehicle rig on every sample, every sample cloned onto every other
+  sample of another kind, and on your own files (drop them on the page, or "Add files").
+  Checks: wheels found (count, on the ground, left/right pairs, sane radius), parts found by name, rig builds,
+  bones finite, no vertex lost, clips made. See GREENBOX-HANDOFF.md.
+-->
+<header><b>🚗 Vehicle rig test</b><button id="run">▶ Samples + clones</button><button id="files">⬆ Add my files</button><input type="file" id="fi" multiple hidden accept=".glb,.gltf,.fbx,.zip"><span id="st"></span></header>
+<main><iframe id="fr"></iframe><div id="out"><table><thead><tr><th>test</th><th>score</th><th>wheels</th><th>parts</th><th>clips</th><th>problems</th></tr></thead><tbody id="tb"></tbody></table></div></main>
+<script>
+const $ = id => document.getElementById(id), sleep = t => new Promise(r => setTimeout(r, t));
+const fr = $('fr');
+function page () { return new Promise(res => { fr.onload = async () => { await sleep(1800); res(fr.contentWindow.__vehicle); }; fr.src = '../rig3d/vehicle.html?test=' + Date.now(); }); }
+/** what is wrong with the vehicle now on the page */
+function check (V, expect) {
+  const pr = []; const S = V.size; const H = S.y;
+  const W = V.wheels;
+  if (expect?.wheels !== undefined && W.length !== expect.wheels) pr.push(`wheels ${W.length}≠${expect.wheels}`);
+  W.forEach(w => {
+    if (!isFinite(w.center.x + w.center.y + w.center.z + w.radius)) pr.push(`${w.name} NaN`);
+    if (w.radius < H * 0.04 || w.radius > H * 0.7) pr.push(`${w.name} radius ${(w.radius / H).toFixed(2)}H`);
+    if (Math.abs(w.center.y - w.radius) > w.radius * 0.45 && !/drum/.test(w.name)) pr.push(`${w.name} off the ground`);
+    if (/drum/.test(w.name) && V.vtype !== 'roller') pr.push(`${w.name}: a drum on a ${V.vtype}?`);
+  });
+  // left / right pairs
+  const side = W.filter(w => Math.abs(w.center.x) > S.x * 0.15);
+  side.forEach(w => { if (!side.some(o => o !== w && Math.sign(o.center.x) !== Math.sign(w.center.x) && Math.abs(o.center.z - w.center.z) < w.radius)) pr.push(`${w.name} has no twin`); });
+  if (expect?.kinds) for (const k of expect.kinds) if (!V.mechs.some(m => m.kind === k)) pr.push(`no ${k}`);
+  if (V.rig === null) { try { V.build_rig(); } catch (e) { pr.push('build_rig: ' + e.message); } }
+  if (V.rig !== null) {
+    let bad = 0; V.rig.root.traverse(b => { if (!isFinite(b.position.x + b.position.y + b.position.z)) bad++; }); if (bad) pr.push(`${bad} NaN bones`);
+    if (V.clips.length === 0) pr.push('no clips');
+  }
+  const score = Math.max(0, 100 - pr.length * 15);
+  return { score, wheels: W.map(w => w.name).join(' '), parts: V.mechs.map(m => m.kind + ':' + m.name).join(' '), clips: V.clips.length, pr };
+}
+function row (name, r) {
+  const c = r.score >= 85 ? 'ok' : r.score >= 60 ? 'mid' : 'bad';
+  $('tb').insertAdjacentHTML('beforeend', `<tr><td>${name}</td><td class="${c}">${r.score}</td><td>${r.wheels}</td><td>${r.parts}</td><td>${r.clips}</td><td class="bad">${r.pr.join('<br>')}</td></tr>`);
+  window.__results.push({ name, ...r });
+}
+// what each sample must give (wheel count, part kinds)
+const EXPECT = { car: { wheels: 4, kinds: ['door', 'wobble'] }, sport: { wheels: 4, kinds: ['door'] }, pickup: { wheels: 4, kinds: ['door'] }, bus: { wheels: 6, kinds: ['door'] }, mixer: { wheels: 6, kinds: ['spin'] }, crane: { wheels: 8, kinds: ['turret', 'boom', 'hook', 'cable'] }, forklift: { wheels: 4, kinds: ['slide'] }, tank: { kinds: ['track', 'turret', 'barrel'] }, dozer: { kinds: ['track', 'blade'] }, excavator: { kinds: ['track', 'turret', 'boom', 'arm', 'bucket'] }, roller: { wheels: 3 }, bike: { wheels: 2 }, heli: { wheels: 0, kinds: ['spin'] }, boat: { wheels: 0, kinds: ['spin'] } };
+window.__results = [];
+$('run').onclick = async () => {
+  $('tb').innerHTML = ''; window.__results = [];
+  const V0 = await page(); const ids = Object.keys(EXPECT);
+  for (const id of ids) { $('st').textContent = 'sample ' + id; const V = await page(); V.load_sample(id); await sleep(200); row('sample ' + id, check(V, EXPECT[id])); }
+  // clone: each sample onto a sample of the same family (car → pickup, tank → dozer…) — the result must keep the TARGET's own wheels
+  const pairs = [['car', 'pickup'], ['pickup', 'car'], ['sport', 'car'], ['bus', 'mixer'], ['tank', 'dozer'], ['excavator', 'dozer'], ['crane', 'bus'], ['car', 'bike']];
+  for (const [a, b] of pairs) {
+    $('st').textContent = `clone ${a} → ${b}`; const V = await page(); V.load_sample(b); const before = V.parts.reduce((s, p) => s + p.owner.length, 0);
+    V.own_model = true; const sel = fr.contentWindow.document.getElementById('vh-clone-sample'); sel.value = a; V.apply_clone(); await sleep(200);
+    const r = check(V, { wheels: EXPECT[b].wheels }); const after = V.parts.reduce((s, p) => s + p.owner.length, 0); if (after < before) r.pr.push(`lost ${before - after} vertices`);
+    r.score = Math.max(0, 100 - r.pr.length * 15); row(`clone ${a} → ${b}`, r);
+  }
+  $('st').textContent = 'done · average ' + (window.__results.reduce((s, r) => s + r.score, 0) / window.__results.length).toFixed(1); window.__done = true;
+};
+async function run_files (files) {
+  for (const f of files) {
+    $('st').textContent = 'file ' + f.name; const V = await page();
+    try { await V.load_file([new fr.contentWindow.File([await f.arrayBuffer()], f.name)]); await sleep(300); row('file ' + f.name, check(V)); } catch (e) { row('file ' + f.name, { score: 0, wheels: '', parts: '', clips: 0, pr: [String(e)] }); }
+  }
+  $('st').textContent = 'files done'; window.__done = true;
+}
+$('files').onclick = () => $('fi').click();
+$('fi').onchange = e => { run_files([...e.target.files]); e.target.value = ''; };
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); run_files([...e.dataTransfer.files]); });
+window.__run_files = run_files;
+</script>
+</body>
+</html>

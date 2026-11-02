@@ -55,8 +55,8 @@ class Server(socketserver.ThreadingTCPServer):
     block_on_close = False
 
     def handle_error(self, request, client_address):
-        # Browsers routinely cancel an old 4.5 MB cockpit response during reload/navigation. That is normal,
-        # not a server failure, so keep the launcher window clean instead of printing a scary traceback.
+        # Reloading or switching a large cockpit page can cancel the previous response. That is normal browser
+        # behaviour, so keep the launcher window clean instead of printing a misleading server traceback.
         if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError)):
             return
         super().handle_error(request, client_address)

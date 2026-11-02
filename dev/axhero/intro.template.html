@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greenbox Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,900&display=swap">
+<style>
+:root{--bg:#0b1220;--card:#121c2e;--line:#22314a;--ink:#e8eef8;--mut:#9fb2cc;--acc:#3ddc97;--acc2:#5aa9ff;--warn:#ffd166}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--acc2)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+header{position:sticky;top:0;z-index:5;background:rgba(11,18,32,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;gap:16px;height:56px}
+.brand{font-weight:800;letter-spacing:.14em}
+.brand i{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--acc);margin-right:8px;box-shadow:0 0 12px var(--acc)}
+nav{display:flex;gap:14px;margin-left:auto;font-size:14px}
+nav a{color:var(--mut);text-decoration:none}
+nav a:hover{color:var(--ink)}
+.lang{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.lang button{background:none;border:0;color:var(--mut);padding:6px 10px;cursor:pointer;font:600 13px system-ui}
+.lang button[aria-pressed=true]{background:var(--acc2);color:#fff}
+.hero{padding:56px 0 24px}
+.hero h1{font-size:clamp(30px,5vw,48px);line-height:1.15;margin:0 0 12px}
+.hero p{color:var(--mut);font-size:18px;max-width:760px;margin:0}
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.tags span{border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--mut)}
+section{padding:40px 0;border-top:1px solid var(--line)}
+.num{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--acc);color:#0b1220;font-weight:800;margin-right:10px}
+h2{font-size:26px;margin:0 0 18px;display:flex;align-items:center}
+h3{margin:0 0 6px;font-size:17px}
+.shot{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#000}
+.shot img{display:block;width:100%;height:auto}
+.cap{color:var(--mut);font-size:14px;margin:8px 2px 0}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.card p,.card li{color:var(--mut);margin:0}
+.card ul{margin:6px 0 0;padding-left:18px}
+.big{font-size:30px;font-weight:800;color:var(--acc)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mut);font-weight:600}
+td b{color:var(--acc)}
+.note{color:var(--mut);font-size:13px;margin-top:10px}
+code{background:#0d1626;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:14px}
+.chat{background:#0d1626;border:1px solid var(--line);border-radius:12px;padding:14px;font-size:15px}
+.chat .u{color:var(--warn)}
+.chat .a{color:var(--acc)}
+footer{padding:30px 0 60px;color:var(--mut);font-size:13px;border-top:1px solid var(--line)}
+[data-l]{display:none}
+html[lang=vi] [data-l=vi],html[lang=en] [data-l=en],html[lang=ko] [data-l=ko]{display:revert}
+@media (max-width:760px){.g2,.g3{grid-template-columns:1fr} nav{display:none} table{display:block;overflow-x:auto} .lang button{padding:6px 8px}}
+.grid>*{min-width:0}
+code{overflow-wrap:anywhere}
+.shot img{cursor:zoom-in;transition:transform .2s}
+.shot:hover img{transform:scale(1.02)}
+.thumbs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-top:14px}
+.thumbs .cap{font-size:13px}
+@media (max-width:760px){.thumbs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.zoomhint{color:var(--mut);font-size:13px;margin-top:6px}
+.shot.main{position:relative}
+.shot.main img{transition:opacity .25s}
+.shot.main .mprev,.shot.main .mnext{position:absolute;top:50%;transform:translateY(-50%);width:54px;height:54px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(10,16,28,.72);color:#fff;font-size:30px;line-height:1;cursor:pointer;backdrop-filter:blur(4px)}
+.shot.main .mprev{left:14px} .shot.main .mnext{right:14px}
+.shot.main .mprev:hover,.shot.main .mnext:hover{background:var(--acc);color:#0b1220}
+.shot.main .mdots{position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:8px}
+.shot.main .mdots i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.4);cursor:pointer}
+.shot.main .mdots i.on{background:var(--acc)}
+.thumbs .shot.cur{outline:2px solid var(--acc)}
+#lb{position:fixed;inset:0;z-index:50;background:rgba(3,7,14,.94);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:20px}
+#lb.on{display:flex}
+#lb img{max-width:100%;max-height:calc(100vh - 110px);border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+#lb .lbcap{color:var(--ink);font-size:15px;text-align:center;max-width:900px}
+#lb button{position:absolute;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;border:1px solid var(--line);background:rgba(18,28,46,.9);color:#fff;font-size:26px;cursor:pointer}
+#lb .prev{left:16px} #lb .next{right:16px}
+#lb .close{top:20px;right:16px;transform:none;width:44px;height:44px;font-size:20px}
+#lb .count{color:var(--mut);font-size:13px}
+.vids{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.vid{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.vid video{display:block;width:100%;background:#000}
+.vid .vb{padding:12px 14px}
+.vid .vb p{color:var(--mut);margin:4px 0 0;font-size:14px}
+.vid.tall{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);grid-column:1/-1}
+.vid.tall video{height:100%;max-height:540px;object-fit:contain}
+.vid.tall .vb{padding:18px}
+@media (max-width:760px){.vids{grid-template-columns:1fr}.vid.tall{grid-template-columns:1fr}}
+/* ===== gradient dark (matches the cockpit): purple → magenta → blue, 15 px radii, Roboto (clean Vietnamese marks) ===== */
+:root{--bg:#08201a;--card:rgba(16,64,53,.82);--soft:rgba(255,255,255,.06);--line:rgba(169,246,228,.2);--ink:#f0fefa;--mut:#a9dcd0;--acc:#4fed89;--acc2:#96f5df;--warn:#ffcf3a;
+  --grad:linear-gradient(120deg,#37966a 0%,#19df62 55%,#4fed89 100%);--grad2:linear-gradient(120deg,#1c8c72 0%,#0e8b51 100%);color-scheme:dark}
+body{font:16px/1.6 Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;background:radial-gradient(1200px 700px at 90% -10%,rgba(25,223,98,.3),transparent 60%),radial-gradient(1000px 800px at -10% 60%,rgba(28,140,114,.6),transparent 60%),linear-gradient(160deg,#08201a 0%,#0b3027 45%,#0a261f 100%);background-attachment:fixed}
+.wrap{max-width:1200px;padding:0 16px}
+header{background:rgba(9,36,30,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.brand{font-weight:900;letter-spacing:.06em}
+.brand i{border-radius:4px;background:var(--grad);box-shadow:none}
+nav a{color:var(--mut);font-weight:500}nav a:hover{color:#fff}
+.lang{border:1px solid var(--line);border-radius:15px}
+.lang button{color:var(--mut);font-weight:700}
+.lang button[aria-pressed=true]{background:var(--grad);color:#fff}
+.hero{padding:72px 0 40px}
+.hero h1{font:italic 900 clamp(40px,7vw,76px)/1.05 Roboto,system-ui,sans-serif;letter-spacing:-.02em;margin:0 0 20px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{font-size:20px;line-height:1.6;color:var(--mut)}
+.tags span{border:1px solid var(--line);border-radius:15px;color:#fff;background:var(--soft);padding:4px 14px}
+section{padding:64px 0;border-top:1px solid var(--line)}
+h2{font:900 clamp(26px,4vw,38px)/1.1 Roboto,system-ui,sans-serif;margin:0 0 26px}
+h3{font-size:20px;font-weight:700}
+.num{width:40px;height:40px;background:var(--grad);color:#fff;margin-right:12px}
+.card,.vid{border-radius:15px;border:1px solid var(--line);background:var(--card);box-shadow:0 3px 6px rgba(0,0,0,.16)}
+.card{padding:22px}
+.big{font:900 46px/1.05 Roboto,sans-serif;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.shot{border-radius:15px;border-color:var(--line);background:#08201a}
+td b{color:var(--acc)}
+code{background:rgba(255,255,255,.08);border-color:var(--line);color:#dafbe6}
+.chat{background:rgba(10,44,36,.8);border-color:var(--line);border-radius:15px}
+.chat .u{color:#fff;font-weight:600}.chat .a{color:#7CFF6B;font-weight:600}
+.shot.main .mprev,.shot.main .mnext{background:rgba(10,44,36,.75);border:1px solid var(--line)}
+.shot.main .mprev:hover,.shot.main .mnext:hover{background:var(--grad);color:#fff;transform:translateY(-50%) scale(1.05)}
+.shot.main .mdots i.on{background:var(--acc)}
+.thumbs .shot.cur{outline:3px solid var(--acc)}
+#lb{background:rgba(6,28,23,.95)}
+#lb button{background:rgba(16,64,53,.9);border-color:var(--line)}
+#lb button:hover{background:var(--grad)}
+:is(a,button,video):focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+@media (max-width:767px){.hero{padding:40px 0 24px}.hero p{font-size:17px}section{padding:40px 0}}
+
+/* the team loop: six steps round a circle, the hub in the middle */
+.loopc{position:relative;height:1060px;margin-top:8px}
+.loopc .ring{position:absolute;inset:0;width:100%;height:100%}
+.loopc .hub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:250px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.loopc .hub b{font:900 64px/1 Roboto,sans-serif;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.loopc .hub span{font:900 20px/1.1 Roboto,sans-serif;letter-spacing:.12em;color:#fff}
+.loopc .hub small{color:var(--mut);font-size:13px;line-height:1.5}
+.step{position:absolute;width:29%;transform:translate(-50%,-50%);border-radius:15px;padding:14px 14px;background:var(--card);border:1px solid var(--line);box-shadow:0 3px 6px rgba(0,0,0,.16);display:flex;flex-direction:column;gap:7px}
+.step .who{font:900 12px Roboto,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#04120c;background:var(--grad);border-radius:10px;padding:3px 10px;align-self:flex-start}
+.step h3{margin:0;font-size:17px;line-height:1.25}
+.step p{margin:0;color:var(--mut);font-size:14px;line-height:1.5}
+.step .ai,.step .hu{font-size:13px;line-height:1.45;border-radius:10px;padding:6px 8px}
+.step .ai{background:rgba(79,237,137,.12);color:#b9ffd0}.step .hu{background:rgba(255,207,58,.1);color:#ffe9a8}
+.step.s0{left:50%;top:13%}.step.s1{left:82%;top:30%}.step.s2{left:82%;top:70%}.step.s3{left:50%;top:87%}.step.s4{left:18%;top:70%}.step.s5{left:18%;top:30%}
+@media (max-width:980px){.loopc{height:auto;display:flex;flex-direction:column;gap:14px}.loopc .ring{display:none}.loopc .hub{position:static;transform:none;width:auto;order:7;padding:12px;border:1px dashed var(--acc);border-radius:15px}.step{position:static;width:auto;transform:none}}
+
+.fvs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.fv{margin:0;border-radius:15px;overflow:hidden;background:var(--card);border:1px solid var(--line);cursor:zoom-in}
+.fv video{display:block;width:100%;aspect-ratio:16/9;background:#08201a}
+.fv figcaption{padding:8px 10px;font-size:13px;line-height:1.4;color:var(--mut)}
+.fv.big{position:fixed;inset:4vh 4vw;z-index:60;cursor:zoom-out;display:flex;flex-direction:column;box-shadow:0 0 0 100vmax rgba(6,28,23,.88)}
+.fv.big video{flex:1;min-height:0;aspect-ratio:auto;object-fit:contain}
+@media (max-width:1000px){.fvs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="brand"><i></i>GREENBOX STUDIO</div>
+  <nav>
+    <a href="#s1"><span data-l="vi">Hình ảnh</span><span data-l="en">Screens</span><span data-l="ko">화면</span></a>
+    <a href="#demo"><span data-l="vi">Video</span><span data-l="en">Demo</span><span data-l="ko">데모</span></a>
+    <a href="#all"><span data-l="vi">Tính năng</span><span data-l="en">Features</span><span data-l="ko">기능</span></a>
+    <a href="#loop"><span data-l="vi">Quy trình</span><span data-l="en">Loop</span><span data-l="ko">루프</span></a>
+    <a href="#s2"><span data-l="vi">Vấn đề</span><span data-l="en">Problem</span><span data-l="ko">문제</span></a>
+    <a href="#s3"><span data-l="vi">Giải pháp</span><span data-l="en">Solution</span><span data-l="ko">해결</span></a>
+    <a href="#s4"><span data-l="vi">Hiệu quả</span><span data-l="en">Impact</span><span data-l="ko">효과</span></a>
+    <a href="#s5"><span data-l="vi">Giới hạn</span><span data-l="en">Limits</span><span data-l="ko">한계</span></a>
+    <a href="#mcp">MCP</a>
+  </nav>
+  <div class="lang"><button data-set="vi">VI</button><button data-set="en">EN</button><button data-set="ko">한국어</button></div>
+</div></header>
+
+<div class="wrap hero">
+  <h1 data-l="vi">Làm overlay video quảng cáo game và rig 3D ngay trong trình duyệt — có AI làm giúp.</h1>
+  <h1 data-l="en">Game-ad video overlays and 3D rigging in the browser — with AI doing the clicks.</h1>
+  <h1 data-l="ko">게임 광고 영상 오버레이와 3D 리깅을 브라우저에서 — AI가 대신 작업합니다.</h1>
+  <p data-l="vi">Greenbox Studio gom những việc tốn thời gian nhất của team làm video / playable ad vào một công cụ: joystick, thanh máu, gacha, vô lăng… xuất thẳng .MOV trong suốt; gắn xương người, thú, xe tự động; gắn âm thanh theo điểm va chạm. Claude điều khiển được toàn bộ qua MCP.</p>
+  <p data-l="en">Greenbox Studio puts the slowest jobs of a video / playable-ad team in one tool: joystick, HP bar, gacha, steering wheel… exported straight as transparent .MOV; automatic rigging of people, animals and vehicles; sounds placed on the hits. Claude can drive all of it through MCP.</p>
+  <p data-l="ko">영상 / 플레이어블 광고 팀의 가장 시간이 걸리는 작업을 하나로: 조이스틱, HP 바, 가챠, 핸들… 투명 .MOV로 바로 내보내기; 사람·동물·차량 자동 리깅; 타격 지점에 사운드 배치. Claude가 MCP로 전부 조작합니다.</p>
+  <div class="tags"><span>HTML · WebGL (three.js)</span><span>GLB / FBX</span><span>.MOV alpha</span><span>MCP · Claude Code</span><span>VI / EN / KO</span></div>
+</div>
+
+<section id="s1"><div class="wrap">
+  <h2><span class="num">1</span><span data-l="vi">Hình ảnh dịch vụ</span><span data-l="en">Service screens</span><span data-l="ko">서비스 화면</span></h2>
+  <div class="shot main" id="mainshot"><img alt="Wheel & pedals driven by the AI" data-cap-en="Cockpit · Wheel &amp; pedals: the AI drove the wheel and pedals from the video itself (steering line and gas on the timeline). Standard image sizes to generate on the right." src="{{drive_en.webp}}">
+    <button class="mprev" aria-label="Previous picture">‹</button><button class="mnext" aria-label="Next picture">›</button><div class="mdots"></div></div>
+  <p class="cap mcap" data-l="vi">Cockpit · Vô lăng &amp; bàn đạp: AI tự lái theo video (đường lái và ga hiện trên timeline). Bên phải: xuất MP4 / .MOV alpha và kích thước ảnh chuẩn để gen.</p>
+  <p class="cap mcap" data-l="en">Cockpit · Wheel &amp; pedals: the AI drove the wheel and pedals from the video itself (steering line and gas on the timeline). Right: MP4 / alpha .MOV export and the standard image sizes to generate.</p>
+  <p class="cap" id="mcap-dyn" style="display:none"></p>
+  <p class="cap mcap" data-l="ko">콕핏 · 핸들 & 페달: AI가 영상만 보고 핸들과 페달을 조작 (타임라인에 조향·가속). 오른쪽: MP4 / 알파 .MOV, 생성용 표준 크기.</p>
+  <div class="thumbs">
+    <div><div class="shot"><img alt="SFX sync" data-cap-en="SFX sync: the hits are found in the video, one click puts the chosen sound on all of them." src="{{sfx_en.webp}}"></div><p class="cap">SFX sync</p></div>
+    <div><div class="shot"><img alt="Auto rig" data-cap-en="Auto rig: the chibi character rigged by itself, 178 animations." src="{{rig_en.webp}}"></div><p class="cap">Auto rig</p></div>
+    <div><div class="shot"><img alt="Vehicle" data-cap-en="Vehicles: 🪄 Auto cut finds the wheels, tracks and blade of the bulldozer." src="{{vehicle_en.webp}}"></div><p class="cap">Vehicle rig</p></div>
+    <div><div class="shot"><img alt="Play test" data-cap-en="Play test: the rigged chibi character driven with the keyboard." src="{{play_en.webp}}"></div><p class="cap">Play test</p></div>
+    <div><div class="shot"><img alt="2D to 3D" data-cap-en="2D layout → 3D playable map, read by the AI." src="{{map_en.webp}}"></div><p class="cap">2D → 3D map</p></div>
+    <div><div class="shot"><img alt="Video mocap" data-cap-en="Video mocap: the character copies the person in the video (sample kickboxing clip)." src="{{mocap_en.webp}}"></div><p class="cap">Video → 3D mocap</p></div>
+  </div>
+  <p class="zoomhint"><span data-l="vi">🔍 Bấm ‹ › trên ảnh lớn (hoặc vuốt) để lướt qua từng ảnh; bấm ảnh nhỏ để xem nó; bấm ảnh lớn để xem toàn màn hình.</span><span data-l="en">🔍 ‹ › on the big picture (or swipe) go through them; click a thumbnail to show it; click the big picture for full screen.</span><span data-l="ko">🔍 큰 사진의 ‹ › (또는 스와이프)로 넘기기; 썸네일 클릭; 큰 사진 클릭 = 전체 화면.</span></p>
+</div></section>
+
+<section id="demo"><div class="wrap">
+  <h2>▶ <span data-l="vi">&nbsp;Xem nó chạy</span><span data-l="en">&nbsp;See it in action</span><span data-l="ko">&nbsp;실제 동작</span></h2>
+  <div class="vids">
+    <div class="vid tall"><video src="{{mcp_drive.mp4}}" autoplay muted loop playsinline controls></video>
+      <div class="vb"><h3>🤖 <span data-l="vi">AI qua MCP: gắn vô lăng + bàn đạp vào video lái xe, xuất luôn</span><span data-l="en">AI through MCP: wheel + pedals on a driving video, exported — no hands</span><span data-l="ko">MCP로 AI가: 운전 영상에 핸들 + 페달, 바로 내보내기</span></h3>
+        <div class="chat" style="margin-top:10px">
+          <div class="u">👤 <span data-l="vi">Gắn vô lăng và bàn đạp vào video TruckCliff này rồi xuất MP4.</span><span data-l="en">Put a steering wheel and pedals on this TruckCliff video and export the MP4.</span><span data-l="ko">이 TruckCliff 영상에 핸들과 페달을 넣고 MP4로.</span></div>
+          <div class="a">🤖 gb_drive load → auto → export {mode: "video"} ✓</div>
+        </div>
+        <p data-l="vi">Không ai cầm chuột: AI đọc chuyển động của video (cảnh trượt ngang = đánh lái, hình đổi nhanh/chậm = ga/phanh), tạo take rồi xuất video hoàn chỉnh 1080×1920. Đây là file xuất thật (đã thu nhỏ cho trang này).</p>
+        <p data-l="en">Nobody touched the mouse: the AI reads the video's motion (scenery sliding sideways = steering, how fast the picture changes = gas / brake), makes the take and exports the finished 1080×1920 video. This is the real output (made smaller for this page).</p>
+        <p data-l="ko">마우스 조작 없음: AI가 영상 움직임(좌우로 흐르는 배경 = 조향, 화면 변화 속도 = 가속/브레이크)을 읽어 테이크를 만들고 1080×1920 완성 영상을 내보냅니다. 실제 결과물(축소본).</p></div></div>
+    <div class="vid"><video src="{{rig_s.mp4}}" muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🦴 <span data-l="vi">Gắn xương nhân vật chibi (GLB chưa có xương)</span><span data-l="en">Rigging a chibi character (GLB, no bones)</span><span data-l="ko">치비 캐릭터 리깅 (본 없는 GLB)</span></h3><p data-l="vi">Thả file → xoay cho nhìn thẳng, đặt xuống sàn → khung người tự khớp → tính da → đi, chém, nhảy, lộn.</p><p data-l="en">Drop the file → turn it to face the front, stand it on the floor → the human skeleton fits by itself → skin → walk, sword combo, dance, backflip.</p><p data-l="ko">파일 → 정면으로 회전, 바닥에 맞춤 → 스켈레톤 자동 맞춤 → 스킨 → 걷기, 검 콤보, 댄스, 백플립.</p></div></div>
+    <div class="vid"><video src="{{vehicle_s.mp4}}" muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🚜 <span data-l="vi">Rig xe ủi bằng 🪄 Tự cắt</span><span data-l="en">Rigging the bulldozer with 🪄 Auto cut</span><span data-l="ko">🪄 자동 분할로 불도저 리깅</span></h3><p data-l="vi">Bánh, 2 dải xích, lưỡi ủi được tìm theo hình dạng → chạy, quay tại chỗ, nâng lưỡi ủi.</p><p data-l="en">Wheels, both tracks and the blade found by shape → drive, pivot turn, blade raise.</p><p data-l="ko">바퀴, 트랙 2개, 블레이드를 모양으로 검출 → 주행, 제자리 회전, 블레이드.</p></div></div>
+    <div class="vid"><video src="{{playtest_s.mp4}}" muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🎮 <span data-l="vi">Chơi thử nhân vật vừa rig</span><span data-l="en">Play test of the rigged character</span><span data-l="ko">리깅한 히어로 플레이 테스트</span></h3><p data-l="vi">Một nút "Play test" từ trang gắn xương: chạy, rẽ, nhảy, đánh bằng bàn phím và chuột.</p><p data-l="en">One "Play test" click from the rig page: run, turn, jump, attack with the keyboard and mouse.</p><p data-l="ko">리깅 페이지에서 "Play test" 한 번: 달리기, 회전, 점프, 공격.</p></div></div>
+    <div class="vid"><video src="{{mocap_s.mp4}}" muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🎥 <span data-l="vi">Mocap: video → 3D</span><span data-l="en">Mocap: video → 3D</span><span data-l="ko">모캡: 영상 → 3D</span></h3><p data-l="vi">Video 1 người (clip kickboxing mẫu đi kèm tool) → nhận dáng người trong trình duyệt → nhân vật chibi đánh theo. Xuất GLB / FBX.</p><p data-l="en">A video of one person (the kickboxing sample that ships with the tool) → pose found in the browser → the chibi character copies it. Export GLB / FBX.</p><p data-l="ko">한 사람 영상(툴에 포함된 킥복싱 샘플) → 브라우저에서 포즈 인식 → 치비 캐릭터가 따라함. GLB / FBX.</p></div></div>
+    <div class="vid"><video src="{{map_s.mp4}}" muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🗺 <span data-l="vi">Map 2D → 3D chơi được</span><span data-l="en">2D layout → playable 3D map</span><span data-l="ko">2D 레이아웃 → 플레이 가능한 3D 맵</span></h3><p data-l="vi">AI đọc ảnh layout (bỏ phòng end card): phòng, núi phô mai, máy làm pizza / burger, quầy, ô $, băng chuyền → dựng 3D → nhân vật chạy trong đó.</p><p data-l="en">The AI reads the layout picture (end-card room left out): rooms, cheese volcano, pizza / burger makers, counters, $ pads, belts → built in 3D → the character runs in it.</p><p data-l="ko">AI가 레이아웃 이미지를 읽음(엔드카드 방 제외): 방, 치즈 화산, 피자/버거 메이커, 카운터, $ 패드, 벨트 → 3D → 캐릭터 플레이.</p></div></div>
+  </div>
+</div></section>
+
+<section id="all"><div class="wrap">
+  <h2>🎞 <span data-l="vi">&nbsp;Mọi tính năng đều đã quay lại</span><span data-l="en">&nbsp;Every feature, recorded</span><span data-l="ko">&nbsp;모든 기능 녹화</span></h2>
+  <p class="note" style="font-size:16px;margin:0 0 18px"><span data-l="vi">Quay tự động trong trình duyệt (cùng bộ kịch bản kiểm thử). Cuộn tới đâu video chạy tới đó; bấm để xem to.</span><span data-l="en">Recorded automatically in the browser (the same scripts as the tests). Clips play as you scroll; click one to see it big.</span><span data-l="ko">스크롤하면 재생, 클릭하면 크게.</span></p>
+  <div class="fvs">
+    <figure class="fv"><video data-src="{{f_joy.mp4}}" muted loop playsinline preload="none"></video><figcaption>🕹 <span data-l="vi">Joystick + nút chiêu theo video</span><span data-l="en">Joystick + skill buttons over the video</span><span data-l="ko">조이스틱 + 스킬 버튼</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_evo.mp4}}" muted loop playsinline preload="none"></video><figcaption>📈 <span data-l="vi">Thanh tiến hoá theo mốc giây</span><span data-l="en">Evolution bar on time marks</span><span data-l="ko">진화 바</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_stone.mp4}}" muted loop playsinline preload="none"></video><figcaption>🪨 <span data-l="vi">Thanh đá — Enter thả đá đúng nhịp</span><span data-l="en">Stone bar — Enter drops stones on beat</span><span data-l="ko">돌 바</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_money.mp4}}" muted loop playsinline preload="none"></video><figcaption>💰 <span data-l="vi">Bộ đếm tiền nhảy số</span><span data-l="en">Money counter rolling up</span><span data-l="ko">돈 카운터</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_fuel.mp4}}" muted loop playsinline preload="none"></video><figcaption>⛽ <span data-l="vi">Thanh dầu tụt / đổ đầy</span><span data-l="en">Fuel bar draining / refilling</span><span data-l="ko">연료 바</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_hpbar.mp4}}" muted loop playsinline preload="none"></video><figcaption>❤️ <span data-l="vi">Thanh máu HUD khung 9:16 (đúng cỡ xuất)</span><span data-l="en">HP bar HUD in the 9:16 frame (export size)</span><span data-l="ko">HP 바 (9:16)</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_countdown.mp4}}" muted loop playsinline preload="none"></video><figcaption>⏱ <span data-l="vi">Đếm ngược nảy số</span><span data-l="en">Bouncing countdown</span><span data-l="ko">카운트다운</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_vfx.mp4}}" muted loop playsinline preload="none"></video><figcaption>🎬 <span data-l="vi">Video FX: che mờ, chuyển cảnh, viền đỏ</span><span data-l="en">Video FX: blur mask, transitions, red hits</span><span data-l="ko">비디오 FX</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_wheel.mp4}}" muted loop playsinline preload="none"></video><figcaption>🏎 <span data-l="vi">Vô lăng + bàn đạp (AI tự lái)</span><span data-l="en">Wheel + pedals (AI-driven)</span><span data-l="ko">핸들 + 페달</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_gseq.mp4}}" muted loop playsinline preload="none"></video><figcaption>🃏 <span data-l="vi">Thẻ lần lượt, pointer tự bấm</span><span data-l="en">Card sequence, the pointer taps itself</span><span data-l="ko">카드 순서</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_gpick.mp4}}" muted loop playsinline preload="none"></video><figcaption>👆 <span data-l="vi">Chọn 1 trong N</span><span data-l="en">Pick 1 of N</span><span data-l="ko">N 중 1</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_gbag.mp4}}" muted loop playsinline preload="none"></video><figcaption>🛍 <span data-l="vi">Xé túi mù</span><span data-l="en">Blind bag tear</span><span data-l="ko">블라인드 백</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_gchest.mp4}}" muted loop playsinline preload="none"></video><figcaption>🧰 <span data-l="vi">Mở rương lên cấp</span><span data-l="en">Lucky chest upgrade</span><span data-l="ko">럭키 상자</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_endcard.mp4}}" muted loop playsinline preload="none"></video><figcaption>🏁 <span data-l="vi">End card: icon, logo, PLAY NOW!</span><span data-l="en">End card: icon, logo, PLAY NOW!</span><span data-l="ko">엔드카드</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_gcar.mp4}}" muted loop playsinline preload="none"></video><figcaption>🎠 <span data-l="vi">Carousel vòng ngang + end card</span><span data-l="en">Ring carousel + end card</span><span data-l="ko">캐러셀</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_gcarstack.mp4}}" muted loop playsinline preload="none"></video><figcaption>🗂 <span data-l="vi">Carousel xếp chồng dọc, nền mờ</span><span data-l="en">Stacked carousel, blurred game behind</span><span data-l="ko">스택 캐러셀</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_mapdraw.mp4}}" muted loop playsinline preload="none"></video><figcaption>🗺 <span data-l="vi">Tự vẽ map 2D → map 3D chơi được</span><span data-l="en">Draw a 2D map → playable 3D map</span><span data-l="ko">2D 맵 → 3D 맵</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_smash.mp4}}" muted loop playsinline preload="none"></video><figcaption>🎯 <span data-l="vi">Bắn rơi khối: vẽ tường, bắn, quay blockout cho Seedance</span><span data-l="en">Target smash: draw the wall, shoot, record a blockout for Seedance</span><span data-l="ko">타겟 스매시 블록아웃</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_sfx.mp4}}" muted loop playsinline preload="none"></video><figcaption>🔊 <span data-l="vi">Gắn SFX: tìm cú va chạm, 1 nút gắn âm</span><span data-l="en">SFX sync: hits found, one click adds sound</span><span data-l="ko">SFX 싱크</span></figcaption></figure>
+  </div>
+</div></section>
+
+<section id="loop"><div class="wrap">
+  <h2>↺ <span data-l="vi">&nbsp;Quy trình của team: tự động phần tay chân, người giữ quyết định</span><span data-l="en">&nbsp;The team loop: machines do the legwork, people keep the decisions</span><span data-l="ko">&nbsp;팀 루프: 반복 작업은 자동, 결정은 사람</span></h2>
+  <p class="note" style="font-size:16px;margin:0 0 18px"><span data-l="vi">Mỗi bước có phần 🤖 máy làm (việc lặp, tốn tay) và phần 🧑 người chỉnh lại. Greenbox không thay người: AI đề xuất, con người duyệt — để tránh lạm dụng AI và giữ chất lượng.</span><span data-l="en">Every step has a 🤖 machine part (repetitive, manual work) and a 🧑 human check. Greenbox does not replace people: the AI proposes, a person approves — so the AI is not over-used and quality stays high.</span><span data-l="ko">각 단계: 🤖 기계가 반복 작업, 🧑 사람이 검토.</span></p>
+  <div class="loopc">
+    <svg class="ring" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="lp-a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#4fed89"/></marker></defs>
+      <ellipse cx="50" cy="50" rx="36" ry="38" fill="none" stroke="rgba(79,237,137,.45)" stroke-width=".35" stroke-dasharray="1.2 1.2" vector-effect="non-scaling-stroke"/>
+      <path d="M61.12 13.86 A36 38 0 0 1 68.00 17.09" fill="none" stroke="#4fed89" stroke-width=".6" marker-end="url(#lp-a)" vector-effect="non-scaling-stroke"/><path d="M85.21 42.10 A36 38 0 0 1 86.00 50.00" fill="none" stroke="#4fed89" stroke-width=".6" marker-end="url(#lp-a)" vector-effect="non-scaling-stroke"/><path d="M74.09 78.24 A36 38 0 0 1 68.00 82.91" fill="none" stroke="#4fed89" stroke-width=".6" marker-end="url(#lp-a)" vector-effect="non-scaling-stroke"/><path d="M38.88 86.14 A36 38 0 0 1 32.00 82.91" fill="none" stroke="#4fed89" stroke-width=".6" marker-end="url(#lp-a)" vector-effect="non-scaling-stroke"/><path d="M14.79 57.90 A36 38 0 0 1 14.00 50.00" fill="none" stroke="#4fed89" stroke-width=".6" marker-end="url(#lp-a)" vector-effect="non-scaling-stroke"/><path d="M25.91 21.76 A36 38 0 0 1 32.00 17.09" fill="none" stroke="#4fed89" stroke-width=".6" marker-end="url(#lp-a)" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div class="hub"><b>↺</b><span>GREENBOX<br>LOOP</span><small><span data-l="vi">Kết quả quảng cáo quay về PM → map tiếp theo. Mỗi vòng nhanh hơn vì máy nhớ những gì người đã chỉnh.</span><span data-l="en">Ad results flow back to the PM → the next map. Each loop is faster: the tool remembers what people fixed.</span><span data-l="ko">결과 → PM → 다음 맵. 매 루프 더 빠르게.</span></small></div>
+    <div class="step s0"><span class="who">1 · PM</span><h3><span data-l="vi">Map 2D</span><span data-l="en">2D map</span><span data-l="ko">2D 맵</span></h3>
+      <p><span data-l="vi">Gửi sơ đồ 2D của màn chơi — hoặc tự vẽ map ngay trong Greenbox.</span><span data-l="en">Sends the 2D layout of the level — or draws the map right in Greenbox.</span><span data-l="ko">2D 레이아웃 전달 또는 직접 그리기</span></p>
+      <div class="ai">🤖 <span data-l="vi">AI đọc sơ đồ → dựng khối 3D (gb_map).</span><span data-l="en">AI reads the layout → 3D blockout (gb_map).</span><span data-l="ko">AI가 3D 블록아웃</span></div>
+      <div class="hu">🧑 <span data-l="vi">PM kiểm tra từng khối, sửa vị trí / kích thước.</span><span data-l="en">PM checks every block, fixes positions / sizes.</span><span data-l="ko">PM이 블록 확인·수정</span></div></div>
+    <div class="step s1"><span class="who">2 · Art</span><h3><span data-l="vi">Gắn model</span><span data-l="en">Art goes in</span><span data-l="ko">아트 적용</span></h3>
+      <p><span data-l="vi">Thả nhân vật, xe, vật thể vào map.</span><span data-l="en">Drops characters, vehicles, props into the map.</span><span data-l="ko">캐릭터·차량·소품 배치</span></p>
+      <div class="ai">🤖 <span data-l="vi">Tự gắn xương, tự cắt bộ phận xe, 178 animation có sẵn.</span><span data-l="en">Auto rig, vehicle auto cut, 178 ready animations.</span><span data-l="ko">자동 리깅·차량 분할</span></div>
+      <div class="hu">🧑 <span data-l="vi">Art kéo lại khớp, chấm ★ rig xe để máy học.</span><span data-l="en">Art drags joints, rates vehicle rigs ★ so the tool learns.</span><span data-l="ko">관절 조정, ★ 평가</span></div></div>
+    <div class="step s2"><span class="who">3 · Dev</span><h3><span data-l="vi">Làm gameplay</span><span data-l="en">Dev builds</span><span data-l="ko">개발</span></h3>
+      <p><span data-l="vi">Nối logic: đi lại, đánh, bắn, máy chạy, tiền, playable.</span><span data-l="en">Wires the logic: movement, combat, shooting, machines, money, playable.</span><span data-l="ko">게임 로직 연결</span></p>
+      <div class="ai">🤖 <span data-l="vi">Chơi thử ngay trong trình duyệt, xuất GLB / FBX / playable.</span><span data-l="en">Play test in the browser, export GLB / FBX / playable.</span><span data-l="ko">브라우저 플레이 테스트</span></div>
+      <div class="hu">🧑 <span data-l="vi">Dev cân chỉnh tốc độ, va chạm, độ khó.</span><span data-l="en">Dev tunes speed, collisions, difficulty.</span><span data-l="ko">속도·충돌·난이도 조정</span></div></div>
+    <div class="step s3"><span class="who">4 · 3D</span><h3><span data-l="vi">Map 3D chạy được</span><span data-l="en">Playable 3D map</span><span data-l="ko">플레이 가능한 3D 맵</span></h3>
+      <p><span data-l="vi">Bản 3D hoàn chỉnh, đi lại / bắn được, quay video blockout.</span><span data-l="en">A finished 3D level you can walk / shoot in and film as a blockout.</span><span data-l="ko">완성된 3D 레벨</span></p>
+      <div class="ai">🤖 <span data-l="vi">Camera, góc quay, video 9:16 tự xuất.</span><span data-l="en">Cameras, shots, 9:16 video exported.</span><span data-l="ko">카메라·영상 자동</span></div>
+      <div class="hu">🧑 <span data-l="vi">Cả team duyệt trước khi làm quảng cáo.</span><span data-l="en">The team signs it off before any ad is made.</span><span data-l="ko">팀 승인</span></div></div>
+    <div class="step s4"><span class="who">5 · UA + AI</span><h3><span data-l="vi">Hướng video & test nhanh</span><span data-l="en">Video angle & fast tests</span><span data-l="ko">영상 방향·빠른 테스트</span></h3>
+      <p><span data-l="vi">UA cùng AI chọn hướng làm video và cách test nhanh nhất có thể.</span><span data-l="en">UA and the AI pick the video angle and the fastest way to test it.</span><span data-l="ko">UA와 AI가 영상 방향과 가장 빠른 테스트 결정</span></p>
+      <div class="ai">🤖 <span data-l="vi">AI làm phần edit râu ria: cắt, overlay, thanh máu, SFX, end card, đổi khổ, làm đẹp blockout (Seedance).</span><span data-l="en">The AI does the fiddly edits: cuts, overlays, HP bar, SFX, end card, resizes, restyling the blockout (Seedance).</span><span data-l="ko">AI: 컷·오버레이·SFX·엔드카드·리스타일</span></div>
+      <div class="hu">🧑 <span data-l="vi">Người tập trung vào pacing và kịch bản chơi game — phần làm nên quảng cáo hay.</span><span data-l="en">People focus on the pacing and the gameplay script — what makes an ad good.</span><span data-l="ko">사람은 페이싱과 플레이 시나리오에 집중</span></div></div>
+    <div class="step s5"><span class="who">6 · AI</span><h3><span data-l="vi">Đa dạng hoá creative</span><span data-l="en">Many angles per creative</span><span data-l="ko">크리에이티브 다양화</span></h3>
+      <p><span data-l="vi">Một creative → nhiều biến thể: hook mở đầu khác, nhịp khác, chủ đề khác, khổ khác.</span><span data-l="en">One creative → many variants: other opening hooks, rhythms, themes, sizes.</span><span data-l="ko">하나의 크리에이티브 → 여러 변형</span></p>
+      <div class="ai">🤖 <span data-l="vi">Đa nhiệm: cùng lúc ra nhiều cách tiếp cận để A/B test, đọc kết quả, gợi ý vòng sau.</span><span data-l="en">Multi-tasking: several approaches at once for A/B tests, reads the results, suggests the next round.</span><span data-l="ko">동시에 여러 접근 A/B 테스트</span></div>
+      <div class="hu">🧑 <span data-l="vi">Người chọn hướng thắng và quyết định bản nào chạy — AI không tự đăng.</span><span data-l="en">People pick the winning angle and decide what runs — the AI never publishes on its own.</span><span data-l="ko">최종 결정은 사람</span></div></div>
+  </div>
+</div></section>
+
+<section id="s2"><div class="wrap">
+  <h2><span class="num">2</span><span data-l="vi">Vấn đề</span><span data-l="en">Problem</span><span data-l="ko">문제</span></h2>
+  <div class="grid g3">
+    <div class="card"><h3><span data-l="vi">Overlay làm tay</span><span data-l="en">Hand-made overlays</span><span data-l="ko">수작업 오버레이</span></h3>
+      <p data-l="vi">Joystick, thanh máu, đếm ngược, gacha trong video quảng cáo đều phải keyframe từng nhịp trong After Effects, rồi Keylight để tách phông xanh. Đổi một con số là làm lại.</p>
+      <p data-l="en">Joystick, HP bar, countdown and gacha in ad videos are keyframed beat by beat in After Effects, then keyed with Keylight. One changed number means doing it again.</p>
+      <p data-l="ko">광고 영상의 조이스틱, HP 바, 카운트다운, 가챠를 애프터이펙트에서 키프레임으로 하나하나 만들고 Keylight로 키잉. 숫자 하나 바뀌면 다시 작업.</p></div>
+    <div class="card"><h3><span data-l="vi">Rig 3D cần chuyên gia</span><span data-l="en">3D rigging needs a specialist</span><span data-l="ko">3D 리깅은 전문가 필요</span></h3>
+      <p data-l="vi">Mỗi nhân vật, con thú hay chiếc xe mới phải nhờ người biết Blender gắn xương, sơn trọng số, làm animation: hàng giờ đến cả ngày, và phải xếp hàng chờ.</p>
+      <p data-l="en">Every new character, animal or vehicle waits for someone who knows Blender to rig it, paint weights and animate: hours to a full day each.</p>
+      <p data-l="ko">새 캐릭터·동물·차량마다 블렌더 담당자가 리깅·웨이트·애니메이션: 개당 수 시간~하루, 대기열 발생.</p></div>
+    <div class="card"><h3><span data-l="vi">Âm thanh canh tay</span><span data-l="en">Sounds synced by hand</span><span data-l="ko">사운드 수동 싱크</span></h3>
+      <p data-l="vi">Mỗi cú va chạm, đồng xu, nâng cấp trong video phải tìm khung hình rồi kéo âm vào từng chỗ.</p>
+      <p data-l="en">Every hit, coin and upgrade in the video means finding the frame and dragging a sound onto it.</p>
+      <p data-l="ko">타격·코인·업그레이드마다 프레임을 찾아 사운드를 하나씩 배치.</p></div>
+  </div>
+</div></section>
+
+<section id="s3"><div class="wrap">
+  <h2><span class="num">3</span><span data-l="vi">Giải pháp</span><span data-l="en">Solution</span><span data-l="ko">해결 방법</span></h2>
+  <div class="grid g2">
+    <div class="card"><h3>🎬 <span data-l="vi">Overlay gameplay không cần keyframe</span><span data-l="en">Gameplay overlays without keyframes</span><span data-l="ko">키프레임 없는 게임플레이 오버레이</span></h3>
+      <ul data-l="vi"><li>Joystick, thanh tiến hoá, thanh đá, tiền, dầu, thanh máu / HUD, đếm ngược h:mm:ss, Video FX (blur theo vật, khung, viền đỏ).</li><li>Rê chuột theo video hoặc nhập mốc giây → xuất <b>.MOV alpha</b>, kéo thẳng lên AE / Premiere / CapCut, không cần Keylight.</li><li>Mỗi tính năng có <b>kích thước ảnh chuẩn để gen</b> (vd. vô lăng 1024×1024, thẻ 600×900).</li><li>Video FX: nối nhiều video trên một timeline, chỗ nối tự có chuyển cảnh (whip, zoom, flash…).</li></ul>
+      <ul data-l="en"><li>Joystick, evolution bar, stone bar, money, fuel, HP bar / HUD, h:mm:ss countdown, Video FX (tracked blur, frames, red damage edges).</li><li>Move the mouse along the video or type the seconds → export an <b>alpha .MOV</b>, drop it on AE / Premiere / CapCut, no Keylight.</li><li>Each feature lists the <b>standard image sizes to generate</b> (e.g. wheel 1024×1024, card 600×900).</li><li>Video FX: join several videos on one timeline; each join gets a transition (whip, zoom, flash…).</li></ul>
+      <ul data-l="ko"><li>조이스틱, 진화 바, 돌 바, 돈, 연료, HP 바 / HUD, h:mm:ss 카운트다운, Video FX (추적 블러, 프레임, 붉은 테두리).</li><li>영상에 맞춰 마우스 이동 또는 초 입력 → <b>알파 .MOV</b> 내보내기, Keylight 불필요.</li><li>기능마다 <b>생성용 표준 이미지 크기</b> 제공.</li><li>Video FX: 여러 영상을 한 타임라인에 연결, 이음새마다 전환 자동.</li></ul></div>
+    <div class="card"><h3>🏎 🃏 <span data-l="vi">Lái xe, Gacha / Endcard</span><span data-l="en">Driving, Gacha / Endcard</span><span data-l="ko">운전, 가챠 / 엔드카드</span></h3>
+      <ul data-l="vi"><li>Vô lăng + 2 bàn đạp lái theo video bằng chuột hoặc vô lăng USB thật.</li><li>Thẻ lần lượt, chọn 1 trong N, carousel, xé túi mù, mở rương — pointer tự bấm, có âm thanh.</li><li>🏁 End card: thẻ phóng 0 → 100% theo số giây đặt sẵn, logo + app icon + nút PLAY NOW / DOWNLOAD NOW bật ra lần lượt, thêm ảnh của bạn, xuất .MOV alpha.</li></ul>
+      <ul data-l="en"><li>Wheel + 2 pedals driven along the video with the mouse or a real USB wheel.</li><li>Card sequence, pick 1 of N, carousel, blind bag, lucky chest — the pointer taps by itself, with sounds.</li><li>🏁 End card: the card grows 0 → 100% over the seconds you set, then the logo, app icon and a PLAY NOW / DOWNLOAD NOW button pop in; add your pictures, export alpha .MOV.</li></ul>
+      <ul data-l="ko"><li>핸들 + 페달 2개, 마우스나 USB 핸들로 운전.</li><li>카드 순서, N개 중 1개, 캐러셀, 블라인드 백, 럭키 상자 — 포인터 자동 탭, 사운드 포함.</li><li>🏁 엔드카드: 설정한 시간 동안 0 → 100% 확대, 로고·앱 아이콘·PLAY NOW 버튼 등장, 알파 .MOV.</li></ul></div>
+    <div class="card"><h3>🦴 <span data-l="vi">Gắn xương tự động</span><span data-l="en">Automatic rigging</span><span data-l="ko">자동 리깅</span></h3>
+      <ul data-l="vi"><li>Thả GLB/FBX → đo cơ thể, tự đặt khớp (cả ngón tay), tự tính trọng số → chọn animation → xuất GLB/FBX cho Unity / Unreal.</li><li>Người, cáo, chim, rồng, kaiju, nhện, rắn, cá, ngựa, XP Hero, Snake Clash. Clone rig một chạm từ file đã có xương.</li><li>Chân luôn chạm đất kể cả nhân vật chibi.</li></ul>
+      <ul data-l="en"><li>Drop a GLB/FBX → the body is measured, joints placed (fingers too), weights computed → pick animations → export GLB/FBX for Unity / Unreal.</li><li>Human, fox, bird, dragon, kaiju, spider, snake, fish, horse, XP Hero, Snake Clash. One-click clone from a rigged file.</li><li>Feet stay on the floor, even on chibi characters.</li></ul>
+      <ul data-l="ko"><li>GLB/FBX를 넣으면 체형 측정 → 관절 자동 배치(손가락 포함) → 웨이트 자동 → 애니메이션 선택 → Unity / Unreal용 GLB/FBX.</li><li>사람, 여우, 새, 드래곤, 카이주, 거미, 뱀, 물고기, 말, XP Hero, Snake Clash. 리깅된 파일에서 원클릭 복제.</li></ul></div>
+    <div class="card"><h3>🚜 🔊 <span data-l="vi">Xe cộ và âm thanh</span><span data-l="en">Vehicles and sound</span><span data-l="ko">차량과 사운드</span></h3>
+      <ul data-l="vi"><li>🪄 Tự cắt: bánh, xích, lưỡi ủi / gàu + tay nâng, tháp pháo, cánh quạt — theo hình dạng, không cần tên. 20+ animation: chạy, drift, xúc, quay xích.</li><li>Gắn SFX: phân tích video tìm điểm va chạm → <b>1 nút</b> gắn âm đã chọn vào tất cả → xuất MP4 có tiếng.</li><li>Mocap từ video 1 người, chơi thử nhân vật trong map, xuất playable.</li><li>⚡ Tự rig + keyframe một nút. Người dùng chấm 1–5 ★; rig được 4–5 ★ được học: xe sau có cùng hình dạng sẽ tự rig theo đó (loại xe, bộ phận, thông số). Bộ nhớ xuất / nhập .json để cả nhóm dùng chung.</li></ul>
+      <ul data-l="en"><li>🪄 Auto cut: wheels, tracks, blade / bucket + lift arms, turret, rotor — by shape, no names needed. 20+ animations: drive, drift, dig, tracks running.</li><li>SFX sync: the video is analysed for hits → <b>one click</b> puts the chosen sound on all of them → MP4 with sound.</li><li>Mocap from a video of one person, play test in a map, playable export.</li><li>⚡ One-click auto rig + keyframes. People rate rigs 1–5 ★; 4–5 ★ rigs are learned: the next vehicle of the same shape is rigged the same way (type, parts, settings). The memory exports / imports as .json for the whole team.</li></ul>
+      <ul data-l="ko"><li>🪄 자동 분할: 바퀴, 트랙, 블레이드 / 버킷 + 리프트 암, 포탑, 로터 — 이름 없이 모양으로. 애니메이션 20개 이상.</li><li>SFX: 영상 분석으로 타격 지점 검출 → <b>원클릭</b>으로 전부 배치 → 사운드 포함 MP4.</li><li>영상 모캡, 맵 플레이 테스트, 플레이어블 내보내기.</li><li>⚡ 원클릭 자동 리그 + 키프레임. 1–5★ 평가, 4–5★ 리그를 학습해 같은 모양의 다음 차량에 적용. 메모리 .json 공유.</li></ul></div>
+    <div class="card"><h3>🗺 🎯 <span data-l="vi">Tự vẽ map & game blockout</span><span data-l="en">Draw your own map & blockout games</span><span data-l="ko">맵 그리기 & 블록아웃 게임</span></h3>
+      <ul data-l="vi"><li>Tự vẽ map 2D (phòng, máy, băng chuyền, quầy, $…) hoặc nâng / hạ / sơn địa hình, đặt vật → bấm một nút ra map 3D chơi được.</li><li>🎯 Bắn rơi khối: vẽ bức tường lon / hộp trên bàn, súng ở giữa, chơi thử với vật lý thật, quay video blockout 9:16 → đưa qua AI video (Seedance) làm đẹp theo chủ đề, prompt viết sẵn.</li></ul>
+      <ul data-l="en"><li>Draw a 2D map (rooms, machines, belts, counters, $…) or raise / lower / paint the terrain and place props → one click gives a playable 3D map.</li><li>🎯 Target smash: draw a wall of cans / boxes on a table, the gun in the middle, play it with real physics, record a 9:16 blockout video → restyle it with an AI video model (Seedance), the prompt is written for you.</li></ul>
+      <ul data-l="ko"><li>2D 맵을 그리거나 지형을 편집 → 클릭 한 번에 3D 맵.</li><li>🎯 타겟 스매시: 캔/상자 벽, 중앙의 총, 실제 물리, 9:16 블록아웃 → AI(Seedance) 리스타일.</li></ul></div>
+  </div>
+</div></section>
+
+<section id="mcp"><div class="wrap">
+  <h2>🤖 <span data-l="vi">AI-native: Claude điều khiển Greenbox qua MCP</span><span data-l="en">AI-native: Claude drives Greenbox through MCP</span><span data-l="ko">AI 네이티브: Claude가 MCP로 Greenbox 조작</span></h2>
+  <div class="grid g2">
+    <div class="card">
+      <p data-l="vi"><b>MCP</b> (Model Context Protocol) là cách để một AI như Claude dùng công cụ thật. Greenbox mở <b>19 lệnh</b> cho AI: xem trạng thái, chụp khung 3D để tự kiểm tra, nạp file, quét và sửa khớp xương, dựng rig xe, làm map, chỉnh thanh máu, gắn âm thanh, xuất file. Không phải thay người bấm từng nút — AI tự nhìn kết quả, sửa rồi xuất.</p>
+      <p data-l="en"><b>MCP</b> (Model Context Protocol) lets an AI like Claude use real tools. Greenbox gives the AI <b>19 commands</b>: status, a picture of the 3D view to check its own work, load files, scan and fix joints, rig vehicles, build maps, set up HP bars, place sounds, export. The AI looks at the result, fixes it and exports — not just clicking for you.</p>
+      <p data-l="ko"><b>MCP</b>(Model Context Protocol)는 Claude 같은 AI가 실제 도구를 쓰게 하는 방식입니다. Greenbox는 AI에 <b>19개 명령</b>을 제공: 상태, 3D 화면 캡처로 자체 확인, 파일 로드, 관절 스캔·수정, 차량 리깅, 맵, HP 바, 사운드, 내보내기.</p>
+      <table style="margin-top:12px"><tbody>
+        <tr><td><code>gb_rig_auto</code> · <code>gb_joints_set</code> · <code>gb_rig_finish</code></td><td data-l="vi">gắn xương, sửa khớp</td><td data-l="en">rig, fix joints</td><td data-l="ko">리깅, 관절 수정</td></tr>
+        <tr><td><code>gb_vehicle</code> · <code>gb_map</code></td><td data-l="vi">tự rig xe + chấm sao để học, bánh, xích, bộ phận · map 2D → 3D</td><td data-l="en">vehicle auto rig + star ratings it learns from, wheels, tracks, parts · 2D → 3D maps</td><td data-l="ko">바퀴, 트랙, 부품 · 2D → 3D 맵</td></tr>
+        <tr><td><code>gb_smash</code></td><td data-l="vi">game bắn rơi khối: dựng, bắn, quay blockout, prompt Seedance</td><td data-l="en">target smash: build, shoot, record the blockout, Seedance prompt</td><td data-l="ko">타겟 스매시</td></tr>
+        <tr><td><code>gb_drive</code></td><td data-l="vi">vô lăng + bàn đạp tự lái theo video</td><td data-l="en">wheel + pedals driven from the video</td><td data-l="ko">영상 기반 핸들 + 페달</td></tr>
+        <tr><td><code>gb_hpbar</code> · <code>gb_sfx</code></td><td data-l="vi">thanh máu, gắn âm thanh</td><td data-l="en">HP bar, sounds</td><td data-l="ko">HP 바, 사운드</td></tr>
+        <tr><td><code>gb_screenshot</code> · <code>gb_export</code></td><td data-l="vi">tự kiểm tra, xuất file</td><td data-l="en">self-check, export</td><td data-l="ko">자체 확인, 내보내기</td></tr>
+      </tbody></table>
+    </div>
+    <div class="chat">
+      <div class="u">👤 <span data-l="vi">Gắn xương con cáo này, cho nó chạy và nhảy, xuất FBX cho Unity.</span><span data-l="en">Rig this fox, make it run and jump, export FBX for Unity.</span><span data-l="ko">이 여우를 리깅하고 달리기·점프 넣어서 Unity용 FBX로.</span></div>
+      <div class="a">🤖 gb_load_file → gb_rig_auto → gb_screenshot → gb_joints_set → gb_rig_finish → gb_export ✓</div>
+      <br>
+      <div class="u">👤 <span data-l="vi">Gắn tiếng coin vào mọi điểm va chạm trong video này rồi xuất MP4.</span><span data-l="en">Put the coin sound on every hit in this video and export the MP4.</span><span data-l="ko">이 영상의 모든 타격 지점에 코인 사운드를 넣고 MP4로.</span></div>
+      <div class="a">🤖 gb_sfx load → analyze → add_all "coin" → export ✓</div>
+      <br>
+      <div class="u">👤 <span data-l="vi">Thanh máu boss 20.000 HP, bị đánh ở giây 2 và 4,5, xuất .MOV trong suốt.</span><span data-l="en">Boss bar 20,000 HP, hit at 2 s and 4.5 s, export a transparent .MOV.</span><span data-l="ko">보스 HP 20,000, 2초와 4.5초에 피격, 투명 .MOV로.</span></div>
+      <div class="a">🤖 gb_hpbar set → events → export_mov ✓</div>
+      <p class="note" data-l="vi">Gắn vào Claude Desktop, Claude Code hoặc Codex bằng một dòng cấu hình; trong Greenbox cũng có khung chat AI dùng key riêng (Anthropic, OpenAI, Gemini…).</p>
+      <p class="note" data-l="en">One config line for Claude Desktop, Claude Code or Codex; Greenbox also has its own AI chat with your key (Anthropic, OpenAI, Gemini…).</p>
+      <p class="note" data-l="ko">Claude Desktop, Claude Code, Codex에 설정 한 줄로 연결; Greenbox 자체 AI 채팅도 지원.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="s4"><div class="wrap">
+  <h2><span class="num">4</span><span data-l="vi">Hiệu quả dự kiến</span><span data-l="en">Expected impact</span><span data-l="ko">기대 효과</span></h2>
+  <table>
+    <thead><tr><th><span data-l="vi">Việc</span><span data-l="en">Task</span><span data-l="ko">작업</span></th><th><span data-l="vi">Cách cũ</span><span data-l="en">Before</span><span data-l="ko">기존</span></th><th>Greenbox</th></tr></thead>
+    <tbody>
+      <tr><td><span data-l="vi">Lớp thanh máu / joystick cho 1 video</span><span data-l="en">HP bar / joystick layer for one video</span><span data-l="ko">영상 1개 HP 바 / 조이스틱 레이어</span></td><td>30–60 <span data-l="vi">phút (AE + Keylight)</span><span data-l="en">min (AE + Keylight)</span><span data-l="ko">분 (AE + Keylight)</span></td><td><b>3–5 <span data-l="vi">phút</span><span data-l="en">min</span><span data-l="ko">분</span></b></td></tr>
+      <tr><td><span data-l="vi">Gắn xương + animation 1 nhân vật</span><span data-l="en">Rig + animate one character</span><span data-l="ko">캐릭터 1개 리깅 + 애니메이션</span></td><td>2–4 <span data-l="vi">giờ (Blender)</span><span data-l="en">h (Blender)</span><span data-l="ko">시간 (블렌더)</span></td><td><b>5–10 <span data-l="vi">phút</span><span data-l="en">min</span><span data-l="ko">분</span></b></td></tr>
+      <tr><td><span data-l="vi">Rig 1 chiếc xe (bánh, xích, gàu)</span><span data-l="en">Rig one vehicle (wheels, tracks, bucket)</span><span data-l="ko">차량 1대 리깅</span></td><td>0,5–1 <span data-l="vi">ngày</span><span data-l="en">day</span><span data-l="ko">일</span></td><td><b>10–15 <span data-l="vi">phút</span><span data-l="en">min</span><span data-l="ko">분</span></b></td></tr>
+      <tr><td><span data-l="vi">Gắn âm thanh theo va chạm</span><span data-l="en">Sounds on the hits</span><span data-l="ko">타격 사운드 배치</span></td><td>20–30 <span data-l="vi">phút</span><span data-l="en">min</span><span data-l="ko">분</span></td><td><b>~2 <span data-l="vi">phút</span><span data-l="en">min</span><span data-l="ko">분</span></b></td></tr>
+      <tr><td><span data-l="vi">Video blockout game bắn rơi khối (dựng cảnh + quay)</span><span data-l="en">Blockout video for a "shoot the stack" ad (scene + capture)</span><span data-l="ko">타겟 스매시 블록아웃 영상</span></td><td>1–2 <span data-l="vi">ngày (3D artist)</span><span data-l="en">days (3D artist)</span><span data-l="ko">일</span></td><td><b>~10 <span data-l="vi">phút</span><span data-l="en">min</span><span data-l="ko">분</span></b></td></tr>
+    </tbody>
+  </table>
+  <div class="grid g3" style="margin-top:18px">
+    <div class="card"><div class="big">92.7 / 100</div><p data-l="vi">điểm đặt khớp tay tự động trên 29 model người (58 bàn tay), từ 79.5 trước khi cải tiến.</p><p data-l="en">automatic hand joint score on 29 human models (58 hands), up from 79.5.</p><p data-l="ko">사람 모델 29개(손 58개) 자동 손 관절 점수, 개선 전 79.5.</p></div>
+    <div class="card"><div class="big">22 / 22</div><p data-l="vi">bài kiểm tra rig xe mẫu và clone giữa các xe đạt điểm tối đa.</p><p data-l="en">sample vehicle rig and vehicle-to-vehicle clone tests at full score.</p><p data-l="ko">샘플 차량 리그·복제 테스트 만점.</p></div>
+    <div class="card"><div class="big">0 <span data-l="vi">bước</span><span data-l="en">steps</span><span data-l="ko">단계</span></div><p data-l="vi">Keylight: mọi lớp xuất .MOV có kênh trong suốt thật.</p><p data-l="en">of Keylight: every layer exports as .MOV with a real alpha channel.</p><p data-l="ko">Keylight 불필요: 모든 레이어를 알파 .MOV로.</p></div>
+  </div>
+  <p class="note" data-l="vi">Thời gian "cách cũ" là ước tính của team khi làm tay; thời gian Greenbox đo trên các file mẫu trong tool. Số đo trên dự án thật sẽ được cập nhật sau buổi thử nghiệm.</p>
+  <p class="note" data-l="en">"Before" times are the team's estimates for doing it by hand; Greenbox times are measured on the sample files in the tool. Real project numbers will follow the trial.</p>
+  <p class="note" data-l="ko">"기존" 시간은 팀 추정치, Greenbox 시간은 툴 샘플 파일 측정값. 실제 프로젝트 수치는 시범 운영 후 업데이트.</p>
+</div></section>
+
+<section id="s5"><div class="wrap">
+  <h2><span class="num">5</span><span data-l="vi">Giới hạn &amp; nguồn lực cần</span><span data-l="en">Limitations &amp; resources</span><span data-l="ko">한계 &amp; 필요 자원</span></h2>
+  <div class="grid g2">
+    <div class="card"><h3><span data-l="vi">Giới hạn hiện tại</span><span data-l="en">Current limits</span><span data-l="ko">현재 한계</span></h3>
+      <ul data-l="vi"><li>Chạy trong trình duyệt (Chrome / Edge): model rất nặng (&gt; 500k tam giác) sẽ chậm.</li><li>Rig tự động đúng ~90%; tay, áo choàng, xe hàn liền một khối vẫn cần chỉnh tay vài khớp.</li><li>Mocap cần tải model nhận dáng người (~24 MB) qua Internet.</li><li>Bản mockup nộp kèm chỉ có thư viện rút gọn (≈100 animation, 11 model mẫu) để dưới 5 MB.</li></ul>
+      <ul data-l="en"><li>Runs in the browser (Chrome / Edge): very heavy models (&gt; 500k triangles) are slow.</li><li>Auto rig is right ~90% of the time; hands, capes and one-block welded vehicles still need a few joints fixed.</li><li>Mocap downloads the pose model (~24 MB) from the internet.</li><li>The submitted mockup carries a reduced library (≈100 animations, 11 sample models) to stay under 5 MB.</li></ul>
+      <ul data-l="ko"><li>브라우저(Chrome / Edge) 실행: 매우 무거운 모델(50만 삼각형 이상)은 느림.</li><li>자동 리깅 정확도 약 90%; 손, 망토, 한 덩어리 차량은 일부 수정 필요.</li><li>모캡은 포즈 모델(~24MB) 다운로드 필요.</li><li>제출용 목업은 5MB 제한으로 축소 라이브러리 포함.</li></ul></div>
+    <div class="card"><h3><span data-l="vi">Để dùng thật cho cả team</span><span data-l="en">To roll it out to the team</span><span data-l="ko">팀 도입에 필요한 것</span></h3>
+      <ul data-l="vi"><li><b>Server / lưu trữ</b>: một chỗ chung (vd. Firebase / S3) cho thư viện rig, animation, preset thanh máu và âm thanh của team.</li><li><b>Dữ liệu</b>: bộ model chuẩn của từng game (nhân vật, xe) để rig sẵn và làm mẫu clone.</li><li><b>Tích hợp</b>: tài khoản AI cho team (Claude Code / API) để dùng MCP; xuất thẳng sang Unity / After Effects.</li><li><b>Hạ tầng</b>: không cần GPU server — mọi xử lý chạy trên máy người dùng.</li></ul>
+      <ul data-l="en"><li><b>Server / storage</b>: one shared place (e.g. Firebase / S3) for the team's rigs, animations, HP-bar presets and sounds.</li><li><b>Data</b>: each game's standard models (characters, vehicles), rigged once and used as clone sources.</li><li><b>Integrations</b>: team AI accounts (Claude Code / API) for MCP; direct export to Unity / After Effects.</li><li><b>Infra</b>: no GPU server — everything runs on the user's computer.</li></ul>
+      <ul data-l="ko"><li><b>서버 / 저장소</b>: 팀 리그·애니메이션·HP 프리셋·사운드 공유 공간 (Firebase / S3 등).</li><li><b>데이터</b>: 게임별 표준 모델(캐릭터, 차량) — 한 번 리깅해 복제 소스로.</li><li><b>연동</b>: MCP용 팀 AI 계정(Claude Code / API); Unity / AE 직접 내보내기.</li><li><b>인프라</b>: GPU 서버 불필요 — 모두 사용자 PC에서 처리.</li></ul></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <span data-l="vi">Greenbox Studio · AX Hero 2026 · Mockup: mở <code>Greenbox-Cockpit.html</code> trong file .zip đi kèm.</span>
+  <span data-l="en">Greenbox Studio · AX Hero 2026 · Mockup: open <code>Greenbox-Cockpit.html</code> in the attached .zip.</span>
+  <span data-l="ko">Greenbox Studio · AX Hero 2026 · 목업: 첨부 .zip의 <code>Greenbox-Cockpit.html</code>을 여세요.</span>
+</div></footer>
+<div id="lb" role="dialog" aria-modal="true"><button class="close" aria-label="Close">✕</button><button class="prev" aria-label="Previous">‹</button><img alt=""><div class="lbcap"></div><div class="count"></div><button class="next" aria-label="Next">›</button></div>
+<script>
+(function () {
+  // pictures: click = large; ← → / swipe go through all of them; Esc closes
+  var imgs = Array.prototype.slice.call(document.querySelectorAll('.shot img')), lb = document.getElementById('lb'), big = lb.querySelector('img'), cap = lb.querySelector('.lbcap'), cnt = lb.querySelector('.count'), cur = 0;
+  var pics = imgs.map(function (im) { return { src: im.src, cap: im.getAttribute('data-cap-en') || im.alt }; }); // the list as it was at load (the big picture's src changes later)
+  function show (i) { cur = (i + pics.length) % pics.length; big.src = pics[cur].src; cap.textContent = pics[cur].cap; cnt.textContent = (cur + 1) + ' / ' + pics.length; lb.classList.add('on'); }
+  imgs.forEach(function (im, i) { im.onclick = function () { show(i); }; });
+  // the big picture on the page: ‹ › and dots go through every picture; a thumbnail shows itself there
+  var main = document.getElementById('mainshot'), mimg = main.querySelector('img'), mi = 0, dots = main.querySelector('.mdots'), thumbs = imgs.slice(1);
+  var all = pics;
+  all.forEach(function (_, i) { var d = document.createElement('i'); d.onclick = function (e) { e.stopPropagation(); mshow(i); }; dots.appendChild(d); });
+  function mshow (i) { mi = (i + all.length) % all.length; mimg.style.opacity = 0; setTimeout(function () { mimg.src = all[mi].src; mimg.setAttribute('data-cap-en', all[mi].cap); mimg.style.opacity = 1; }, 150);
+    Array.prototype.forEach.call(dots.children, function (d, k) { d.className = k === mi ? 'on' : ''; });
+    thumbs.forEach(function (t, k) { t.parentElement.classList.toggle('cur', k + 1 === mi); });
+    document.querySelectorAll('.mcap').forEach(function (c) { c.style.display = mi === 0 ? '' : 'none'; });
+    var dc = document.getElementById('mcap-dyn'); if (dc) { dc.textContent = all[mi].cap; dc.style.display = mi === 0 ? 'none' : ''; } }
+  main.querySelector('.mprev').onclick = function (e) { e.stopPropagation(); mshow(mi - 1); };
+  main.querySelector('.mnext').onclick = function (e) { e.stopPropagation(); mshow(mi + 1); };
+  mimg.onclick = function () { show(mi); };
+  thumbs.forEach(function (t, k) { t.onclick = function () { mshow(k + 1); main.scrollIntoView({ behavior: 'smooth', block: 'center' }); }; });
+  var sx = null; main.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
+  main.addEventListener('touchend', function (e) { if (sx === null) return; var dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) mshow(mi + (dx < 0 ? 1 : -1)); sx = null; });
+  mshow(0);
+  lb.querySelector('.prev').onclick = function (e) { e.stopPropagation(); show(cur - 1); };
+  lb.querySelector('.next').onclick = function (e) { e.stopPropagation(); show(cur + 1); };
+  lb.querySelector('.close').onclick = function () { lb.classList.remove('on'); };
+  lb.onclick = function (e) { if (e.target === lb) lb.classList.remove('on'); };
+  addEventListener('keydown', function (e) { if (!lb.classList.contains('on')) return; if (e.key === 'ArrowRight') show(cur + 1); else if (e.key === 'ArrowLeft') show(cur - 1); else if (e.key === 'Escape') lb.classList.remove('on'); });
+  var x0 = null; lb.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+  lb.addEventListener('touchend', function (e) { if (x0 === null) return; var dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) show(cur + (dx < 0 ? 1 : -1)); x0 = null; });
+  // demo videos play while on screen
+  document.querySelectorAll('.fv').forEach(function (f) { f.addEventListener('click', function () { f.classList.toggle('big'); }); });
+  if ('IntersectionObserver' in window) { var io2 = new IntersectionObserver(function (es) { es.forEach(function (en) { var v = en.target; if (en.isIntersecting) { if (!v.src) v.src = v.getAttribute('data-src'); var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause(); }); }, { threshold: 0.25 }); document.querySelectorAll('.fv video').forEach(function (v) { io2.observe(v); }); } else document.querySelectorAll('.fv video').forEach(function (v) { v.src = v.getAttribute('data-src'); v.play(); });
+  if ('IntersectionObserver' in window) { var io = new IntersectionObserver(function (es) { es.forEach(function (en) { var v = en.target; if (en.isIntersecting) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause(); }); }, { threshold: 0.4 }); document.querySelectorAll('.vid video').forEach(function (v) { io.observe(v); }); }
+})();
+</script>
+<script>
+(function () {
+  function set (l) { document.documentElement.lang = l; document.querySelectorAll('.lang button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.set === l)); }); try { localStorage.setItem('gb.intro.lang', l); } catch (e) {} }
+  document.querySelectorAll('.lang button').forEach(function (b) { b.onclick = function () { set(b.dataset.set); }; });
+  var l = 'vi'; try { l = localStorage.getItem('gb.intro.lang') || (navigator.language || '').slice(0, 2); } catch (e) {}
+  set(['vi', 'en', 'ko'].indexOf(l) >= 0 ? l : 'en');
+})();
+</script>
+</body>
+</html>
