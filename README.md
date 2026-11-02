@@ -41,6 +41,19 @@ Repository được cấu hình để tự động triển khai lên GitHub Page
 - Mỗi tab 3D có nút **⟳** (tải lại tab đó) và **?** (hướng dẫn từng bước, tự chạy lần đầu mở trang / mỗi bước của Dùng model; nằm trong `rig3d/gb-base.js`).
 - Các tab 3D trong Cockpit giữ nguyên trạng thái khi chuyển qua lại; nút **←** trên thanh 3D để quay lại tab trước.
 
+## Cập nhật 02/11/2026 — nút PLAY NOW tuỳ biến tự do
+
+Áp dụng cho **Endcard carousel** (Cockpit › Gacha) và **End card đơn giản** (`hpbar.html`), vì cả hai dùng chung `gb-endcard.js`. Chọn tab **Nút** trong bảng End card:
+
+- **Kiểu nút (preset)**: Xanh lá, Cam, Xanh dương, Đỏ, Tím, Vàng, Trắng, Phẳng bo góc, Chỉ viền. Bấm xong vẫn chỉnh tiếp được mọi thông số.
+- **Kích thước**: Rộng nút / Cao nút riêng (20–200 % / 20–250 %), **Bo góc** 0–100 % (0 = vuông, 100 = viên thuốc), độ đậm cả nút.
+- **Màu nền**: chuyển màu + vệt sáng (tự pha sáng/tối từ màu nút, hoặc tự chọn màu trên/dưới), một màu, không nền (chỉ viền), hoặc **ảnh PNG của bạn** làm nền nút (chọn "Ảnh của bạn" rồi bấm ⬆).
+- **Viền**: bật/tắt, màu, độ dày. **Đổ bóng / phát sáng**: màu, độ nhoè, lệch xuống.
+- **Chữ trong nút**: nội dung, font (gõ tên font bất kỳ máy có), đậm/thường, nghiêng, IN HOA, cỡ chữ, giãn chữ, chữ lên/xuống, viền chữ (màu + độ dày), màu chữ.
+- **Nhịp đập**: bật/tắt, biên độ, tốc độ.
+- Nút ↺ "Về kiểu nút mặc định" đưa mọi thứ về như cũ. Cấu hình cũ đã lưu mở lại vẫn y nguyên.
+- Sửa: dòng "phần vừa kéo: undefined" ở trang End card.
+
 ## Cập nhật 30/10/2026
 
 - **Mở được mọi file**: GLB, GLTF (+ .bin / texture chọn cùng lúc), FBX, **OBJ (+ .mtl)**, DAE, STL, PLY, 3MF, ZIP — ở mọi tab 3D (`rig3d-src/greenbox/common/AnyLoader.ts`). Trước đây OBJ không được nhận, .gltf thiếu .bin và FBX ASCII đời cũ (< 2013) lỗi im lặng; giờ có thông báo rõ lý do (vd. "FBX bản 6100 quá cũ, xuất lại FBX 2013+ Binary"), thiếu texture vẫn hiện model màu xám.

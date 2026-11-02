@@ -6,7 +6,7 @@
 <title>HP Bar Greenbox</title>
 <script>(function(){var r=document.documentElement,set=function(v){r.classList.toggle("gbv",v==="v");r.classList.toggle("gbk",v!=="v"&&v!=="d")};try{set(localStorage.getItem("gbc.ui")||"k")}catch(e){set("k")}addEventListener("message",function(e){if(e.origin===location.origin&&e.data&&e.data.gbTheme)set(e.data.gbTheme)})})();</script>
 <script src="./gb-xp.js"></script>
-<script src="./gb-endcard.js"></script>
+<script src="./gb-endcard.js?v=20261102e"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Public+Sans:wght@400;500;700&family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,900&display=swap">
 <script src="./vendor/mp4-muxer-5.1.3.js"></script>
 <style>
@@ -284,9 +284,10 @@ function paint (c, tt, bg) {
 const EC_SLOTS = [
   ['ecIcon', 'App icon', 'App icon', 1024, 1024, 'PNG vuông (tool tự bo góc)', 'square PNG (corners rounded here)'],
   ['ecLogo', 'Logo game', 'Game logo', 1200, 600, 'PNG trong suốt', 'transparent PNG'],
+  ['ecCta', 'Ảnh nút PLAY NOW (tuỳ chọn)', 'PLAY NOW button image (optional)', 800, 240, 'PNG trong suốt — chọn “Ảnh của bạn” ở kiểu nền nút', 'transparent PNG — pick “Your image” as the button fill'],
   ['ecBg', 'Ảnh nền cả khung (tuỳ chọn)', 'Full-frame background (optional)', 1080, 1920, 'JPG / PNG — làm mờ phía sau', 'JPG / PNG — blurred behind']
 ];
-const ec_imgs = () => ({ icon: IMG.ecIcon, logo: IMG.ecLogo });
+const ec_imgs = () => ({ icon: IMG.ecIcon, logo: IMG.ecLogo, cta: IMG.ecCta });
 /** when each part pops (s) */
 function ec_times () { const c = S.ec.layer, t1 = c.start + c.grow, o = { card: c.start }; GBEC.layout(c, W, H, ec_imgs()).list.forEach((b, i) => { o[b.p] = t1 + c.stagger * i; }); return o; }
 const ec_len = () => +(Math.max(...Object.values(ec_times())) + 0.5 + S.ec.hold).toFixed(2);
@@ -930,7 +931,7 @@ function render_panel () {
   const ev = S.events.map((e, i) => `<tr><td><input type="number" step="0.05" min="0" data-ev="${i}" data-f="t" value="${e.t}"></td>${S.boss.on ? `<td><select data-ev="${i}" data-f="who"><option value="hero">Hero</option><option value="boss"${e.who === 'boss' ? ' selected' : ''}>Boss</option></select></td>` : ''}<td><select data-ev="${i}" data-f="kind">${[['dmg', T('Bị đánh', 'Hit', '피격')], ['heal', T('Hồi máu', 'Heal', '회복')], ['set', T('Đặt HP', 'Set HP', 'HP 설정')], ['mana-', T('Mất mana', 'Use mana', '마나 사용')], ['mana+', T('Hồi mana', 'Mana +', '마나 회복')]].map(([v, l]) => `<option value="${v}"${e.kind === v ? ' selected' : ''}>${l}</option>`).join('')}</select></td><td><input type="number" step="10" data-ev="${i}" data-f="v" value="${e.v}"></td><td><button data-del="${i}" title="${T('Xoá', 'Delete', '삭제')}">✕</button></td></tr>`).join('');
   const imgrow = s => `<div class="img"><span>${T(s[1], s[2], s[2])}</span><img ${IMG[s[0]] ? `src="${IMG[s[0]].src}"` : ''} alt=""><button data-up="${s[0]}">⬆</button>${IMG[s[0]] ? `<button data-rm="${s[0]}">✕</button>` : ''}</div>`;
   const tabs = `<div class="row" style="margin:0 0 4px"><button data-page="hp"${S.page === 'hp' ? ' class="pri"' : ''}>❤️ ${T('Thanh máu', 'Health bar', '체력 바')}</button><button data-page="count"${S.page === 'count' ? ' class="pri"' : ''}>⏱ ${T('Đếm ngược', 'Countdown', '카운트다운')}</button><button data-page="fx"${S.page === 'fx' ? ' class="pri"' : ''}>🎬 ${T('Video FX', 'Video FX', '비디오 FX')}</button><button data-page="end"${S.page === 'end' ? ' class="pri"' : ''}>🏁 End card</button></div>`;
-  const pos = `<div class="sm" style="margin-top:4px">${T('Căn nhanh', 'Snap to', '빠른 정렬')} (${S.page === 'count' ? T('số đếm', 'number', '숫자') : T('phần vừa kéo: ', 'last dragged: ', '마지막: ') + ({ hud: 'HUD hero', boss: 'Boss', logo: 'Logo' })[drag_last()]})</div>
+  const pos = `<div class="sm" style="margin-top:4px">${T('Căn nhanh', 'Snap to', '빠른 정렬')} (${S.page === 'count' ? T('số đếm', 'number', '숫자') : T('phần vừa kéo: ', 'last dragged: ', '마지막: ') + (({ hud: 'HUD hero', boss: 'Boss', logo: 'Logo' })[drag_last()] || (S.page === 'end' ? T('khối end card', 'end card', '엔드카드') : '–'))})</div>
     <div class="grid9">${['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].map(k => `<button data-place="${k}">${{ tl: '↖', tc: '↑', tr: '↗', ml: '←', mc: '•', mr: '→', bl: '↙', bc: '↓', br: '↘' }[k]}</button>`).join('')}</div>
     <div class="sm">${T('Kéo trên khung hình để đặt · phím mũi tên dịch 1 px (Shift = 10 px) · tự hít vào giữa (giữ Alt để kéo tự do)', 'Drag on the preview to place · arrow keys move 1 px (Shift = 10 px) · snaps to the centre (hold Alt to move freely)', '드래그 배치 · 방향키 1px (Shift 10px) · 가운데 스냅 (Alt 자유)')}</div>`;
   const frameSec = `<section><h3><b>1</b>${T('Khung video', 'Video frame', '비디오 프레임')}</h3>
@@ -1069,7 +1070,7 @@ function render_panel () {
   <input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden>`;
     side.scrollTop = sy; $('hint').textContent = T('Kéo thẻ trên khung hình để đặt · mũi tên dịch từng px · Space phát / dừng', 'Drag the card on the preview · arrow keys nudge · Space play / pause', '카드 드래그 · Space');
     wire();
-    GBEC.panel($('ecPanel'), S.ec.layer, { kind: 'simple', lang: () => L, change: () => { if (S.dur < ec_len()) S.dur = ec_len(); invalidate(); }, upload: k => { up_slot = k === 'icon' ? 'ecIcon' : 'ecLogo'; $('fImg').click(); }, hasImg: k => !!IMG[k === 'icon' ? 'ecIcon' : 'ecLogo'] });
+    GBEC.panel($('ecPanel'), S.ec.layer, { kind: 'simple', lang: () => L, change: () => { if (S.dur < ec_len()) S.dur = ec_len(); invalidate(); }, upload: k => { up_slot = k === 'icon' ? 'ecIcon' : k === 'cta' ? 'ecCta' : 'ecLogo'; $('fImg').click(); }, hasImg: k => !!IMG[k === 'icon' ? 'ecIcon' : k === 'cta' ? 'ecCta' : 'ecLogo'] });
     return;
   }
   if (S.page === 'count') { side.innerHTML = tabs + countHtml + `<input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden>`; side.scrollTop = sy; $('hint').textContent = T('Kéo số trên khung hình để căn · mũi tên dịch từng px · Space phát / dừng', 'Drag the number on the preview · arrow keys nudge · Space play / pause', '숫자 드래그 · 방향키 · Space'); wire(); return; }
