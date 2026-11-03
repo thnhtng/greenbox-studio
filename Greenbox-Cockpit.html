@@ -1086,18 +1086,15 @@ function drawProg(ctx, t){
   if(S.pb.kind==='duel') return drawDuel(ctx,t);
   const B=pbGeo(), m=PBM(), st=pbStage(t), col=S.pb.col, NL=PBN(), LAST=NL-1;
   const d=Math.max(.1,Math.min(12,S.pb.snap||PB_DEF.snap));
-  let p=0;
-  for(const mark of m){
-    const k=Math.max(0,Math.min(1,(t-mark)/d));
-    p+=pbEase(k)/LAST;
-  }
-  p=Math.max(0,Math.min(1,p));
+  const prev=Math.max(0,st-1)/LAST, tar=st/LAST;
+  const k=st===0?1:Math.max(0,Math.min(1,(t-m[st-1])/d));
+  const p=st===0?0:prev+(tar-prev)*pbEase(k);
   const since=st===0?1e9:(t-m[st-1]);
   const burst=(st>0&&since>=0&&since<.85)?Math.exp(-4.6*(since/.85)):0;
   const jig=1+.26*burst*Math.sin((since/.85)*40), rot=.07*burst*Math.sin((since/.85)*32);
   ctx.save();
   const HX=S.hid||{};
-  const F=(st===LAST&&m.length)?pbFinState(t,m[m.length-1]+d):null, FA=F?F.fade:1;
+  const F=(st===LAST&&m.length)?pbFinState(t,m[m.length-1]):null, FA=F?F.fade:1;
   if(F) ctx.globalAlpha=FA;
   if(!HX.pbTrack && FA>.01){
   ctx.fillStyle='rgba(0,0,0,0.5)'; pbRR(ctx,B.x-8,B.y-8,B.w+16,B.h+16,B.r+8); ctx.fill();
@@ -2603,6 +2600,9 @@ requestAnimationFrame(frame);
           <label class="chk" id="dr-lockWrap"><input type="checkbox" id="dr-lockAR"> Giữ tỉ lệ ảnh</label>
         </div>
         <div class="field"><span>Độ đậm</span><input type="range" id="dr-opR" min="30" max="100" step="5"><output id="dr-opO"></output></div>
+        <div class="row"><span class="hint" style="margin:0">Xoay ảnh món đang chọn</span><button class="btn sm" id="dr-rotL" title="Xoay trái 90°">⟲ 90°</button><button class="btn sm" id="dr-rotR" title="Xoay phải 90°">⟳ 90°</button><button class="btn sm" id="dr-rot180" title="Lật ngược (ảnh bị ngược)">↕ 180°</button><button class="btn sm" id="dr-rot0">0°</button></div>
+        <div class="field"><span>Góc ảnh</span><input type="range" id="dr-rotA" min="-180" max="180" step="1"><output id="dr-rotO"></output></div>
+        <div class="hint" style="margin-top:-4px">Ảnh vô lăng / bàn đạp gen ra bị ngược hay nghiêng thì xoay lại ở đây — video và .MOV alpha xuất ra xoay theo, ghép vào là xong.</div>
         <div class="hint">Chỉnh size: kéo thanh %, gõ số px, bấm ±1% / ±10%, hoặc bật “Chỉnh vị trí” rồi kéo ô vuông cam ở góc (giữ Shift để giữ tỉ lệ), lăn chuột lên món đó, hoặc bấm <kbd>+</kbd> <kbd>−</kbd>. Ảnh PNG nền trong suốt là đẹp nhất. Vô lăng nên là ảnh nhìn thẳng, tâm vô lăng nằm giữa ảnh (nó xoay quanh tâm ảnh). Bàn đạp nên là ảnh đứng, chân bàn đạp ở mép dưới (khi đạp, ảnh co lại về phía mép dưới). Layout dọc và ngang được nhớ riêng.</div>
         <div class="msg err" id="dr-saveWarn" hidden>Trình duyệt không lưu được ảnh/layout. Vẫn dùng được trong phiên này, nhưng mở lại trang sẽ về cái cũ.</div>
         <input type="file" id="dr-imgFile" accept="image/*" hidden>
@@ -3050,13 +3050,16 @@ function rrPath(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,
 function drawOverlay(ctx, vis){
   const lay=L();
   ctx.save(); ctx.globalAlpha=S.opacity/100;
-  if(!lay.hidden.dash) drawPlain(ctx,'dash',lay.dash,0,0);
-  if(!lay.hidden.speedo) drawSpeedo(ctx, lay.speedo, vis.v);
-  if(!lay.hidden.brake) drawPedal(ctx,'brake',lay.brake,vis.b);
-  if(!lay.hidden.gas) drawPedal(ctx,'gas',lay.gas,vis.g);
-  if(!lay.hidden.wheel) drawWheel(ctx, lay.wheel, vis.s);
-  if(!lay.hidden.pad) drawPad(ctx, lay.pad, vis.s);
-  if(!lay.hidden.gear) drawGear(ctx, lay.gear, vis.r?1:0);
+  // each item turned by its own picture angle (it.rot) round its centre
+  const turned=(id,fn)=>{ const it=lay[id]; if(lay.hidden[id]) return; const a=it.rot||0; if(!a){ fn(); return; }
+    const cy=isPedal(id)? it.y+it.r-pedalDims(id,it).h/2 : it.y; ctx.save(); ctx.translate(it.x,cy); ctx.rotate(a*Math.PI/180); ctx.translate(-it.x,-cy); fn(); ctx.restore(); };
+  turned('dash',()=>drawPlain(ctx,'dash',lay.dash,0,0));
+  turned('speedo',()=>drawSpeedo(ctx, lay.speedo, vis.v));
+  turned('brake',()=>drawPedal(ctx,'brake',lay.brake,vis.b));
+  turned('gas',()=>drawPedal(ctx,'gas',lay.gas,vis.g));
+  turned('wheel',()=>drawWheel(ctx, lay.wheel, vis.s));
+  turned('pad',()=>drawPad(ctx, lay.pad, vis.s));
+  turned('gear',()=>drawGear(ctx, lay.gear, vis.r?1:0));
   ctx.restore();
 }
 function drawEditMarks(ctx){
@@ -3271,6 +3274,7 @@ function syncSize(quiet){ syncPos(); const it=L()[selected], ped=isPedal(selecte
   if(document.activeElement!==$('dimH')) $('dimH').value=it.r*2;
   $('dimHL').hidden=!ped; $('dimLbl').textContent=ped?'Rộng / Cao':'Đường kính'; $('dimWT').textContent=ped?'W':'Ø';
   $('lockWrap').hidden=!ped; if(ped){ $('lockAR').checked=it.lock!==false; $('lockAR').disabled=!imgs[selected]; }
+  const rot=it.rot||0; if(document.activeElement!==$('rotA')) $('rotA').value=rot; $('rotO').textContent=rot+'°';
   $('selMeta').textContent=(SLOTS.find(s=>s.id===selected)||{}).name||''; if(!quiet) renderSlots(); }
 $('sizeR').oninput=e=>{ const it=L()[selected], d=defItem(selected), k=+e.target.value/100; it.r=clampR(d.r*k); if(isPedal(selected)) it.w=clampW(d.w*k); syncSize(true); saveLayout(); };
 $('dimW').addEventListener('input',e=>{ const v=parseInt(e.target.value,10); if(isNaN(v)||v<20) return; const it=L()[selected]; if(isPedal(selected)) it.w=clampW(v); else it.r=clampR(v/2); syncSize(true); saveLayout(); });
@@ -3279,6 +3283,10 @@ $('dimW').addEventListener('blur',()=>syncSize(true)); $('dimH').addEventListene
 $('szDn10').onclick=()=>scaleSel(.9); $('szDn1').onclick=()=>scaleSel(.99); $('szUp1').onclick=()=>scaleSel(1.01); $('szUp10').onclick=()=>scaleSel(1.1);
 $('szReset').onclick=()=>{ const it=L()[selected], d=defItem(selected); it.r=d.r; if(isPedal(selected)) it.w=d.w; syncSize(true); saveLayout(); };
 $('lockAR').onchange=e=>{ L()[selected].lock=e.target.checked; saveLayout(); };
+// the picture of the chosen item can be turned (a generated pedal that came out upside down): drawn and exported turned
+function setRot(a){ const it=L()[selected]; a=((Math.round(a)%360)+540)%360-180; it.rot=a===-180?180:a; syncSize(true); saveLayout(); }
+$('rotL').onclick=()=>setRot((L()[selected].rot||0)-90); $('rotR').onclick=()=>setRot((L()[selected].rot||0)+90); $('rot180').onclick=()=>setRot((L()[selected].rot||0)+180); $('rot0').onclick=()=>setRot(0);
+$('rotA').oninput=e=>setRot(+e.target.value);
 function bindRange(id,out,key,fmtFn){ $(id).value=S[key]; $(out).textContent=fmtFn(S[key]); $(id).oninput=e=>{ S[key]=+e.target.value; $(out).textContent=fmtFn(S[key]); saveSet(); }; }
 bindRange('opR','opO','opacity',v=>v+'%');
 bindRange('degR','degO','maxDeg',v=>'±'+v+'°');
@@ -4438,7 +4446,9 @@ let carAutoD=0;
 (function ecUI(){ const box=$('ec'), on=$('ecOn'), file=$('ecFile'); if(!box||!window.GBEC) return; let slot='ecIcon';
   on.checked=!!S.car.ecOn; on.onchange=()=>{ S.car.ecOn=on.checked; save(); draw(T); };
   const api={ kind:'carousel', lang:()=>{ try{ return localStorage.getItem('gbc.lang')||'vi'; }catch(e){ return 'vi'; } }, change:()=>{ save(); draw(T); },
-    upload:k=>{ slot=k==='icon'?'ecIcon':k==='cta'?'ecCta':'ecLogo'; file.click(); }, hasImg:k=>!!imgs[k==='icon'?'ecIcon':k==='cta'?'ecCta':'ecLogo'] };
+    upload:k=>{ slot={icon:'ecIcon',logo:'ecLogo',cta:'ecCta'}[k]; file.click(); }, hasImg:k=>!!imgs[{icon:'ecIcon',logo:'ecLogo',cta:'ecCta'}[k]],
+    imgSrc:k=>{ const im=imgs[{icon:'ecIcon',logo:'ecLogo',cta:'ecCta'}[k]]; return im&&im.src; },
+    clearImg:k=>{ const sl={icon:'ecIcon',logo:'ecLogo',cta:'ecCta'}[k]; delete imgs[sl]; delete srcs[sl]; st.set('gch1.img',srcs); draw(T); } };
   file.onchange=()=>{ const f=file.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ setImg(slot,r.result,true); setTimeout(()=>GBEC.panel(box,S.car.ec,api),300); }; r.readAsDataURL(f); file.value=''; };
   box.__api=api; GBEC.panel(box,S.car.ec,api); })();
 function carDur(){ if(hasVid&&vid.duration) return vid.duration; if(carAutoD) return carAutoD;
@@ -5555,7 +5565,7 @@ window.__gbHp=(function(){
   const api=()=>{ try{ return fr.contentWindow&&fr.contentWindow.__gbHp; }catch(e){ return null; } };
   return {
     open(){ if(!fr.getAttribute('src')) fr.setAttribute('src','./hpbar.html?embed=1&v=20261102d'+(pend?'&page='+pend:'')); },
-    page(p){ pend=p; const a=api(); if(a&&a.set_page) a.set_page(p); },
+    page(p){ pend=p; const a=api(); if(a&&a.set_page) a.set_page(p); else try{ fr.contentWindow&&fr.contentWindow.postMessage({gbHpPage:p},'*'); }catch(e){} },
     busy(){ const a=api(); return !!(a&&a.busy()); },
     pause(){ const a=api(); if(a) a.pause(); },
     lang(l){ try{ fr.contentWindow&&fr.contentWindow.postMessage({gbLang:l},'*'); }catch(e){} }
@@ -6147,7 +6157,7 @@ const GROUPS=[
  {id:'fun', hold:true, name:T3('Giải trí','Fun','재미'), items:[
   {id:'arena', ic:'🏀', app:'Arena', name:T3('Greenbox Arena: bóng rổ · bóng đá','Greenbox Arena: basketball · football','그린박스 아레나: 농구 · 축구'), d:T3('Chơi bóng rổ (dẫn bóng, crossover, ném) hoặc sút luân lưu. Dùng web càng nhiều càng có XP, lên cấp để nâng kỹ năng: dẫn bóng, ném rổ, lắt léo, lực sút, chính xác…','Basketball (dribble, crossover, shoot) or penalties. The more you use Greenbox the more XP you get; level up to raise skills: dribble, shooting, handle, power, accuracy…','농구 또는 승부차기. Greenbox를 많이 쓸수록 XP를 얻고 스킬을 올립니다.')}]},
  {id:'blk', name:T3('Blockout game','Blockout game','블록아웃 게임'), items:[
-  {id:'smash', ic:'🎯', app:'Rig', page:'smash.html', name:T3('Bắn rơi khối (target smash)','Target smash','타겟 스매시'), d:T3('Vẽ bức tường lon / hộp xếp trên bàn, súng ở giữa; bấm để bắn, khối đổ theo vật lý thật. Quay video blockout 9:16 rồi đưa qua AI (Seedance) làm đẹp — có sẵn prompt theo chủ đề.','Draw a wall of cans / boxes on a table, the gun in the middle; click to shoot, real physics knocks them down. Record a 9:16 blockout video, then restyle it with an AI video model (Seedance) — the prompt is written for you.','테이블 위 캔/상자 벽을 그리고 총으로 쏘기. 9:16 블록아웃 영상 → AI 리스타일')}]},
+  {id:'smash', ic:'🎯', app:'Rig', page:'smash.html', name:T3('SMASH DOWN (bắn rơi khối)','SMASH DOWN','SMASH DOWN'), d:T3('Vẽ bức tường lon / hộp xếp trên bàn, súng ở giữa; bấm để bắn, khối đổ theo vật lý thật. Quay video blockout 9:16 rồi đưa qua AI (Seedance) làm đẹp — có sẵn prompt theo chủ đề.','Draw a wall of cans / boxes on a table, the gun in the middle; click to shoot, real physics knocks them down. Record a 9:16 blockout video, then restyle it with an AI video model (Seedance) — the prompt is written for you.','테이블 위 캔/상자 벽을 그리고 총으로 쏘기. 9:16 블록아웃 영상 → AI 리스타일')}]},
  {id:'post', name:T3('Hậu kỳ','Post','후반 작업'), items:[
   {id:'sfx', ic:'🔊', app:'Sfx', name:T3('Gắn SFX','SFX sync','SFX 싱크'), d:T3('Nạp video đã ghép xong, phân tích điểm va chạm, kéo thả âm thanh rồi xuất MP4 có tiếng.','Load the finished video, find the hits, drop sounds on them, export MP4 with audio.','완성 영상을 불러와 타격 지점을 찾고 사운드를 배치해 오디오 포함 MP4로 내보냅니다.')}]},
  {id:'r3d', name:T3('3D · Gắn xương','3D · Rigging','3D · 리깅'), items:[
@@ -6228,6 +6238,13 @@ function toast(txt){
     t.style.cssText='position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:99999;max-width:min(92vw,560px);padding:12px 18px;border-radius:12px;background:#1b2536;color:#fff;border:1px solid #ffb020;font:600 14px/1.4 "Chakra Petch",system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.5)'; document.body.appendChild(t); }
   t.textContent=txt; t.hidden=false; clearTimeout(whyT); whyT=setTimeout(()=>{ t.hidden=true; },4200); }
 
+/* ▶ demo clip of the current feature (the AX Hero mockup ships them in demo/ and sets window.__GB_DEMO) */
+function renderDemo(){ const f=ALL.find(x=>x.id===cur), D=window.__GB_DEMO||{}; let b=$id('gbc-demo');
+  if(!D[f.id]){ if(b) b.remove(); return; }
+  if(!b){ b=document.createElement('button'); b.id='gbc-demo'; b.setAttribute('data-gbc','1'); const after=$id('gbc-szpop')||$id('gbc-crumb'); after.after(b); }
+  b.textContent='▶ '+tr(T3('Video mẫu','Demo video','데모 영상')); b.onclick=()=>{ const o=document.createElement('div'); o.id='gbc-demo-box'; o.setAttribute('data-gbc','1');
+    o.innerHTML='<div><b>'+f.ic+' '+tr(f.name)+'</b><video src="'+D[f.id]+'" autoplay loop muted playsinline controls></video><button>✕</button></div>';
+    o.onclick=e=>{ if(e.target===o||e.target.tagName==='BUTTON') o.remove(); }; document.body.appendChild(o); }; }
 function renderSizePop(){ const f=ALL.find(x=>x.id===cur); let pop=$id('gbc-szpop'); const show=!heads[f.app] && SIZES[f.id];
   if(!show){ if(pop) pop.remove(); return; }
   if(!pop){ pop=document.createElement('div'); pop.id='gbc-szpop'; pop.setAttribute('data-gbc','1'); $id('gbc-crumb').after(pop); }
@@ -6259,10 +6276,10 @@ function go(id){ const f=ALL.find(x=>x.id===id); if(!f) return;
   if(f.tab){ const t=$id('tab'+f.tab); if(t) t.click(); }
   if(f.mode){ const m=$id('gc-'+f.mode); if(m) m.click(); }
   if(f.page && window.__gbRig) window.__gbRig.open(f.page);
-  if(f.clone && window.__gbRig){ let n=0; const t=setInterval(()=>{ n++; try{ const w=window.__gbRig.frame('create.html')?.contentWindow; if(w&&w.__gbCloneRig){ w.__gbCloneRig.open(); clearInterval(t); } }catch(e){} if(n>60) clearInterval(t); },250); }
+  if(f.clone && window.__gbRig){ let n=0; const t=setInterval(()=>{ n++; const w=window.__gbRig.frame('create.html')?.contentWindow; try{ if(w&&w.__gbCloneRig){ w.__gbCloneRig.open(); clearInterval(t); return; } }catch(e){ /* file://: the frame is another origin, ask it by message */ try{ w&&w.postMessage({gbCloneOpen:1},'*'); }catch(e2){} if(n>8) clearInterval(t); } if(n>60) clearInterval(t); },250); }
   if(f.hp && window.__gbHp && window.__gbHp.page) window.__gbHp.page(f.hp);
   document.body.dataset.feat=id;
-  renderDock(); renderHead(); renderSizePop(); i18nAll(); }
+  renderDock(); renderHead(); renderSizePop(); renderDemo(); i18nAll(); }
 
 /* ---------- i18n ---------- */
 const norm=s=>s.replace(/\s+/g,' ').trim();
@@ -6297,7 +6314,7 @@ function i18nAll(){ busyI18n=true; try{ trNode(document.body); }finally{ busyI18
   top.querySelectorAll('.gbc-lang button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===LANG)); $id('gbc-jump').textContent=tr(UI.jump); }
 new MutationObserver(ms=>{ if(busyI18n||LANG==='vi') return; busyI18n=true; try{ for(const m of ms){ if(m.type==='characterData') trNode(m.target); else if(m.type==='attributes') trAttrs(m.target); else m.addedNodes.forEach(trNode); } }finally{ busyI18n=false; } })
   .observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['title','aria-label','placeholder']});
-top.querySelectorAll('.gbc-lang button').forEach(b=>b.onclick=()=>{ LANG=b.dataset.l; LS('gbc.lang',LANG); try{ window.__gbSfx&&window.__gbSfx.lang(LANG); window.__gbRig&&window.__gbRig.lang(LANG); window.__gbHp&&window.__gbHp.lang(LANG); }catch(e){} renderDock(); renderHead(); i18nAll(); });
+top.querySelectorAll('.gbc-lang button').forEach(b=>b.onclick=()=>{ LANG=b.dataset.l; LS('gbc.lang',LANG); try{ window.__gbSfx&&window.__gbSfx.lang(LANG); window.__gbRig&&window.__gbRig.lang(LANG); window.__gbHp&&window.__gbHp.lang(LANG); }catch(e){} renderDock(); renderHead(); renderDemo(); i18nAll(); });
 
 /* ---------- preview zoom / pan ---------- */
 let spaceKey=false;
@@ -6328,7 +6345,7 @@ function xpChip(n){ const X=window.gbXP; if(!X) return; const d=X.load(), L=X.le
   c.innerHTML='⭐ Lv '+L+'<i style="width:'+Math.round((d.xp-a)/(b-a)*100)+'%"></i>'; c.title=d.xp+' / '+b+' XP';
   if(n){ const t=document.createElement('span'); t.className='gbc-xpp'; t.textContent='+'+n+' XP'; c.appendChild(t); setTimeout(()=>t.remove(),1200); } }
 $id('gbc-xp').onclick=()=>go('arena');
-addEventListener('gb-xp',e=>xpChip(e.detail&&e.detail.n)); addEventListener('message',e=>{ if(e.origin===location.origin&&e.data&&e.data.gbXp) xpChip(e.data.gbXp); });
+addEventListener('gb-xp',e=>xpChip(e.detail&&e.detail.n)); addEventListener('message',e=>{ if((e.origin===location.origin||(location.protocol==='file:'&&e.origin==='null'))&&e.data&&e.data.gbXp) xpChip(e.data.gbXp); });
 addEventListener('storage',e=>{ if(e.key==='gb.xp') xpChip(); }); xpChip();
 $id('gbc-theme').onclick=()=>setTheme(THEMES[(THEMES.indexOf(LS('gbc.ui')||'k')+1)%3]);
 setTheme(LS('gbc.ui')||'k');
@@ -6488,6 +6505,13 @@ html.gbv :is(#gbc-jump,#gbc-theme,.gbc-lang button,.gbc-lay button){white-space:
 @media (max-width:1280px){html.gbv body.gbc-stack .gbc-size{display:none}#gbc-szpop .szt{display:none}html.gbv .gbc-crumb span,html.gbv .gbc-crumb em{display:none}}
 @media (max-width:900px){html.gbv #gbc-jump{padding:8px 10px;font-size:0}html.gbv #gbc-jump::before{content:"⚡";font-size:14px}}
 </style>
+<style id="gbc-democss">
+#gbc-demo{flex:0 0 auto;cursor:pointer;border-radius:15px;padding:6px 12px;font:700 12px Roboto,system-ui,sans-serif;color:#04120c;background:linear-gradient(120deg,#37966a,#19df62);border:0;white-space:nowrap}
+#gbc-demo-box{position:fixed;inset:0;z-index:9999;background:rgba(2,10,7,.82);display:flex;align-items:center;justify-content:center;padding:24px}
+#gbc-demo-box>div{position:relative;display:flex;flex-direction:column;gap:10px;max-width:min(1100px,94vw);max-height:92vh;padding:14px;border-radius:15px;background:#0b2219;border:1px solid rgba(169,246,228,.25);color:#ecfdf3;font:600 15px Roboto,system-ui,sans-serif}
+#gbc-demo-box video{display:block;width:min(1000px,88vw);max-width:100%;max-height:calc(92vh - 70px);object-fit:contain;border-radius:10px;background:#000}
+#gbc-demo-box button{position:absolute;right:10px;top:8px;cursor:pointer;border:0;border-radius:10px;padding:4px 10px;background:rgba(255,255,255,.1);color:#fff;font:700 14px Roboto}
+</style>
 <style id="gbc-xpcss">
 #gbc-xp{display:none!important}/* on hold with the Arena */
 #gbc-xp{position:relative;flex:0 0 auto;cursor:pointer;border-radius:15px;padding:7px 14px 9px;font:700 12px Roboto,system-ui,sans-serif;color:#fff;background:linear-gradient(120deg,#37966a,#19df62);border:0;overflow:visible;white-space:nowrap}
@@ -6554,6 +6578,6 @@ body.three-ready #space-sky{display:none}
 (async()=>{const canvas=document.createElement('canvas');canvas.id='three-sky';canvas.setAttribute('aria-hidden','true');document.body.prepend(canvas);try{const THREE=await import('https://esm.sh/three@0.180.0');const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6));renderer.setClearColor(0x050b17,1);const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x050b17,.03);const camera=new THREE.PerspectiveCamera(58,1,.1,180);camera.position.set(0,3,15);const n=innerWidth<700?700:1500,p=new Float32Array(n*3),c=new Float32Array(n*3),col=new THREE.Color();for(let i=0;i<n;i++){const r=18+Math.random()*82,a=Math.random()*Math.PI*2;p[i*3]=Math.cos(a)*r;p[i*3+1]=(Math.random()-.45)*55;p[i*3+2]=(Math.random()-.5)*130;col.set(i%11===0?0x76dfff:0xc4d9ff);c.set([col.r,col.g,col.b],i*3)}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(p,3));geo.setAttribute('color',new THREE.BufferAttribute(c,3));const stars=new THREE.Points(geo,new THREE.PointsMaterial({size:.13,sizeAttenuation:true,transparent:true,opacity:.9,vertexColors:true,depthWrite:false}));scene.add(stars);const grid=new THREE.GridHelper(150,46,0x2e7897,0x17364d);grid.position.set(0,-8,-24);grid.material.transparent=true;grid.material.opacity=.23;scene.add(grid);const pointer=new THREE.Vector2(),target=new THREE.Vector2();addEventListener('pointermove',e=>{target.x=e.clientX/innerWidth-.5;target.y=e.clientY/innerHeight-.5},{passive:true});function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}addEventListener('resize',resize,{passive:true});resize();let last=performance.now();function animate(now){const dt=Math.min((now-last)/1000,.05);last=now;pointer.lerp(target,.05);camera.position.x=pointer.x*3;camera.position.y=3-pointer.y*2;camera.lookAt(pointer.x*1.5,-1-pointer.y,-18);const hyper=document.getElementById('hyper-jump')?.getAttribute('aria-pressed')==='true';stars.rotation.y+=dt*(hyper?.6:.01);stars.position.z+=dt*(hyper?28:1);if(stars.position.z>35)stars.position.z=-35;grid.position.z+=dt*(hyper?14:.4);if(grid.position.z>-4)grid.position.z=-24;renderer.render(scene,camera)}renderer.setAnimationLoop(animate);document.body.classList.add('three-ready');const badge=document.createElement('div');badge.className='three-signature';badge.innerHTML='3D ENGINE <b>THREE.JS</b>';document.body.append(badge)}catch(e){canvas.remove();console.info('Three.js fallback active')}})();
 </script>
 <script src="./gb-ai/tools.js?v=20261031b"></script>
-<script src="./gb-ai/chat.js?v=20261030a"></script>
+<script src="./gb-ai/chat.js?v=20261102e"></script>
 <script src="./gb-ai/bridge.js?v=20261030a"></script>
 </body></html>

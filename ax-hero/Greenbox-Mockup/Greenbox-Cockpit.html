@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><script>/* the cockpit never runs inside itself (a 3D tab that wandered to the site root): show the 3D app there instead */try{if(window.self!==window.top&&window.parent.__gbRig){location.replace("./rig3d/index.html")}}catch(e){}</script><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><script>/* the cockpit never runs inside itself (a 3D tab that wandered to the site root): show the 3D app there instead */try{if(window.self!==window.top&&window.parent.__gbRig){location.replace("./rig3d/index.html")}}catch(e){}</script><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script>window.__GB_DEMO={"joy": "demo/joy.mp4", "evo": "demo/evo.mp4", "stone": "demo/stone.mp4", "money": "demo/money.mp4", "fuel": "demo/fuel.mp4", "hpbar": "demo/hpbar.mp4", "countdown": "demo/countdown.mp4", "vfx": "demo/vfx.mp4", "wheel": "demo/wheel.mp4", "gseq": "demo/gseq.mp4", "gpick": "demo/gpick.mp4", "gbag": "demo/gbag.mp4", "gchest": "demo/gchest.mp4", "endcard": "demo/endcard.mp4", "gcar": "demo/gcar.mp4", "sfx": "demo/sfx.mp4", "smash": "demo/smash.mp4", "rig": "demo/rig.mp4", "clonerig": "demo/clonerig.mp4", "playtest": "demo/playtest.mp4", "mocap": "demo/mocap.mp4", "vehicle": "demo/vehicle.mp4"}</script></head><body>
 <title>Greenbox Cockpit</title>
 <script>try{var t=localStorage.getItem("gbc.ui")||"k";document.documentElement.classList.add(t==="v"?"gbv":t==="k"?"gbk":"gbd")}catch(e){document.documentElement.classList.add("gbk")}</script><script src="./gb-xp.js?v=20261102b"></script><script src="./gb-endcard.js?v=20261102d"></script><link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Lilita+One&family=Inter:wght@400;500;700;800&family=Public+Sans:wght@400;500;700&family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,900&display=swap">
@@ -155,7 +155,7 @@ body{background:var(--ground);color:var(--text);font:14px/1.5 var(--f-body);padd
 .appsw .swmsg{margin-left:auto;font:12px "IBM Plex Sans",sans-serif;color:var(--cue);letter-spacing:0;text-transform:none}
 #appDrive{
   color-scheme: dark;
-
+  
   --ground:#0f1114; --panel:#171a1f; --panel-2:#1e2228; --line:#2b3038; --line-2:#3a404a;
   --text:#e6e9ed; --muted:#8b93a0; --faint:#5d6571;
   --tally:#ff4a3a; --amber:#ffb020; --cue:#f2c14e;
@@ -515,7 +515,11 @@ body{background:var(--ground);color:var(--text);font:14px/1.5 var(--f-body);padd
       <div class="field"><span>Căn lên / xuống</span><input type="range" id="pbY" min="-820" max="820" step="2"><output id="pbYO"></output></div>
       <div class="row"><button class="btn sm" id="pbYup">▲ 10px</button><button class="btn sm" id="pbYdn">▼ 10px</button><button class="btn sm" id="pbY0">Về mốc</button><span class="hint" style="margin:0;flex:1">Y thực tế: <b id="pbYabs"></b></span></div>
       <div class="field"><span>Kích thước</span><input type="range" id="pbSc" min="50" max="150" step="5"><output id="pbScO"></output></div>
-      <div class="field"><span>Độ nảy</span><input type="range" id="pbSn" min="5" max="80" step="1"><output id="pbSnO"></output></div>
+      <div class="field"><span>Thời gian tăng mỗi mốc</span><input type="range" id="pbSn" min="10" max="1200" step="10" aria-describedby="pbSpeedHelp"><output id="pbSnO"></output></div>
+      <div class="row">
+        <label class="hint" style="margin:0">Nhập chính xác <input type="number" id="pbSnNum" min="0.1" max="12" step="0.1" inputmode="decimal" aria-label="Thời gian tăng mỗi mốc, tính bằng giây" style="width:72px;background:var(--panel-2);border:1px solid var(--line-2);border-radius:4px;padding:5px 6px;font:13px var(--f-mono);color:var(--text)"> giây</label>
+        <span class="hint" id="pbSpeedHelp" style="margin:0;flex:1">Số lớn hơn = thanh tăng chậm và mượt hơn.</span>
+      </div>
       <div class="row">
         <div class="seg" role="group" aria-label="Viền icon">
           <button id="pbRimg" aria-pressed="true">Viền có sẵn trong ảnh</button>
@@ -610,7 +614,7 @@ body{background:var(--ground);color:var(--text);font:14px/1.5 var(--f-body);padd
       <div class="field"><span>Kích thước</span><input type="range" id="flSc" min="50" max="200" step="5"><output id="flScO"></output></div>
       <div class="row"><span class="hint" style="margin:0">Màu dầu</span><input type="color" id="flCol" style="width:36px;height:30px;padding:0;border:1px solid var(--line-2);border-radius:4px;background:none">
         <label class="chk"><input type="checkbox" id="flLow"> Báo đỏ + nháy khi dưới</label><input type="number" id="flLowAt" min="1" max="100" step="1" style="width:64px;background:var(--panel-2);border:1px solid var(--line-2);border-radius:4px;padding:5px 6px;font:13px var(--f-mono);color:var(--text)"><span class="hint" style="margin:0">%</span></div>
-      <div class="slots"><div class="slot" style="grid-template-columns:34px 1fr auto auto;cursor:default"><div class="th" id="flTh"></div><div class="nm">Icon thùng dầu<small>PNG nền trong suốt</small></div><button class="btn sm" id="flUp">Ảnh…</button><button class="btn sm" id="flDef">Mặc định</button></div></div>
+      <div class="slots"><div class="slot" style="grid-template-columns:34px 1fr auto auto;cursor:default"><div class="th" id="flTh"></div><div class="nm">Icon thùng dầu<small>PNG nền trong suốt</small></div><button class="btn sm" id="flImgUp">Ảnh…</button><button class="btn sm" id="flDef">Mặc định</button></div></div>
       <div class="hint">Ở tab này kéo chuột vào thanh dầu trên màn hình để dời (X, Y là tâm thanh). Mốc tính theo timeline video gốc; xuất ở khung Xuất bên dưới.</div>
       <input type="file" id="flFile" accept="image/*" hidden>
       <div class="row"><button class="btn grow" id="movFl" style="border-color:#7b5cff;color:#cbbcff">⬇ .MOV alpha — chỉ thanh dầu</button></div>
@@ -705,6 +709,7 @@ let layout = Object.assign(structuredClone(DEF_LAYOUT), store.get('gbx3.layout')
 let S = Object.assign({}, DEF_SET, store.get('gbx3.set') || {});
 if(!ASPECTS[S.aspect]) S.aspect='9x16'; [W,H]=ASPECTS[S.aspect];
 S.pb = Object.assign(structuredClone(PB_DEF), S.pb||{});
+S.pb.snap=Math.max(.1,Math.min(12,+S.pb.snap||PB_DEF.snap));
 if(!Array.isArray(S.pb.marks)||S.pb.marks.length<3) S.pb.marks=[3,7,11];
 if(!Array.isArray(S.pb.names)||S.pb.names.length<4) S.pb.names=['','','',''];
 if(typeof S.pb.y!=='number') S.pb.y=0;
@@ -1080,7 +1085,7 @@ function drawProg(ctx, t){
   if(S.pb.kind==='expr') return drawExpr(ctx,t);
   if(S.pb.kind==='duel') return drawDuel(ctx,t);
   const B=pbGeo(), m=PBM(), st=pbStage(t), col=S.pb.col, NL=PBN(), LAST=NL-1;
-  const d=Math.max(.05,S.pb.snap);
+  const d=Math.max(.1,Math.min(12,S.pb.snap||PB_DEF.snap));
   const prev=Math.max(0,st-1)/LAST, tar=st/LAST;
   const k=st===0?1:Math.max(0,Math.min(1,(t-m[st-1])/d));
   const p=st===0?0:prev+(tar-prev)*pbEase(k);
@@ -1921,7 +1926,7 @@ $('flSc').value=Math.round(S.fl.scale*100); $('flScO').textContent=Math.round(S.
 $('flCol').value=(S.fl.col||'#5BE24A').toLowerCase(); $('flCol').oninput=e=>{ S.fl.col=e.target.value.toUpperCase(); saveSet(); };
 $('flLowAt').value=S.fl.lowAt||50; $('flLowAt').oninput=e=>{ const v=parseInt(e.target.value,10); if(!isNaN(v)){ S.fl.lowAt=Math.max(1,Math.min(100,v)); saveSet(); } };
 $('flLow').checked=S.fl.low!==false; $('flLow').onchange=e=>{ S.fl.low=e.target.checked; saveSet(); };
-$('flUp').onclick=()=>$('flFile').click();
+$('flImgUp').onclick=()=>$('flFile').click();
 $('flFile').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ flLoad(await shrinkImage(f), true); }catch(err){ warnSave(); } };
 $('flDef').onclick=()=>flLoad(FL_IMG, true);
 $('flPlay').onclick=()=>{ if(!hasVideo||recording||counting||exporting) return; if(!video.paused){ video.pause(); return; } video.currentTime=0; video.play().catch(()=>{}); };
@@ -2029,8 +2034,17 @@ $('pbY0').onclick=()=>{ S.pb.y=0; saveSet(); pbSyncY(); };
 $('pbCol').value=S.pb.col.toLowerCase(); $('pbCol').oninput=e=>{S.pb.col=e.target.value.toUpperCase();saveSet();};
 $('pbSc').value=Math.round(S.pb.scale*100); $('pbScO').textContent=Math.round(S.pb.scale*100)+'%';
 $('pbSc').oninput=e=>{S.pb.scale=+e.target.value/100;$('pbScO').textContent=e.target.value+'%';saveSet();pbSyncY();};
-$('pbSn').value=Math.round(S.pb.snap*100); $('pbSnO').textContent=Math.round(S.pb.snap*100)/100+'s';
-$('pbSn').oninput=e=>{S.pb.snap=+e.target.value/100;$('pbSnO').textContent=(+e.target.value/100)+'s';saveSet();};
+function pbSyncSpeed(v,save=true){
+  S.pb.snap=Math.max(.1,Math.min(12,+v||PB_DEF.snap));
+  $('pbSn').value=Math.round(S.pb.snap*100);
+  $('pbSnNum').value=Number(S.pb.snap.toFixed(2));
+  $('pbSnO').textContent=S.pb.snap.toFixed(S.pb.snap<1?2:1)+'s';
+  if(save) saveSet();
+}
+pbSyncSpeed(S.pb.snap,false);
+$('pbSn').oninput=e=>pbSyncSpeed(+e.target.value/100);
+$('pbSnNum').oninput=e=>{ if(e.target.value!=='') pbSyncSpeed(e.target.value); };
+$('pbSnNum').onblur=()=>pbSyncSpeed($('pbSnNum').value);
 $('pbLb').checked=S.pb.labels; $('pbLb').onchange=e=>{S.pb.labels=e.target.checked;saveSet();};
 function pbMeta(){ $('pbMeta').textContent = !S.pb.on ? 'đang tắt'
   : S.pb.kind==='expr' ? (S.pb.expr.s.toFixed(1)+'–'+S.pb.expr.e.toFixed(1)+'s · '+S.pb.expr.nv+' biểu cảm')
@@ -2586,6 +2600,9 @@ requestAnimationFrame(frame);
           <label class="chk" id="dr-lockWrap"><input type="checkbox" id="dr-lockAR"> Giữ tỉ lệ ảnh</label>
         </div>
         <div class="field"><span>Độ đậm</span><input type="range" id="dr-opR" min="30" max="100" step="5"><output id="dr-opO"></output></div>
+        <div class="row"><span class="hint" style="margin:0">Xoay ảnh món đang chọn</span><button class="btn sm" id="dr-rotL" title="Xoay trái 90°">⟲ 90°</button><button class="btn sm" id="dr-rotR" title="Xoay phải 90°">⟳ 90°</button><button class="btn sm" id="dr-rot180" title="Lật ngược (ảnh bị ngược)">↕ 180°</button><button class="btn sm" id="dr-rot0">0°</button></div>
+        <div class="field"><span>Góc ảnh</span><input type="range" id="dr-rotA" min="-180" max="180" step="1"><output id="dr-rotO"></output></div>
+        <div class="hint" style="margin-top:-4px">Ảnh vô lăng / bàn đạp gen ra bị ngược hay nghiêng thì xoay lại ở đây — video và .MOV alpha xuất ra xoay theo, ghép vào là xong.</div>
         <div class="hint">Chỉnh size: kéo thanh %, gõ số px, bấm ±1% / ±10%, hoặc bật “Chỉnh vị trí” rồi kéo ô vuông cam ở góc (giữ Shift để giữ tỉ lệ), lăn chuột lên món đó, hoặc bấm <kbd>+</kbd> <kbd>−</kbd>. Ảnh PNG nền trong suốt là đẹp nhất. Vô lăng nên là ảnh nhìn thẳng, tâm vô lăng nằm giữa ảnh (nó xoay quanh tâm ảnh). Bàn đạp nên là ảnh đứng, chân bàn đạp ở mép dưới (khi đạp, ảnh co lại về phía mép dưới). Layout dọc và ngang được nhớ riêng.</div>
         <div class="msg err" id="dr-saveWarn" hidden>Trình duyệt không lưu được ảnh/layout. Vẫn dùng được trong phiên này, nhưng mở lại trang sẽ về cái cũ.</div>
         <input type="file" id="dr-imgFile" accept="image/*" hidden>
@@ -2601,7 +2618,7 @@ requestAnimationFrame(frame);
         <div class="field"><span>Nghiêng tay cầm</span><input type="range" id="dr-ptR" min="0" max="30" step="1"><output id="dr-ptO"></output></div>
         <div class="field"><span>Trượt tay cầm</span><input type="range" id="dr-psR" min="0" max="120" step="2"><output id="dr-psO"></output></div>
         <div class="hint">Bấm <kbd>chuột phải</kbd> trên màn hình để gạt cần số <b>D ↔ R</b>. Cú gạt được ghi vào take nên video xuất ra đổi số đúng thời điểm.</div>
-        <div class="field"><span>Lún bàn đạp</span><div class="field"><span>Lún bàn đạp</span><input type="range" id="dr-depR" min="5" max="40" step="1"><output id="dr-depO"></output></div>
+        <div class="field"><span>Lún bàn đạp</span><input type="range" id="dr-depR" min="5" max="40" step="1"><output id="dr-depO"></output></div>
         <label class="chk"><input type="checkbox" id="dr-meters" checked> Hiện thanh lực đạp cạnh bàn đạp</label>
         <div class="field"><span>Tốc độ tối đa</span><input type="range" id="dr-vmaxR" min="60" max="400" step="10"><output id="dr-vmaxO"></output></div>
         <div class="field"><span>Độ bốc</span><input type="range" id="dr-accR" min="30" max="300" step="5"><output id="dr-accO"></output></div>
@@ -2618,7 +2635,7 @@ requestAnimationFrame(frame);
         <div class="hint" style="margin-top:-4px">Để 0 = dùng chung góc với vô lăng. Đặt 360 hoặc 720 để quay được trọn vòng như vô lăng thật.</div>
         <div class="xy"><span>Trục xoay lệch</span><label>X <input type="number" id="dr-padPX" step="1"></label><label>Y <input type="number" id="dr-padPY" step="1"></label></div>
         <div class="row"><button class="btn" id="dr-padMount">🎯 Gài vào thanh vuông</button><span class="hint" style="margin:0;flex:1" id="dr-mountHint">Bấm nút rồi click đúng cái thanh vuông nhỏ trên taplo.</span></div>
-        <div class="row"><button class="btn sm" id="dr-pvL">◀ 10</button><div class="row"><button class="btn sm" id="dr-pvL">◀ 10</button><button class="btn sm" id="dr-pvR">10 ▶</button><button class="btn sm" id="dr-pvU">▲ 10</button><button class="btn sm" id="dr-pvD">▼ 10</button><button class="btn sm" id="dr-pv0">Về giữa tay cầm</button></div>
+        <div class="row"><button class="btn sm" id="dr-pvL">◀ 10</button><button class="btn sm" id="dr-pvR">10 ▶</button><button class="btn sm" id="dr-pvU">▲ 10</button><button class="btn sm" id="dr-pvD">▼ 10</button><button class="btn sm" id="dr-pv0">Về giữa tay cầm</button></div>
         <div class="hint">Trục xoay là điểm tay cầm bám vào cột lái — đặt nó vào giữa cái bọng tròn dưới tay cầm trong ảnh taplo. Bật <b>Chỉnh vị trí</b> và chọn Tay cầm thì trục hiện thành dấu + vàng trên màn hình.</div>
         <div class="field"><span>Nghiêng (khi tắt xoay)</span><input type="range" id="dr-ptR2" min="0" max="30" step="1"><output id="dr-ptO2"></output></div>
         <div class="field"><span>Trượt (khi tắt xoay)</span><input type="range" id="dr-psR2" min="0" max="120" step="2"><output id="dr-psO2"></output></div>
@@ -3033,13 +3050,16 @@ function rrPath(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,
 function drawOverlay(ctx, vis){
   const lay=L();
   ctx.save(); ctx.globalAlpha=S.opacity/100;
-  if(!lay.hidden.dash) drawPlain(ctx,'dash',lay.dash,0,0);
-  if(!lay.hidden.speedo) drawSpeedo(ctx, lay.speedo, vis.v);
-  if(!lay.hidden.brake) drawPedal(ctx,'brake',lay.brake,vis.b);
-  if(!lay.hidden.gas) drawPedal(ctx,'gas',lay.gas,vis.g);
-  if(!lay.hidden.wheel) drawWheel(ctx, lay.wheel, vis.s);
-  if(!lay.hidden.pad) drawPad(ctx, lay.pad, vis.s);
-  if(!lay.hidden.gear) drawGear(ctx, lay.gear, vis.r?1:0);
+  // each item turned by its own picture angle (it.rot) round its centre
+  const turned=(id,fn)=>{ const it=lay[id]; if(lay.hidden[id]) return; const a=it.rot||0; if(!a){ fn(); return; }
+    const cy=isPedal(id)? it.y+it.r-pedalDims(id,it).h/2 : it.y; ctx.save(); ctx.translate(it.x,cy); ctx.rotate(a*Math.PI/180); ctx.translate(-it.x,-cy); fn(); ctx.restore(); };
+  turned('dash',()=>drawPlain(ctx,'dash',lay.dash,0,0));
+  turned('speedo',()=>drawSpeedo(ctx, lay.speedo, vis.v));
+  turned('brake',()=>drawPedal(ctx,'brake',lay.brake,vis.b));
+  turned('gas',()=>drawPedal(ctx,'gas',lay.gas,vis.g));
+  turned('wheel',()=>drawWheel(ctx, lay.wheel, vis.s));
+  turned('pad',()=>drawPad(ctx, lay.pad, vis.s));
+  turned('gear',()=>drawGear(ctx, lay.gear, vis.r?1:0));
   ctx.restore();
 }
 function drawEditMarks(ctx){
@@ -3254,6 +3274,7 @@ function syncSize(quiet){ syncPos(); const it=L()[selected], ped=isPedal(selecte
   if(document.activeElement!==$('dimH')) $('dimH').value=it.r*2;
   $('dimHL').hidden=!ped; $('dimLbl').textContent=ped?'Rộng / Cao':'Đường kính'; $('dimWT').textContent=ped?'W':'Ø';
   $('lockWrap').hidden=!ped; if(ped){ $('lockAR').checked=it.lock!==false; $('lockAR').disabled=!imgs[selected]; }
+  const rot=it.rot||0; if(document.activeElement!==$('rotA')) $('rotA').value=rot; $('rotO').textContent=rot+'°';
   $('selMeta').textContent=(SLOTS.find(s=>s.id===selected)||{}).name||''; if(!quiet) renderSlots(); }
 $('sizeR').oninput=e=>{ const it=L()[selected], d=defItem(selected), k=+e.target.value/100; it.r=clampR(d.r*k); if(isPedal(selected)) it.w=clampW(d.w*k); syncSize(true); saveLayout(); };
 $('dimW').addEventListener('input',e=>{ const v=parseInt(e.target.value,10); if(isNaN(v)||v<20) return; const it=L()[selected]; if(isPedal(selected)) it.w=clampW(v); else it.r=clampR(v/2); syncSize(true); saveLayout(); });
@@ -3262,6 +3283,10 @@ $('dimW').addEventListener('blur',()=>syncSize(true)); $('dimH').addEventListene
 $('szDn10').onclick=()=>scaleSel(.9); $('szDn1').onclick=()=>scaleSel(.99); $('szUp1').onclick=()=>scaleSel(1.01); $('szUp10').onclick=()=>scaleSel(1.1);
 $('szReset').onclick=()=>{ const it=L()[selected], d=defItem(selected); it.r=d.r; if(isPedal(selected)) it.w=d.w; syncSize(true); saveLayout(); };
 $('lockAR').onchange=e=>{ L()[selected].lock=e.target.checked; saveLayout(); };
+// the picture of the chosen item can be turned (a generated pedal that came out upside down): drawn and exported turned
+function setRot(a){ const it=L()[selected]; a=((Math.round(a)%360)+540)%360-180; it.rot=a===-180?180:a; syncSize(true); saveLayout(); }
+$('rotL').onclick=()=>setRot((L()[selected].rot||0)-90); $('rotR').onclick=()=>setRot((L()[selected].rot||0)+90); $('rot180').onclick=()=>setRot((L()[selected].rot||0)+180); $('rot0').onclick=()=>setRot(0);
+$('rotA').oninput=e=>setRot(+e.target.value);
 function bindRange(id,out,key,fmtFn){ $(id).value=S[key]; $(out).textContent=fmtFn(S[key]); $(id).oninput=e=>{ S[key]=+e.target.value; $(out).textContent=fmtFn(S[key]); saveSet(); }; }
 bindRange('opR','opO','opacity',v=>v+'%');
 bindRange('degR','degO','maxDeg',v=>'±'+v+'°');
@@ -3595,7 +3620,7 @@ window.__gbDrive=Object.assign(window.__gbDrive||{},{ busy:()=>recording||counti
       <h2>🔊 Âm thanh <span id="gc-sfxMeta" class="hint" style="margin:0"></span></h2>
       <div class="hint">Chế độ này phát những tiếng bên dưới. Mỗi tiếng ghi rõ <b>lấy từ đâu</b> (có sẵn trong app / file bạn đổi / tạo bằng code) và <b>vang lên lúc nào</b>. Bỏ tick để tắt, ▶ để nghe thử, Đổi… để thay bằng file của bạn.</div>
       <div id="gc-sfxSrcTbl" style="display:flex;flex-direction:column;gap:4px;font-size:12px"></div>
-
+      
       <div class="row"><label class="hint" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="gc-sfxH"> Tiếng hover</label>
         <button class="btn sm" id="gc-sfxTH">▶</button><button class="btn sm" id="gc-sfxUH">Đổi…</button><button class="btn sm" id="gc-sfxDH">Mặc định</button></div>
       <div class="row"><label class="hint" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="gc-sfxS"> Tiếng chọn</label>
@@ -3797,7 +3822,7 @@ window.__gbDrive=Object.assign(window.__gbDrive||{},{ busy:()=>recording||counti
       <div class="field"><span>Cỡ pointer</span><input type="range" id="gc-pr" min="60" max="400" step="5"><output id="gc-prO"></output></div>
       <div class="field"><span>Pointer bay vào</span><input type="range" id="gc-pm" min="10" max="150" step="5"><output id="gc-pmO"></output></div>
       <div class="field"><span>Cỡ thẻ</span><input type="range" id="gc-cs" min="200" max="520" step="10"><output id="gc-csO"></output></div>
-      <div class="field"><span>Thẻ cao / thấp</span><input type="range" id="gc-cy" min="200" max="1700" step="10"><output id="gc-cyO"></output></div>
+      <div class="field"><span>Thẻ cao / thấp</span><input type="range" id="gc-cardY" min="200" max="1700" step="10"><output id="gc-cardYO"></output></div>
       <div class="field"><span>Nảy khi pop</span><input type="range" id="gc-pop" min="15" max="120" step="5"><output id="gc-popO"></output></div>
       <div class="field"><span>Nghiêng tay</span><input type="range" id="gc-pt" min="-60" max="60" step="1"><output id="gc-ptO"></output></div>
       <div class="field"><span>Số vòng lật</span><input type="range" id="gc-sp" min="50" max="600" step="25"><output id="gc-spO"></output></div>
@@ -4278,7 +4303,7 @@ S.car=Object.assign(structuredClone(CAR_DEF), S.car||{});
 if(!Array.isArray(S.car.items)) S.car.items=[];
 // the end card on top of the carousel: app icon, logo / game name, PLAY NOW — each part sized / spaced / anchored on its own (gb-endcard.js)
 if(window.GBEC) S.car.ec=GBEC.fix(S.car.ec||GBEC.defaults('carousel'),'carousel'); if(S.car.ecOn===undefined) S.car.ecOn=true;
-for(const k of ['ecIcon','ecLogo']) if(srcs[k]) setImg(k,srcs[k],false);
+for(const k of ['ecIcon','ecLogo','ecCta']) if(srcs[k]) setImg(k,srcs[k],false);
 for(let i=0;i<8;i++) if(!S.car.items[i]) S.car.items[i]={kind:'img'};
 if(S.aspect!=='169') S.aspect='916';
 const carVid={};                                   // item index -> <video>
@@ -4403,7 +4428,7 @@ function drawCarousel(ctx,t,exporting){
 }
 /* over the cards: the end card layer (icon / logo / PLAY) and the hand */
 function carTop(ctx,st,tnow,exporting){
-  if(window.GBEC && S.car.ec && S.car.ecOn) GBEC.paint(ctx,W,H,tnow,S.car.ec,{icon:imgs.ecIcon,logo:imgs.ecLogo},{selT:st.sel?st.sel.t:null,guides:!exporting});
+  if(window.GBEC && S.car.ec && S.car.ecOn) GBEC.paint(ctx,W,H,tnow,S.car.ec,{icon:imgs.ecIcon,logo:imgs.ecLogo,cta:imgs.ecCta},{selT:st.sel?st.sel.t:null,guides:!exporting});
   if(S.car.hand!==false && st.px!=null && st.px>-500 && imgs.ptr){
     const im=imgs.ptr, r=S.ptrR*(Math.min(W,H)/1080), ar=im.naturalWidth/im.naturalHeight;
     let w=r*2,h=r*2; if(ar>1) h=w/ar; else w=h*ar;
@@ -4421,7 +4446,9 @@ let carAutoD=0;
 (function ecUI(){ const box=$('ec'), on=$('ecOn'), file=$('ecFile'); if(!box||!window.GBEC) return; let slot='ecIcon';
   on.checked=!!S.car.ecOn; on.onchange=()=>{ S.car.ecOn=on.checked; save(); draw(T); };
   const api={ kind:'carousel', lang:()=>{ try{ return localStorage.getItem('gbc.lang')||'vi'; }catch(e){ return 'vi'; } }, change:()=>{ save(); draw(T); },
-    upload:k=>{ slot=k==='icon'?'ecIcon':'ecLogo'; file.click(); }, hasImg:k=>!!imgs[k==='icon'?'ecIcon':'ecLogo'] };
+    upload:k=>{ slot={icon:'ecIcon',logo:'ecLogo',cta:'ecCta'}[k]; file.click(); }, hasImg:k=>!!imgs[{icon:'ecIcon',logo:'ecLogo',cta:'ecCta'}[k]],
+    imgSrc:k=>{ const im=imgs[{icon:'ecIcon',logo:'ecLogo',cta:'ecCta'}[k]]; return im&&im.src; },
+    clearImg:k=>{ const sl={icon:'ecIcon',logo:'ecLogo',cta:'ecCta'}[k]; delete imgs[sl]; delete srcs[sl]; st.set('gch1.img',srcs); draw(T); } };
   file.onchange=()=>{ const f=file.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ setImg(slot,r.result,true); setTimeout(()=>GBEC.panel(box,S.car.ec,api),300); }; r.readAsDataURL(f); file.value=''; };
   box.__api=api; GBEC.panel(box,S.car.ec,api); })();
 function carDur(){ if(hasVid&&vid.duration) return vid.duration; if(carAutoD) return carAutoD;
@@ -4432,7 +4459,7 @@ function carDur(){ if(hasVid&&vid.duration) return vid.duration; if(carAutoD) re
 let ecDrag=null;
 const ecPanel=()=>{ const b=$('ec'); if(b&&window.GBEC&&b.__api) GBEC.panel(b,S.car.ec,b.__api); };
 cv.addEventListener('pointerdown',e=>{ if(S.mode!=='car'||e.button!==0||!window.GBEC||!S.car.ecOn||!S.car.ec) return;
-  const p=cpos(e), part=GBEC.hit(S.car.ec,W,H,p.x,p.y,{icon:imgs.ecIcon,logo:imgs.ecLogo}); if(!part) return;
+  const p=cpos(e), part=GBEC.hit(S.car.ec,W,H,p.x,p.y,{icon:imgs.ecIcon,logo:imgs.ecLogo,cta:imgs.ecCta}); if(!part) return;
   e.stopImmediatePropagation(); e.preventDefault(); cv.setPointerCapture(e.pointerId);
   const el=S.car.ec.el[part]; S.car.ec.sel=part; ecDrag={part,x0:p.x,y0:p.y,dx0:el.dx,dy0:el.dy}; ecPanel(); draw(T); },true);
 cv.addEventListener('pointermove',e=>{ if(!ecDrag) return; e.stopImmediatePropagation();
@@ -5240,7 +5267,7 @@ function bind(id,key,fmt,after){ const el=$(id), out=$(id+'O');
   el.value=S[key]; if(out) out.textContent=fmt(S[key]);
   el.oninput=e=>{ S[key]=+e.target.value; if(out) out.textContent=fmt(S[key]); save(); if(after)after(); draw(T); }; }
 bind('pr','ptrR',v=>v+'px'); bind('pm','ptrMove',v=>(v/100).toFixed(2)+'s');
-bind('cs','cardSize',v=>v*2+'px'); bind('cy','cardY',v=>v+'px');
+bind('cs','cardSize',v=>v*2+'px'); bind('cardY','cardY',v=>v+'px');
 bind('pop','pop',v=>(v/100).toFixed(2)+'s',meta);
 bind('pt','ptrTilt',v=>v+'\u00b0'); bind('sp','spins',v=>(v/100).toFixed(2)+' vòng');
 ['plate','edge'].forEach(k=>{ $(k).value=S[k].toLowerCase();
@@ -5538,7 +5565,7 @@ window.__gbHp=(function(){
   const api=()=>{ try{ return fr.contentWindow&&fr.contentWindow.__gbHp; }catch(e){ return null; } };
   return {
     open(){ if(!fr.getAttribute('src')) fr.setAttribute('src','./hpbar.html?embed=1&v=20261102c'+(pend?'&page='+pend:'')); },
-    page(p){ pend=p; const a=api(); if(a&&a.set_page) a.set_page(p); },
+    page(p){ pend=p; const a=api(); if(a&&a.set_page) a.set_page(p); else try{ fr.contentWindow&&fr.contentWindow.postMessage({gbHpPage:p},'*'); }catch(e){} },
     busy(){ const a=api(); return !!(a&&a.busy()); },
     pause(){ const a=api(); if(a) a.pause(); },
     lang(l){ try{ fr.contentWindow&&fr.contentWindow.postMessage({gbLang:l},'*'); }catch(e){} }
@@ -5578,7 +5605,7 @@ window.__gbRig=(function(){
       f.src='./rig3d/'+page+'?v='+V; host.appendChild(f); frames[page]=f; }
     return f; }
   function show(page,remember){
-    if(location.protocol==='file:'){ fileNote(); return; }
+    
     page=page||cur||'create.html';
     if(page===cur && frames[page]) return;
     if(remember!==false && cur) hist.push(cur);
@@ -6130,7 +6157,7 @@ const GROUPS=[
  {id:'fun', hold:true, name:T3('Giải trí','Fun','재미'), items:[
   {id:'arena', ic:'🏀', app:'Arena', name:T3('Greenbox Arena: bóng rổ · bóng đá','Greenbox Arena: basketball · football','그린박스 아레나: 농구 · 축구'), d:T3('Chơi bóng rổ (dẫn bóng, crossover, ném) hoặc sút luân lưu. Dùng web càng nhiều càng có XP, lên cấp để nâng kỹ năng: dẫn bóng, ném rổ, lắt léo, lực sút, chính xác…','Basketball (dribble, crossover, shoot) or penalties. The more you use Greenbox the more XP you get; level up to raise skills: dribble, shooting, handle, power, accuracy…','농구 또는 승부차기. Greenbox를 많이 쓸수록 XP를 얻고 스킬을 올립니다.')}]},
  {id:'blk', name:T3('Blockout game','Blockout game','블록아웃 게임'), items:[
-  {id:'smash', ic:'🎯', app:'Rig', page:'smash.html', name:T3('Bắn rơi khối (target smash)','Target smash','타겟 스매시'), d:T3('Vẽ bức tường lon / hộp xếp trên bàn, súng ở giữa; bấm để bắn, khối đổ theo vật lý thật. Quay video blockout 9:16 rồi đưa qua AI (Seedance) làm đẹp — có sẵn prompt theo chủ đề.','Draw a wall of cans / boxes on a table, the gun in the middle; click to shoot, real physics knocks them down. Record a 9:16 blockout video, then restyle it with an AI video model (Seedance) — the prompt is written for you.','테이블 위 캔/상자 벽을 그리고 총으로 쏘기. 9:16 블록아웃 영상 → AI 리스타일')}]},
+  {id:'smash', ic:'🎯', app:'Rig', page:'smash.html', name:T3('SMASH DOWN (bắn rơi khối)','SMASH DOWN','SMASH DOWN'), d:T3('Vẽ bức tường lon / hộp xếp trên bàn, súng ở giữa; bấm để bắn, khối đổ theo vật lý thật. Quay video blockout 9:16 rồi đưa qua AI (Seedance) làm đẹp — có sẵn prompt theo chủ đề.','Draw a wall of cans / boxes on a table, the gun in the middle; click to shoot, real physics knocks them down. Record a 9:16 blockout video, then restyle it with an AI video model (Seedance) — the prompt is written for you.','테이블 위 캔/상자 벽을 그리고 총으로 쏘기. 9:16 블록아웃 영상 → AI 리스타일')}]},
  {id:'post', name:T3('Hậu kỳ','Post','후반 작업'), items:[
   {id:'sfx', ic:'🔊', app:'Sfx', name:T3('Gắn SFX','SFX sync','SFX 싱크'), d:T3('Nạp video đã ghép xong, phân tích điểm va chạm, kéo thả âm thanh rồi xuất MP4 có tiếng.','Load the finished video, find the hits, drop sounds on them, export MP4 with audio.','완성 영상을 불러와 타격 지점을 찾고 사운드를 배치해 오디오 포함 MP4로 내보냅니다.')}]},
  {id:'r3d', name:T3('3D · Gắn xương','3D · Rigging','3D · 리깅'), items:[
@@ -6211,6 +6238,13 @@ function toast(txt){
     t.style.cssText='position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:99999;max-width:min(92vw,560px);padding:12px 18px;border-radius:12px;background:#1b2536;color:#fff;border:1px solid #ffb020;font:600 14px/1.4 "Chakra Petch",system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.5)'; document.body.appendChild(t); }
   t.textContent=txt; t.hidden=false; clearTimeout(whyT); whyT=setTimeout(()=>{ t.hidden=true; },4200); }
 
+/* ▶ demo clip of the current feature (the AX Hero mockup ships them in demo/ and sets window.__GB_DEMO) */
+function renderDemo(){ const f=ALL.find(x=>x.id===cur), D=window.__GB_DEMO||{}; let b=$id('gbc-demo');
+  if(!D[f.id]){ if(b) b.remove(); return; }
+  if(!b){ b=document.createElement('button'); b.id='gbc-demo'; b.setAttribute('data-gbc','1'); const after=$id('gbc-szpop')||$id('gbc-crumb'); after.after(b); }
+  b.textContent='▶ '+tr(T3('Video mẫu','Demo video','데모 영상')); b.onclick=()=>{ const o=document.createElement('div'); o.id='gbc-demo-box'; o.setAttribute('data-gbc','1');
+    o.innerHTML='<div><b>'+f.ic+' '+tr(f.name)+'</b><video src="'+D[f.id]+'" autoplay loop muted playsinline controls></video><button>✕</button></div>';
+    o.onclick=e=>{ if(e.target===o||e.target.tagName==='BUTTON') o.remove(); }; document.body.appendChild(o); }; }
 function renderSizePop(){ const f=ALL.find(x=>x.id===cur); let pop=$id('gbc-szpop'); const show=!heads[f.app] && SIZES[f.id];
   if(!show){ if(pop) pop.remove(); return; }
   if(!pop){ pop=document.createElement('div'); pop.id='gbc-szpop'; pop.setAttribute('data-gbc','1'); $id('gbc-crumb').after(pop); }
@@ -6242,10 +6276,10 @@ function go(id){ const f=ALL.find(x=>x.id===id); if(!f) return;
   if(f.tab){ const t=$id('tab'+f.tab); if(t) t.click(); }
   if(f.mode){ const m=$id('gc-'+f.mode); if(m) m.click(); }
   if(f.page && window.__gbRig) window.__gbRig.open(f.page);
-  if(f.clone && window.__gbRig){ let n=0; const t=setInterval(()=>{ n++; try{ const w=window.__gbRig.frame('create.html')?.contentWindow; if(w&&w.__gbCloneRig){ w.__gbCloneRig.open(); clearInterval(t); } }catch(e){} if(n>60) clearInterval(t); },250); }
+  if(f.clone && window.__gbRig){ let n=0; const t=setInterval(()=>{ n++; const w=window.__gbRig.frame('create.html')?.contentWindow; try{ if(w&&w.__gbCloneRig){ w.__gbCloneRig.open(); clearInterval(t); return; } }catch(e){ /* file://: the frame is another origin, ask it by message */ try{ w&&w.postMessage({gbCloneOpen:1},'*'); }catch(e2){} if(n>8) clearInterval(t); } if(n>60) clearInterval(t); },250); }
   if(f.hp && window.__gbHp && window.__gbHp.page) window.__gbHp.page(f.hp);
   document.body.dataset.feat=id;
-  renderDock(); renderHead(); renderSizePop(); i18nAll(); }
+  renderDock(); renderHead(); renderSizePop(); renderDemo(); i18nAll(); }
 
 /* ---------- i18n ---------- */
 const norm=s=>s.replace(/\s+/g,' ').trim();
@@ -6280,7 +6314,7 @@ function i18nAll(){ busyI18n=true; try{ trNode(document.body); }finally{ busyI18
   top.querySelectorAll('.gbc-lang button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===LANG)); $id('gbc-jump').textContent=tr(UI.jump); }
 new MutationObserver(ms=>{ if(busyI18n||LANG==='vi') return; busyI18n=true; try{ for(const m of ms){ if(m.type==='characterData') trNode(m.target); else if(m.type==='attributes') trAttrs(m.target); else m.addedNodes.forEach(trNode); } }finally{ busyI18n=false; } })
   .observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['title','aria-label','placeholder']});
-top.querySelectorAll('.gbc-lang button').forEach(b=>b.onclick=()=>{ LANG=b.dataset.l; LS('gbc.lang',LANG); try{ window.__gbSfx&&window.__gbSfx.lang(LANG); window.__gbRig&&window.__gbRig.lang(LANG); window.__gbHp&&window.__gbHp.lang(LANG); }catch(e){} renderDock(); renderHead(); i18nAll(); });
+top.querySelectorAll('.gbc-lang button').forEach(b=>b.onclick=()=>{ LANG=b.dataset.l; LS('gbc.lang',LANG); try{ window.__gbSfx&&window.__gbSfx.lang(LANG); window.__gbRig&&window.__gbRig.lang(LANG); window.__gbHp&&window.__gbHp.lang(LANG); }catch(e){} renderDock(); renderHead(); renderDemo(); i18nAll(); });
 
 /* ---------- preview zoom / pan ---------- */
 let spaceKey=false;
@@ -6311,7 +6345,7 @@ function xpChip(n){ const X=window.gbXP; if(!X) return; const d=X.load(), L=X.le
   c.innerHTML='⭐ Lv '+L+'<i style="width:'+Math.round((d.xp-a)/(b-a)*100)+'%"></i>'; c.title=d.xp+' / '+b+' XP';
   if(n){ const t=document.createElement('span'); t.className='gbc-xpp'; t.textContent='+'+n+' XP'; c.appendChild(t); setTimeout(()=>t.remove(),1200); } }
 $id('gbc-xp').onclick=()=>go('arena');
-addEventListener('gb-xp',e=>xpChip(e.detail&&e.detail.n)); addEventListener('message',e=>{ if(e.origin===location.origin&&e.data&&e.data.gbXp) xpChip(e.data.gbXp); });
+addEventListener('gb-xp',e=>xpChip(e.detail&&e.detail.n)); addEventListener('message',e=>{ if((e.origin===location.origin||(location.protocol==='file:'&&e.origin==='null'))&&e.data&&e.data.gbXp) xpChip(e.data.gbXp); });
 addEventListener('storage',e=>{ if(e.key==='gb.xp') xpChip(); }); xpChip();
 $id('gbc-theme').onclick=()=>setTheme(THEMES[(THEMES.indexOf(LS('gbc.ui')||'k')+1)%3]);
 setTheme(LS('gbc.ui')||'k');
@@ -6471,6 +6505,13 @@ html.gbv :is(#gbc-jump,#gbc-theme,.gbc-lang button,.gbc-lay button){white-space:
 @media (max-width:1280px){html.gbv body.gbc-stack .gbc-size{display:none}#gbc-szpop .szt{display:none}html.gbv .gbc-crumb span,html.gbv .gbc-crumb em{display:none}}
 @media (max-width:900px){html.gbv #gbc-jump{padding:8px 10px;font-size:0}html.gbv #gbc-jump::before{content:"⚡";font-size:14px}}
 </style>
+<style id="gbc-democss">
+#gbc-demo{flex:0 0 auto;cursor:pointer;border-radius:15px;padding:6px 12px;font:700 12px Roboto,system-ui,sans-serif;color:#04120c;background:linear-gradient(120deg,#37966a,#19df62);border:0;white-space:nowrap}
+#gbc-demo-box{position:fixed;inset:0;z-index:9999;background:rgba(2,10,7,.82);display:flex;align-items:center;justify-content:center;padding:24px}
+#gbc-demo-box>div{position:relative;display:flex;flex-direction:column;gap:10px;max-width:min(1100px,94vw);max-height:92vh;padding:14px;border-radius:15px;background:#0b2219;border:1px solid rgba(169,246,228,.25);color:#ecfdf3;font:600 15px Roboto,system-ui,sans-serif}
+#gbc-demo-box video{display:block;width:min(1000px,88vw);max-width:100%;max-height:calc(92vh - 70px);object-fit:contain;border-radius:10px;background:#000}
+#gbc-demo-box button{position:absolute;right:10px;top:8px;cursor:pointer;border:0;border-radius:10px;padding:4px 10px;background:rgba(255,255,255,.1);color:#fff;font:700 14px Roboto}
+</style>
 <style id="gbc-xpcss">
 #gbc-xp{display:none!important}/* on hold with the Arena */
 #gbc-xp{position:relative;flex:0 0 auto;cursor:pointer;border-radius:15px;padding:7px 14px 9px;font:700 12px Roboto,system-ui,sans-serif;color:#fff;background:linear-gradient(120deg,#37966a,#19df62);border:0;overflow:visible;white-space:nowrap}
@@ -6537,6 +6578,6 @@ body.three-ready #space-sky{display:none}
 (async()=>{const canvas=document.createElement('canvas');canvas.id='three-sky';canvas.setAttribute('aria-hidden','true');document.body.prepend(canvas);try{const THREE=await import('https://esm.sh/three@0.180.0');const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6));renderer.setClearColor(0x050b17,1);const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x050b17,.03);const camera=new THREE.PerspectiveCamera(58,1,.1,180);camera.position.set(0,3,15);const n=innerWidth<700?700:1500,p=new Float32Array(n*3),c=new Float32Array(n*3),col=new THREE.Color();for(let i=0;i<n;i++){const r=18+Math.random()*82,a=Math.random()*Math.PI*2;p[i*3]=Math.cos(a)*r;p[i*3+1]=(Math.random()-.45)*55;p[i*3+2]=(Math.random()-.5)*130;col.set(i%11===0?0x76dfff:0xc4d9ff);c.set([col.r,col.g,col.b],i*3)}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(p,3));geo.setAttribute('color',new THREE.BufferAttribute(c,3));const stars=new THREE.Points(geo,new THREE.PointsMaterial({size:.13,sizeAttenuation:true,transparent:true,opacity:.9,vertexColors:true,depthWrite:false}));scene.add(stars);const grid=new THREE.GridHelper(150,46,0x2e7897,0x17364d);grid.position.set(0,-8,-24);grid.material.transparent=true;grid.material.opacity=.23;scene.add(grid);const pointer=new THREE.Vector2(),target=new THREE.Vector2();addEventListener('pointermove',e=>{target.x=e.clientX/innerWidth-.5;target.y=e.clientY/innerHeight-.5},{passive:true});function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}addEventListener('resize',resize,{passive:true});resize();let last=performance.now();function animate(now){const dt=Math.min((now-last)/1000,.05);last=now;pointer.lerp(target,.05);camera.position.x=pointer.x*3;camera.position.y=3-pointer.y*2;camera.lookAt(pointer.x*1.5,-1-pointer.y,-18);const hyper=document.getElementById('hyper-jump')?.getAttribute('aria-pressed')==='true';stars.rotation.y+=dt*(hyper?.6:.01);stars.position.z+=dt*(hyper?28:1);if(stars.position.z>35)stars.position.z=-35;grid.position.z+=dt*(hyper?14:.4);if(grid.position.z>-4)grid.position.z=-24;renderer.render(scene,camera)}renderer.setAnimationLoop(animate);document.body.classList.add('three-ready');const badge=document.createElement('div');badge.className='three-signature';badge.innerHTML='3D ENGINE <b>THREE.JS</b>';document.body.append(badge)}catch(e){canvas.remove();console.info('Three.js fallback active')}})();
 </script>
 <script src="./gb-ai/tools.js?v=20261031b"></script>
-<script src="./gb-ai/chat.js?v=20261030a"></script>
+<script src="./gb-ai/chat.js?v=20261102e"></script>
 <script src="./gb-ai/bridge.js?v=20261030a"></script>
 </body></html>

@@ -152,6 +152,7 @@
 .gbec input[type=range]{flex:1;min-width:80px;accent-color:#19df62}.gbec input[type=number]{flex:0 0 72px!important;width:72px!important;min-width:0}
 .gbec input[type=number],.gbec input[type=text],.gbec select{background:rgba(0,0,0,.35);color:inherit;border:1px solid rgba(169,246,228,.3);border-radius:8px;padding:4px 6px;font:inherit}
 .gbec .anc{display:grid;grid-template-columns:repeat(3,26px);gap:3px}.gbec .anc button{padding:0;height:26px;border-radius:6px;font-size:11px}
+.gbec .imgs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.gbec .imgs div{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;border-radius:10px;border:1px dashed rgba(169,246,228,.35);font-size:12px;text-align:center}.gbec .imgs img{width:48px;height:48px;object-fit:contain;border-radius:8px;background:rgba(0,0,0,.3)}.gbec .imgs .row{justify-content:center}
 .gbec .sm{font-size:12px;opacity:.75}.gbec output{min-width:44px;text-align:right;opacity:.85}`
     document.head.appendChild(st)
   }
@@ -198,7 +199,10 @@
       ${c.pulse ? hd(T('Nhịp đập', 'Pulse', '펄스')) + bn(T('Biên độ', 'Amount', '크기'), 'pulseAmt', 0, 30, 0.5, '%') + bn(T('Tốc độ', 'Speed', '속도'), 'pulseSpd', 0.5, 8, 0.1, '') : ''}
       <div class="row"><button data-x="resetbtn">↺ ${T('Về kiểu nút mặc định', 'Reset button style', '버튼 초기화')}</button></div>`
     }
+    const IM = [['icon', T('App icon', 'App icon', '앱 아이콘'), '1024×1024'], ['logo', T('Logo', 'Logo', '로고'), '1200×600 PNG'], ['cta', T('Nút PLAY (ảnh)', 'PLAY button (image)', 'PLAY 버튼'), '1000×260 PNG']]
     root.innerHTML = `<div class="gbec">
+      ${api.upload ? `<div class="imgs">${IM.map(([k, nm, sz]) => { const src = api.imgSrc && api.imgSrc(k); return `<div><b>${nm}</b>${src ? `<img src="${src}" alt="">` : `<span class="sm">${sz}</span>`}<div class="row"><button data-upk="${k}">⬆</button>${src && api.clearImg ? `<button data-rmk="${k}">✕</button>` : ''}</div></div>` }).join('')}</div>
+      <div class="sm">${T('Nút PLAY: để trống thì tool tự vẽ nút xanh lá; tải ảnh lên thì dùng ảnh của bạn.', 'PLAY button: empty = the tool draws the green button; upload one to use your own.', '비우면 기본 버튼')}</div>` : ''}
       <div class="tabs">${PARTS.map(p => `<button data-sel="${p}" class="${c.sel === p ? 'on' : ''}">${nm(p)}${c.el[p].on ? '' : ' ✕'}</button>`).join('')}</div>
       <div class="row"><label><input type="checkbox" data-on ${e.on ? 'checked' : ''}> ${T('Hiện', 'Show', '표시')} <b>${nm(c.sel)}</b></label>
         ${api.upload && (c.sel === 'icon' || c.sel === 'logo') ? `<button data-up>⬆ ${T('Chọn ảnh', 'Pick image', '이미지')}</button>${api.hasImg && api.hasImg(c.sel) ? ' ✓' : ''}` : ''}</div>
@@ -228,6 +232,8 @@
     root.querySelectorAll('[data-sel]').forEach(b => { b.onclick = () => { c.sel = b.dataset.sel; done(true) } })
     root.querySelector('[data-on]').onchange = ev => { e.on = ev.target.checked; done(true) }
     const up = root.querySelector('[data-up]'); if (up) up.onclick = () => api.upload(c.sel)
+    root.querySelectorAll('[data-upk]').forEach(b => { b.onclick = () => api.upload(b.dataset.upk) })
+    root.querySelectorAll('[data-rmk]').forEach(b => { b.onclick = () => { api.clearImg(b.dataset.rmk); setTimeout(redo, 100) } })
     root.querySelectorAll('[data-n]').forEach(inp => { inp.oninput = () => { const v = Number(inp.value); if (!isFinite(v)) return; e[inp.dataset.n] = v; root.querySelectorAll(`[data-n="${inp.dataset.n}"]`).forEach(o => { if (o !== inp) o.value = v }); done(false) }; inp.onchange = () => done(true) })
     root.querySelectorAll('[data-b]').forEach(inp => {
       const key = inp.dataset.b, val = () => inp.type === 'checkbox' ? inp.checked : inp.type === 'number' || inp.type === 'range' ? Number(inp.value) : (key === 'weight' ? Number(inp.value) : inp.value)

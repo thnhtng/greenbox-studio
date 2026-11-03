@@ -136,7 +136,7 @@ function renderText () {
     : T('Chuột / <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> ngắm · giữ <kbd>Space</kbd> (hoặc chuột) lấy lực rồi thả để sút · <kbd>F</kbd> đánh lừa thủ môn trước khi sút', 'Mouse / arrows aim · hold <kbd>Space</kbd> (or the mouse) for power, release to shoot · <kbd>F</kbd> feint before you shoot', '마우스 / 방향키 조준 · <kbd>Space</kbd> 파워 · <kbd>F</kbd> 페인트');
   renderSkills(); renderXP(); if (state !== 'play') showOver();
 }
-addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.gbLang) { L = e.data.gbLang; renderText(); } });
+addEventListener('message', e => { if ((e.origin === location.origin || (location.protocol === 'file:' && e.origin === 'null')) && e.data && e.data.gbLang) { L = e.data.gbLang; renderText(); } });
 addEventListener('gb-xp', renderXP); addEventListener('storage', e => { if (e.key === 'gb.xp') { renderXP(); renderSkills(); } });
 let toastT = 0; function toast (s) { const t = $('toast'); t.textContent = s; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 1400); }
 

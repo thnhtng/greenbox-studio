@@ -233,7 +233,7 @@ Repository được cấu hình để tự động triển khai lên GitHub Page
 
 ## Cập nhật 02/11/2026 (đợt 21–22) — màu xanh lá, game bắn rơi khối, MCP cho Codex
 - **Màu chủ đạo xanh lá** (đúng chất Greenbox) cho Cockpit, các trang 3D, thanh máu, SFX và trang giới thiệu.
-- **🎯 Bắn rơi khối** (nhóm Blockout game): vẽ bức tường lon / hộp trên bàn (4 màu, mẫu tường / kim tự tháp / tháp / caro / ngẫu nhiên), súng ở giữa, bấm để bắn với vật lý thật, ⚡ bắn tự động, quay video blockout 9:16, rồi copy prompt để Seedance làm đẹp theo chủ đề (kẹo, siêu thị, đồ chơi, công trường, sci-fi).
+- **🎯 SMASH DOWN (bắn rơi khối)** (nhóm Blockout game): vẽ bức tường lon / hộp trên bàn (4 màu, mẫu tường / kim tự tháp / tháp / caro / ngẫu nhiên), súng ở giữa, bấm để bắn với vật lý thật, ⚡ bắn tự động, quay video blockout 9:16, rồi copy prompt để Seedance làm đẹp theo chủ đề (kẹo, siêu thị, đồ chơi, công trường, sci-fi).
 - **MCP**: khung AI có nút gắn cho **Claude Desktop, Codex, Claude Code** (file cũ được sao lưu). Lệnh mới `gb_smash`.
 - **End card / carousel**: bấm phần tử trên khung để kéo (cả khi xem lại take), Shift = khoá trục như After Effects, thẻ xếp chồng khung 16:9.
 - **Trang giới thiệu**: vòng quy trình hình tròn; bước UA + AI (chọn hướng & test nhanh, AI lo phần edit râu ria, người lo pacing và kịch bản chơi) và bước AI đa dạng hoá creative; thêm "Tự vẽ map & game blockout".

@@ -1,0 +1,36 @@
+<!doctype html><meta charset="utf-8"><title>sprite</title>
+<!-- Renders transparent sprite frames of a GLB for the intro page (driven by sprites.mjs): window.frames_of(opts) -> [dataURL] -->
+<style>html,body{margin:0;background:transparent}</style>
+<script type="importmap">{"imports":{"three":"./three/build/three.module.js","three/addons/":"./three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+const R = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true })
+R.setClearColor(0x000000, 0); R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping
+document.body.append(R.domElement)
+// { url, px, n, clip?, yaw (deg, camera around the model), pitch (deg), spin (turntable), tint? }
+window.frames_of = async (o) => {
+  R.setSize(o.px, o.px, false); R.setPixelRatio(1)
+  const g = await new GLTFLoader().loadAsync(o.url)
+  const scene = new THREE.Scene(); scene.environment = new THREE.PMREMGenerator(R).fromScene(new RoomEnvironment(), 0.04).texture
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334433, 1.2)); const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(3, 5, 4); scene.add(sun)
+  const root = g.scene; const pivot = new THREE.Group(); pivot.add(root); scene.add(pivot)
+  root.traverse(m => { if (m.isMesh && !m.isSkinnedMesh && o.clip && !m.parent?.isBone) { if (!root.getObjectByProperty('isSkinnedMesh', true) || m.geometry.boundingSphere?.radius > 0) {} } })
+  if (o.clip) root.traverse(m => { if (m.isMesh && !m.isSkinnedMesh) m.visible = false }) // helper meshes in the export
+  if (o.tint) root.traverse(m => { if (m.isMesh) { const mats = Array.isArray(m.material) ? m.material : [m.material]; mats.forEach(t => { if (t.emissive) { t.emissive = new THREE.Color(o.tint); t.emissiveIntensity = 0.25 } }) } })
+  let mixer = null, clip = null
+  if (o.clip) { clip = g.animations.find(a => a.name === o.clip); mixer = new THREE.AnimationMixer(root); mixer.clipAction(clip).play() }
+  const box = new THREE.Box3(); const tmp = new THREE.Box3()
+  const pose = (i) => { if (mixer) mixer.setTime(clip.duration * i / o.n); if (o.spin) pivot.rotation.set(THREE.MathUtils.degToRad(o.tilt || 0), Math.PI * 2 * i / o.n, 0, 'YXZ'); root.updateMatrixWorld(true) }
+  for (let i = 0; i < o.n; i++) { pose(i); root.traverse(m => { if (m.isMesh && m.visible) { if (m.isSkinnedMesh) { m.computeBoundingBox(); tmp.copy(m.boundingBox).applyMatrix4(m.matrixWorld) } else tmp.setFromObject(m); box.union(tmp) } }) }
+  const c = box.getCenter(new THREE.Vector3()); const s = box.getSize(new THREE.Vector3()); const r = Math.max(s.x, s.y, s.z) * 0.6
+  const cam = new THREE.OrthographicCamera(-r, r, r, -r, 0.001, r * 40)
+  const yaw = THREE.MathUtils.degToRad(o.yaw || 0), pitch = THREE.MathUtils.degToRad(o.pitch || 0)
+  cam.position.copy(c).add(new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)).multiplyScalar(r * 10)); cam.lookAt(c)
+  const out = []
+  for (let i = 0; i < o.n; i++) { pose(i); R.render(scene, cam); out.push(R.domElement.toDataURL('image/png')) }
+  return out
+}
+window.ready = true
+</script>

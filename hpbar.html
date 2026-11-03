@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HP Bar Greenbox</title>
-<script>(function(){var r=document.documentElement,set=function(v){r.classList.toggle("gbv",v==="v");r.classList.toggle("gbk",v!=="v"&&v!=="d")};try{set(localStorage.getItem("gbc.ui")||"k")}catch(e){set("k")}addEventListener("message",function(e){if(e.origin===location.origin&&e.data&&e.data.gbTheme)set(e.data.gbTheme)})})();</script>
+<script>(function(){var r=document.documentElement,set=function(v){r.classList.toggle("gbv",v==="v");r.classList.toggle("gbk",v!=="v"&&v!=="d")};try{set(localStorage.getItem("gbc.ui")||"k")}catch(e){set("k")}addEventListener("message",function(e){if((e.origin===location.origin||(location.protocol==='file:'&&e.origin==='null'))&&e.data&&e.data.gbTheme)set(e.data.gbTheme)})})();</script>
 <script src="./gb-xp.js"></script>
 <script src="./gb-endcard.js?v=20261102e"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Public+Sans:wght@400;500;700&family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,900&display=swap">
@@ -126,7 +126,8 @@ let L = qs || (() => { try { return localStorage.getItem('gbc.lang') || 'vi'; } 
 const embed = window.self !== window.top || /[?&]embed=1/.test(location.search);
 if (embed) document.documentElement.classList.add('embed');
 const T = (vi, en, ko) => L === 'en' ? en : L === 'ko' ? (ko || en) : vi;
-addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.gbLang) { L = e.data.gbLang; render(); } });
+addEventListener('message', e => { if ((e.origin === location.origin || (location.protocol === 'file:' && e.origin === 'null')) && e.data && e.data.gbLang) { L = e.data.gbLang; render(); } });
+addEventListener('message', e => { if ((e.origin === location.origin || (location.protocol === 'file:' && e.origin === 'null')) && e.data && e.data.gbHpPage) set_page(e.data.gbHpPage); }); // the cockpit's page switch (also works from file://)
 const $ = id => document.getElementById(id);
 
 /* ---------------- state ---------------- */
@@ -281,12 +282,10 @@ function paint (c, tt, bg) {
   paint_vig(c, tt);
 }
 /* ---- 🏁 end card ---- */
-const EC_SLOTS = [
-  ['ecIcon', 'App icon', 'App icon', 1024, 1024, 'PNG vuông (tool tự bo góc)', 'square PNG (corners rounded here)'],
-  ['ecLogo', 'Logo game', 'Game logo', 1200, 600, 'PNG trong suốt', 'transparent PNG'],
-  ['ecCta', 'Ảnh nút PLAY NOW (tuỳ chọn)', 'PLAY NOW button image (optional)', 800, 240, 'PNG trong suốt — chọn “Ảnh của bạn” ở kiểu nền nút', 'transparent PNG — pick “Your image” as the button fill'],
+const EC_SLOTS = [ // icon / logo / PLAY button pictures are in the parts panel (gb-endcard.js)
   ['ecBg', 'Ảnh nền cả khung (tuỳ chọn)', 'Full-frame background (optional)', 1080, 1920, 'JPG / PNG — làm mờ phía sau', 'JPG / PNG — blurred behind']
 ];
+const EC_KEY = { icon: 'ecIcon', logo: 'ecLogo', cta: 'ecCta' };
 const ec_imgs = () => ({ icon: IMG.ecIcon, logo: IMG.ecLogo, cta: IMG.ecCta });
 /** when each part pops (s) */
 function ec_times () { const c = S.ec.layer, t1 = c.start + c.grow, o = { card: c.start }; GBEC.layout(c, W, H, ec_imgs()).list.forEach((b, i) => { o[b.p] = t1 + c.stagger * i; }); return o; }
@@ -1070,7 +1069,7 @@ function render_panel () {
   <input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden>`;
     side.scrollTop = sy; $('hint').textContent = T('Kéo thẻ trên khung hình để đặt · mũi tên dịch từng px · Space phát / dừng', 'Drag the card on the preview · arrow keys nudge · Space play / pause', '카드 드래그 · Space');
     wire();
-    GBEC.panel($('ecPanel'), S.ec.layer, { kind: 'simple', lang: () => L, change: () => { if (S.dur < ec_len()) S.dur = ec_len(); invalidate(); }, upload: k => { up_slot = k === 'icon' ? 'ecIcon' : k === 'cta' ? 'ecCta' : 'ecLogo'; $('fImg').click(); }, hasImg: k => !!IMG[k === 'icon' ? 'ecIcon' : k === 'cta' ? 'ecCta' : 'ecLogo'] });
+    GBEC.panel($('ecPanel'), S.ec.layer, { kind: 'simple', lang: () => L, change: () => { if (S.dur < ec_len()) S.dur = ec_len(); invalidate(); }, upload: k => { up_slot = EC_KEY[k]; $('fImg').click(); }, hasImg: k => !!IMG[EC_KEY[k]], imgSrc: k => IMG[EC_KEY[k]] && IMG[EC_KEY[k]].src, clearImg: k => { delete IMG[EC_KEY[k]]; img_del(EC_KEY[k]); dirty = true; } });
     return;
   }
   if (S.page === 'count') { side.innerHTML = tabs + countHtml + `<input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden>`; side.scrollTop = sy; $('hint').textContent = T('Kéo số trên khung hình để căn · mũi tên dịch từng px · Space phát / dừng', 'Drag the number on the preview · arrow keys nudge · Space play / pause', '숫자 드래그 · 방향키 · Space'); wire(); return; }

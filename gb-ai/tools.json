@@ -235,7 +235,7 @@
  },
  {
   "name": "gb_smash",
-  "description": "Target smash blockout (a shooting ad: a wall of cans / boxes on a table, a gun in the middle). Actions: status (ammo, knocked, blocks, layout), preset {name: wall | pyramid | towers | checker | random}, reset (rebuild the stack), shoot {x, y} (0..1 of the 9:16 view), auto {on} (auto shoot), record (start / stop a 9:16 blockout video download), prompt (the Seedance video-to-video prompt for the chosen theme).",
+  "description": "SMASH DOWN blockout (a shooting ad: a wall of cans / boxes on a table, a gun in the middle). Actions: status (ammo, knocked, blocks, layout), preset {name: wall | pyramid | towers | checker | random}, reset (rebuild the stack), shoot {x, y} (0..1 of the 9:16 view), auto {on} (auto shoot), record (start recording the 9:16 view), stop (stop and save the blockout video), prompt (the Seedance video-to-video prompt for the chosen theme). base {name: table | pedestal | steps | float | spin (turntable) | slide (moves side to side), speed? 0–3, color? \"#rrggbb\"} (what the stack stands on).",
   "input_schema": {
    "type": "object",
    "properties": {
@@ -248,7 +248,9 @@
       "shoot",
       "auto",
       "record",
-      "prompt"
+      "stop",
+      "prompt",
+      "base"
      ]
     },
     "name": {
@@ -262,6 +264,12 @@
     },
     "on": {
      "type": "boolean"
+    },
+    "speed": {
+     "type": "number"
+    },
+    "color": {
+     "type": "string"
     }
    },
    "required": [

@@ -167,12 +167,16 @@
     }
     veil.style.display = on ? 'flex' : 'none';
   }
-  var depth = 0;
-  addEventListener('dragenter', function (e) { if (!input() || !allowed() || !e.dataTransfer || [].indexOf.call(e.dataTransfer.types, 'Files') < 0) return; depth++; show(true); });
-  addEventListener('dragleave', function () { depth = Math.max(0, depth - 1); if (depth === 0) show(false); });
-  addEventListener('dragover', function (e) { if (input() && allowed()) e.preventDefault(); });
+  var depth = 0, last = 0, timer = 0;
+  // the veil goes away even when a panel takes the drop itself and stops it (capture phase runs first),
+  // when the file is dragged out of the window, or when no drag is seen for a moment
+  function off () { depth = 0; show(false); clearInterval(timer); timer = 0; }
+  addEventListener('dragenter', function (e) { if (!input() || !allowed() || !e.dataTransfer || [].indexOf.call(e.dataTransfer.types, 'Files') < 0) return; depth++; last = Date.now(); show(true); if (!timer) timer = setInterval(function () { if (Date.now() - last > 600) off(); }, 250); });
+  addEventListener('dragleave', function (e) { depth = Math.max(0, depth - 1); if (depth === 0 || !e.relatedTarget) off(); });
+  addEventListener('dragover', function (e) { last = Date.now(); if (input() && allowed()) e.preventDefault(); });
+  addEventListener('drop', off, true); addEventListener('dragend', off, true); addEventListener('blur', off);
   addEventListener('drop', function (e) {
-    depth = 0; show(false);
+    off();
     var el = input(); if (!el || e.defaultPrevented || !allowed()) return;
     var f = e.dataTransfer && e.dataTransfer.files; if (!f || !f.length) return;
     e.preventDefault();

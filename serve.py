@@ -55,8 +55,7 @@ class Server(socketserver.ThreadingTCPServer):
     block_on_close = False
 
     def handle_error(self, request, client_address):
-        # Reloading or switching a large cockpit page can cancel the previous response. That is normal browser
-        # behaviour, so keep the launcher window clean instead of printing a misleading server traceback.
+        # Reloading or switching a live browser tab can close a socket while the server is writing.
         if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError)):
             return
         super().handle_error(request, client_address)

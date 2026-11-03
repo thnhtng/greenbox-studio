@@ -105,7 +105,7 @@ class PlaytestApp {
     view.appendChild(this.renderer.domElement)
     this.renderer.setPixelRatio(Math.min(1.5, devicePixelRatio)) // retina at 2x costs 4x the pixels: 1.5 looks the same while working
     this.renderer.shadowMap.enabled = true
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.scene.background = new THREE.Color(0x9fc6e8)
     this.scene.fog = new THREE.Fog(0x9fc6e8, 25, 70)
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7a5a, 1.4))
@@ -116,6 +116,7 @@ class PlaytestApp {
     this.scene.add(sun); this.scene.add(sun.target)
     this.ground = this.make_ground(); this.scene.add(this.ground)
     this.world = new World(this.scene, this.camera, this.renderer.domElement)
+    addEventListener('pointerdown', e => { if (e.button === 0 && e.target === this.renderer.domElement) this.note_click(e) }, { capture: true }) // 📝 block notes (window capture: before the game's own handlers)
     this.make_props()
     this.map = new MapEditor(this.world, this.scene, () => this.camera, this.renderer.domElement)
     const aside = document.querySelector('aside'); const sec3 = $('pt-edit').closest('section')
@@ -170,27 +171,8 @@ class PlaytestApp {
     return new THREE.ShapeGeometry(sh)
   }
 
-  private make_props (): void {
-    const V = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x, y, z)
-    this.world.add_box(V(5, 0, -4), V(2, 1, 2), 0xd9a35c, 'Crate (climb me)')
-    this.world.add_box(V(-6, 0, -6), V(3, 2, 1.2), 0xc7c7c7, 'Wall 2 m')
-    this.world.add_box(V(-4, 0, 6), V(1.2, 0.4, 1.2), 0xe07a5f, 'Step')
-    this.world.add_box(V(8, 0, 6), V(1, 3, 6), 0x8e9aaf, 'Tall wall')
-    this.world.add_box(V(0, 0, -12), V(10, 0.6, 1), 0xb5838d, 'Ledge')
-    // a ramp to walk up
-    const ramp = this.world.add_box(V(-9, 0, 2), V(2.5, 0.25, 6), 0x9c8f6b, 'Ramp')
-    ramp.rotation.x = -0.28; ramp.position.y = 3 * Math.sin(0.28); this.world.refresh()
-    // training dummy: something to hit
-    const d = new THREE.Group()
-    const mat = new THREE.MeshLambertMaterial({ color: 0xc8a165 })
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.6), new THREE.MeshLambertMaterial({ color: 0x6b4f2a })); post.position.y = 0.3
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.9, 16), mat); body.position.y = 1.05
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), mat); head.position.y = 1.7
-    const top = new THREE.Group(); top.add(body, head)
-    ;[post, body, head].forEach(o => { o.castShadow = true })
-    d.add(post, top); d.position.set(0, 0, -3); d.userData.top = top
-    this.scene.add(d); this.dummy = d
-  }
+  /** the play test starts on an empty, flat ground (no sample boxes, ramp or training dummy): you build your own map */
+  private make_props (): void {}
 
   /* ---------------- loading ---------------- */
   private async boot (): Promise<void> {
@@ -700,6 +682,32 @@ class PlaytestApp {
     }
     this.update_camera(dt)
     this.renderer.render(this.scene, this.camera)
+    this.place_notes()
+  }
+
+  /* ---------------- 📝 notes: click a map block that has a note → a bubble over it (Roboto: Vietnamese / Korean) ---------------- */
+  private readonly notes = new Map<THREE.Object3D, HTMLDivElement>()
+  private note_click (e: PointerEvent): void {
+    const el = this.renderer.domElement, r = el.getBoundingClientRect(), ray = new THREE.Raycaster()
+    ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), this.camera)
+    for (const h of ray.intersectObjects(this.world.props.children, true)) {
+      let o: THREE.Object3D | null = h.object; while (o !== null && o.userData.map_extra === undefined) o = o.parent
+      const note = (o?.userData.map_extra as { note?: string } | undefined)?.note; if (o === null) continue
+      if (note === undefined || note.trim() === '') return
+      const old = this.notes.get(o); if (old !== undefined) { old.remove(); this.notes.delete(o); return } // a second click hides it
+      const d = document.createElement('div'); d.className = 'pt-note'; d.textContent = note
+      d.onclick = () => { d.remove(); this.notes.delete(o as THREE.Object3D) }
+      $('pt-view').appendChild(d); this.notes.set(o, d); return
+    }
+  }
+  private place_notes (): void {
+    if (this.notes.size === 0) return
+    const el = this.renderer.domElement, v = new THREE.Vector3()
+    this.notes.forEach((d, o) => {
+      if (o.parent === null) { d.remove(); this.notes.delete(o); return }
+      const b = new THREE.Box3().setFromObject(o); v.set((b.min.x + b.max.x) / 2, b.max.y, (b.min.z + b.max.z) / 2).project(this.camera)
+      d.style.display = v.z > 1 ? 'none' : ''; d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'
+    })
   }
 
   private follow_target (): THREE.Vector3 {

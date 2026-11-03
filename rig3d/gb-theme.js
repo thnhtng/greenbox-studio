@@ -34,6 +34,6 @@ var f=document.createElement('link'); f.rel='stylesheet'; f.href='https://fonts.
 try{ var me=document.currentScript; if(me&&me.src){ var x=document.createElement('script'); x.src=new URL('../gb-xp.js', me.src).href; (document.head||document.documentElement).appendChild(x); } }catch(e){} // XP for using the 3D pages
 var r=document.documentElement, set=function(v){ r.classList.toggle('gbv', v==='v'); r.classList.toggle('gbk', v!=='v' && v!=='d'); };
 try{ var v0=localStorage.getItem('gbc.ui')||'k'; set(v0); localStorage.setItem('mesh2motion-theme', v0==='v'?'light':'dark'); }catch(e){ set('k'); } // the 3D view itself follows on the next load
-addEventListener('message', function(e){ if(e.origin===location.origin && e.data && e.data.gbTheme) set(e.data.gbTheme); });
+addEventListener('message', function(e){ if((e.origin===location.origin||(location.protocol==='file:'&&e.origin==='null')) && e.data && e.data.gbTheme) set(e.data.gbTheme); });
 addEventListener('storage', function(e){ if(e.key==='gbc.ui') set(e.newValue||'k'); });
 })();

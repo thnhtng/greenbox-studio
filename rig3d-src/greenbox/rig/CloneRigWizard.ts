@@ -13,7 +13,7 @@ import { RigConfig } from '../../lib/RigConfig.ts'
 import { type Mesh2MotionEngine } from '../../Mesh2MotionEngine.ts'
 import { load_any_files } from '../common/AnyLoader.ts'
 import { M } from '../common/lang.ts'
-import { list_rig_files, get_rig_file, save_rig_file, CLONE_FIT } from './CustomRig.ts'
+import { list_rig_files, get_rig_file, save_rig_file, CLONE_FIT, facing_yaw, learn_from, learned_for } from './CustomRig.ts'
 
 interface Source { files: File[], name: string, scene: THREE.Object3D, clips: THREE.AnimationClip[], bones: number }
 
@@ -28,6 +28,7 @@ export class CloneRigWizard {
   private done = false
   private model_name = ''
   private adjust = false
+  private long_z = false // your model is longer along Z than along X
 
   constructor (private readonly engine: Mesh2MotionEngine) {}
 
@@ -48,7 +49,7 @@ export class CloneRigWizard {
   }
 
   private mini = false
-  public close (): void { if (this.root !== null) this.root.style.display = 'none'; this.drop_preview() }
+  public close (): void { if (this.root !== null) this.root.style.display = 'none'; this.drop_preview(); (this.engine as any).scene_environment?.set_fog_enabled?.(true) }
 
   /* ---------------- panel ---------------- */
   private build (): void {
@@ -66,6 +67,7 @@ export class CloneRigWizard {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-a]'); if (b === null) return
       const a = b.dataset.a
       if (a === 'close') this.close()
+      if (a === 'learn' && this.src !== null) { const n = learn_from(this.src.scene, this.src.name); alert(M(`Learned ${n} joints from ${this.src.name} (10/10). Clones with this skeleton now place them the same way.`, `Đã học ${n} khớp từ ${this.src.name} (10/10). Các lần clone với bộ xương này sẽ đặt khớp y như vậy.`, `${n}개 관절 학습`)); void this.render() }
       else if (a === 'min') { this.mini = !this.mini; void this.render() }
       else if (a === 'vsample') {
         // vehicles are cloned on the vehicle page: the sample's rig + animations go onto the car you upload there
@@ -90,6 +92,8 @@ export class CloneRigWizard {
       if (el.dataset.k === 'adjust') this.adjust = el.checked
       if (el.dataset.k === 'warp') CLONE_FIT.warp = el.checked
       if (el.dataset.k === 'flip') CLONE_FIT.flip = el.checked
+      if (el.dataset.k === 'jaw') CLONE_FIT.jaw_still = el.checked
+      if (el.dataset.k === 'head') CLONE_FIT.head_still = el.checked
     })
   }
 
@@ -117,11 +121,13 @@ export class CloneRigWizard {
       : ''
     const one = ready !== '' ? ready : this.picked !== '' && src === null ? `<b>${this.picked}</b> ✓` : src === null
       ? drop(1, T('Your NEW model (no bones) — or a file WITH a rig', 'Model MỚI (chưa xương) — hoặc file CÓ xương')) + `<div style="margin-top:8px;padding:8px;border-radius:10px;border:1px solid var(--gbp-line,#39424f)">🚗 ${T('A vehicle? Use a ready rigged sample (wheels, doors, tracks… + animations):', 'Là xe? Dùng xe mẫu đã rig sẵn (bánh, cửa, xích… + animation):')}<div style="display:flex;gap:4px;margin-top:6px"><select data-k2="vsample" style="flex:1;min-width:0;padding:6px;border-radius:8px;background:var(--gbp-input,#0e1116);color:inherit;border:1px solid var(--gbp-line,#39424f)">${SAMPLES.map(x => `<option value="${x.id}">${T(x.label, x.vi)}</option>`).join('')}</select>${btn('vsample', '→', true)}</div></div>` + (saved.length > 0 ? `<div style="margin-top:6px;opacity:.8">${T('or a rig you used before:', 'hoặc rig đã dùng trước đây:')}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${saved.map(n => btn('saved', '🦴 ' + n, false, `data-n="${n.replace(/"/g, '&quot;')}" title="${n.replace(/"/g, '&quot;')}" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 9px;border-radius:9px;border:1px solid var(--gbp-line,#39424f);background:var(--gbp-btn,#1f2630);color:inherit;cursor:pointer"`)).join('')}</div>` : '')
-      : `<b>${src.name}</b> · ${src.bones} ${T('bones', 'xương')} · ${src.clips.length} ${T('animations', 'animation')}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${src.clips.map((c, i) => btn('clip', '▶ ' + (c.name !== '' ? c.name : '#' + (i + 1)), false, `data-i="${i}"`)).join('')}</div><div style="opacity:.75;margin-top:4px">${T('Shown on the right: its model, its skeleton (lines) and its moves.', 'Đang hiện bên phải: model, khung xương (đường kẻ) và animation của file.')}</div>`
+      : `<b>${src.name}</b> · ${src.bones} ${T('bones', 'xương')} · ${src.clips.length} ${T('animations', 'animation')}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${src.clips.map((c, i) => btn('clip', '▶ ' + (c.name !== '' ? c.name : '#' + (i + 1)), false, `data-i="${i}"`)).join('')}</div><div style="opacity:.75;margin-top:4px">${T('Shown on the right: its model, its skeleton (lines) and its moves.', 'Đang hiện bên phải: model, khung xương (đường kẻ) và animation của file.')}</div><div style="margin-top:6px">${this.learned_note()}${btn('learn', '⭐ ' + T('10/10: learn its joints from this file', 'Chuẩn 10/10: học vị trí xương từ file này'), false, `title="${T('A well rigged file: its main joints (hips, spine, shoulders, neck, head) are remembered as places in its body. Every later clone with these bones puts them there.', 'File đã rig chuẩn: vị trí các khớp chính (hông, cột sống, vai, cổ, đầu) trong thân được ghi nhớ. Lần clone sau với bộ xương này sẽ đặt khớp theo đúng bài đã học.')}"`)}</div>`
     const two = has_model && src === null ? `<b>${this.model_name !== '' ? this.model_name : T('your model', 'model của bạn')}</b> ✓` : s < 2 ? T('Then your model without bones.', 'Sau đó là model chưa có xương của bạn.') : s === 2 ? drop(2, T('Your model WITHOUT bones', 'Model CHƯA có xương của bạn')) : `<b>${this.model_name !== '' ? this.model_name : T('your model', 'model của bạn')}</b> ✓`
     const three = this.picked !== '' && s === 3 ? `⏳ ${T('Fitting', 'Đang gắn')} ${this.picked}…` : s < 3 ? T('Its skeleton goes into your model, your model is skinned to it and gets its animations.', 'Bộ xương được đặt vào model của bạn, model được skin theo nó và nhận các animation.')
-      : s === 3 ? `<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-k="warp"${CLONE_FIT.warp ? ' checked' : ''}> ${T('Bend the skeleton to this body (different length, legs, pose)', 'Uốn xương theo thân model này (khác dài, khác chân, khác tư thế)')}</label>
+      : s === 3 ? `<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-k="warp"${CLONE_FIT.warp ? ' checked' : ''}> ${T('Advanced: bend the skeleton to a differently shaped body (off = copy the skeleton as it is)', 'Nâng cao: uốn xương theo thân khác dáng (tắt = copy nguyên bộ xương)')}</label>
         <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-k="flip"${CLONE_FIT.flip ? ' checked' : ''}> ${T('Head and tail are swapped (turn it around)', 'Đầu / đuôi bị ngược (quay lại)')}</label>
+        <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-k="jaw"${CLONE_FIT.jaw_still ? ' checked' : ''}> ${T('One-piece mouth: keep the jaw still (no torn snout)', 'Miệng liền một khối: giữ hàm đứng yên (không rách mõm)')}</label>
+        <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-k="head"${CLONE_FIT.head_still ? ' checked' : ''}> ${T('Stiff head (it rides on the body: no bent face)', 'Giữ đầu cứng (đầu đi theo thân, mặt không bị méo)')}</label>
         <label style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input type="checkbox" data-k="adjust"${this.adjust ? ' checked' : ''}> ${T('Stop at the joints to adjust them first', 'Dừng ở bước khớp để chỉnh trước')}</label>${btn('apply', this.busy ? '⏳ …' : '🧬 ' + T('Apply the rig to my model', 'Áp dụng rig vào model'), true)}`
         : T('Done: your model has the rig.', 'Xong: model của bạn đã có rig.')
     const four = s < 4 ? T('Export your base model with the rig and the animations.', 'Xuất model base đã có rig và animation.')
@@ -180,15 +186,37 @@ export class CloneRigWizard {
     const kk = Number.isFinite(k) && k > 0 ? k : 1
     g.scale.setScalar(kk)
     const c = box.getCenter(new THREE.Vector3())
-    const shift = target !== null ? target.max.x + (size.x * kk) * 0.7 + 0.2 : 0
-    g.position.set(-c.x * kk + shift, -box.min.y * kk, -c.z * kk)
+    // in a row with your model, along its long side, so a side view shows both and they never overlap
+    const ts = target !== null ? target.getSize(new THREE.Vector3()) : null; this.long_z = ts !== null && ts.z > ts.x
+    const tcn = target !== null ? target.getCenter(new THREE.Vector3()) : new THREE.Vector3()
+    if (target === null) g.position.set(-c.x * kk, -box.min.y * kk, -c.z * kk)
+    else if (!this.long_z) g.position.set(-c.x * kk + target.max.x + (size.x * kk) * 0.6 + 0.3, -box.min.y * kk, -c.z * kk + tcn.z)
+    else g.position.set(-c.x * kk + tcn.x, -box.min.y * kk, -c.z * kk + target.max.z + (size.z * kk) * 0.6 + 0.3)
     const helper = new THREE.SkeletonHelper(s.scene); (helper.material as THREE.LineBasicMaterial).depthTest = false; helper.renderOrder = 50
     this.engine.scene.add(g); this.engine.scene.add(helper); helper.name = 'Clone rig preview skeleton'
     g.userData.helper = helper
     this.preview = g
     this.mixer = new THREE.AnimationMixer(s.scene)
     if (s.clips.length > 0) this.play(Math.max(0, s.clips.findIndex(c2 => /idle/i.test(c2.name))))
-    this.frame()
+    this.frame(); for (const t of [700, 1600]) setTimeout(() => this.frame(), t) // the rig page re-frames on its own after a turn / floor align
+  }
+
+  /** your model is turned (90° steps) so its head points where the rig file's head points: no manual turning */
+  private async auto_face (): Promise<void> {
+    const s = this.src; if (s === null || this.engine.process_step === 'load-model') return
+    for (let i = 0; i < 4; i++) {
+      const y = facing_yaw(s.scene, this.engine.load_model_step.model_meshes()); if (y === null) return
+      const d = Math.abs(((y * 180 / Math.PI) % 360 + 540) % 360 - 180); if (d < 45) break
+      ;(document.getElementById('rotate-model-y-button') as HTMLButtonElement | null)?.click()
+      await new Promise(r => setTimeout(r, 250))
+    }
+    ;(document.getElementById('auto-align-model-button') as HTMLButtonElement | null)?.click()
+    await new Promise(r => setTimeout(r, 150))
+  }
+
+  private learned_note (): string {
+    const l = this.src !== null ? learned_for(this.src.scene) : null
+    return l !== null ? `<div style="color:var(--gbp-accent,#4fed89);font-weight:700;margin-bottom:4px">⭐ ${M('Learned joints in use', 'Đang dùng vị trí khớp đã học', '학습한 관절 사용 중')}: ${l.name}</div>` : ''
   }
 
   private play (i: number): void {
@@ -211,14 +239,16 @@ export class CloneRigWizard {
 
   /** look at what is on screen (the rig file, and your model when it is there) */
   private frame (): void {
-    const box = new THREE.Box3(); if (this.preview !== null) box.expandByObject(this.preview); const mb = this.model_box(); if (mb !== null) box.union(mb)
+    const box = new THREE.Box3(); if (this.preview !== null) { this.preview.updateMatrixWorld(true); box.union(new THREE.Box3().setFromObject(this.preview, true)) } // precise: a skinned box from the bind data can be far too small; const mb = this.model_box(); if (mb !== null) box.union(mb)
     if (box.isEmpty()) return
     const c = box.getCenter(new THREE.Vector3()); const r = box.getSize(new THREE.Vector3()).length()
     // far enough for the camera's field of view (the rig page uses a narrow 15° lens)
     const cam = this.engine.camera; const fov = THREE.MathUtils.degToRad(cam.fov)
-    const dist = (r * 0.5) / Math.tan(fov / 2) * 1.15
-    cam.position.copy(c).add(new THREE.Vector3(0.35, 0.45, 1).normalize().multiplyScalar(dist)); cam.lookAt(c)
-    const oc = (this.engine as any).scene_environment?.orbit_controls?.(); if (oc != null) { oc.target.copy(c); oc.update() }
+    const dist = (r * 0.5) / Math.tan(fov / 2) * 1.05
+    ;(this.engine as any).scene_environment?.set_fog_enabled?.(false) // the rig file and a long model side by side sit past the fog
+    // from the side of the row (a long body seen end-on fills the screen)
+    cam.position.copy(c).add((this.long_z ? new THREE.Vector3(1, 0.45, 0.3) : new THREE.Vector3(0.3, 0.45, 1)).normalize().multiplyScalar(dist)); cam.lookAt(c)
+    const oc = (this.engine as any).scene_environment?.orbit_controls?.(); if (oc != null) { oc.maxDistance = Math.max(oc.maxDistance, dist * 1.5); oc.target.copy(c); oc.update() } // the orbit's 30-unit limit cut long models
   }
 
   private loop (): void {
@@ -228,7 +258,7 @@ export class CloneRigWizard {
     if (this.mixer !== null) this.mixer.update(dt)
     // step 2 → 3 happens inside the rig page: keep the cards in sync
     // the ready rigs appear as soon as a dropped model is in, whatever step number
-    const s = this.step() + (this.engine.process_step !== 'load-model' ? 10 : 0); if (s !== (this.root as any)?.__s) { (this.root as any).__s = s; if (this.root?.style.display !== 'none') { void this.render(); if (s % 10 === 3 && this.picked === '') { setTimeout(() => this.show_preview(), 300) } } }
+    const s = this.step() + (this.engine.process_step !== 'load-model' ? 10 : 0); if (s !== (this.root as any)?.__s) { (this.root as any).__s = s; if (this.root?.style.display !== 'none') { void this.render(); if (s % 10 === 3 && this.picked === '') { setTimeout(() => { void this.auto_face().then(() => this.show_preview()) }, 300) } } }
   }
 
   /* ---------------- 2: your model ---------------- */
@@ -303,5 +333,7 @@ export function mount_clone_rig (engine: Mesh2MotionEngine): CloneRigWizard {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add()
   if (/[?&]clone=1/.test(location.search)) setTimeout(() => w.open(), 300)
   ;(window as any).__gbCloneRig = w; (window as any).__gbCloneFit = CLONE_FIT
+  // the cockpit asks by message when it cannot reach into this frame (pages opened from file://)
+  addEventListener('message', (e) => { if ((e.data as any)?.gbCloneOpen === 1) w.open() })
   return w
 }

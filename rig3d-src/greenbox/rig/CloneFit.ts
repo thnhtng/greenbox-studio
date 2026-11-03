@@ -49,6 +49,8 @@ export function body_frame (pts: THREE.Vector3[], head: (f: THREE.Vector3) => nu
 }
 
 /** position of p in the body: u 0 (tail) .. 1 (head), s (left +, in body lengths), h (height, in body lengths) */
+/** back from body place (u, s, h) to a point */
+export const unlocal = (fr: Frame, q: THREE.Vector3): THREE.Vector3 => fr.f.clone().multiplyScalar(q.x * fr.L + fr.u0).add(fr.l.clone().multiplyScalar(q.y * fr.L + fr.c.dot(fr.l))).add(new THREE.Vector3(0, q.z * fr.L + fr.minY, 0))
 export const local = (fr: Frame, p: THREE.Vector3): THREE.Vector3 => new THREE.Vector3((p.dot(fr.f) - fr.u0) / fr.L, p.clone().sub(fr.c).dot(fr.l) / fr.L, (p.y - fr.minY) / fr.L)
 
 /** the thicker end is the head (tails taper): + if the +f end is thicker */
@@ -73,6 +75,14 @@ export function midline (pts: THREE.Vector3[], fr: Frame, n = 12): Array<{ t: nu
     if (k > 0) out.push({ t, p: c.divideScalar(k) })
   }
   return out
+}
+
+/** the body's middle point around u = t (a slice `w` long), without the points near the floor (legs) */
+export function slice_mid (pts: THREE.Vector3[], fr: Frame, t: number, w: number): THREE.Vector3 | null {
+  const c = new THREE.Vector3(); let k = 0
+  for (const p of pts) { const q = local(fr, p); if (Math.abs(q.x - t) <= w / 2 && p.y > fr.minY + fr.H * 0.18) { c.add(p); k++ } }
+  if (k === 0) for (const p of pts) { const q = local(fr, p); if (Math.abs(q.x - t) <= w / 2) { c.add(p); k++ } }
+  return k > 0 ? c.divideScalar(k) : null
 }
 
 export interface Foot { tip: THREE.Vector3, top: THREE.Vector3, at: THREE.Vector3 } // at = (u, s) place in the body
@@ -142,12 +152,17 @@ export function tps (src: THREE.Vector3[], dst: THREE.Vector3[], smooth = 1e-6):
 }
 
 /** the landmark pairs of two bodies (both in their own world space): middle line, feet, head and tail tips */
-export function landmarks (sp: THREE.Vector3[], sg: THREE.BufferGeometry[], sf: Frame, tp: THREE.Vector3[], tg: THREE.BufferGeometry[], tf: Frame): { src: THREE.Vector3[], dst: THREE.Vector3[], note: string } {
+export function landmarks (sp: THREE.Vector3[], sg: THREE.BufferGeometry[], sf: Frame, tp: THREE.Vector3[], tg: THREE.BufferGeometry[], tf: Frame, body_line = true): { src: THREE.Vector3[], dst: THREE.Vector3[], note: string } {
   const src: THREE.Vector3[] = []; const dst: THREE.Vector3[] = []
-  const ms = midline(sp, sf); const mt = midline(tp, tf)
-  for (const a of ms) { const b = mt.find(x => Math.abs(x.t - a.t) < 1e-6); if (b !== undefined) { src.push(a.p); dst.push(b.p) } }
   const fs = feet(sg, sf); const ft = feet(tg, tf, fs.length)
   const pairs = pair(fs, ft)
+  // along the body, the feet are the anchors: a hip stays over its hind feet even when the tails (or necks) differ in length
+  const anc: Array<[number, number]> = [[0, 0] as [number, number], ...pairs.map(([a, b]) => [a.at.x, b.at.x] as [number, number]), [1, 1] as [number, number]].sort((a, b) => a[0] - b[0])
+  const mono: Array<[number, number]> = []; for (const q of anc) { const l = mono[mono.length - 1]; if (l === undefined || (q[0] > l[0] + 0.02 && q[1] > l[1] + 0.02)) mono.push(q) }
+  if (mono[mono.length - 1][0] < 1) mono.push([1, 1])
+  const umap = (t: number): number => { for (let i = 1; i < mono.length; i++) { const [a0, b0] = mono[i - 1]; const [a1, b1] = mono[i]; if (t <= a1) return b0 + (b1 - b0) * (t - a0) / Math.max(1e-6, a1 - a0) } return t }
+  const ms = midline(sp, sf)
+  if (body_line) for (const a of ms) { const b = slice_mid(tp, tf, umap(a.t), 1 / 12); if (b !== null) { src.push(a.p); dst.push(b) } }
   for (const [a, b] of pairs) { src.push(a.tip, a.top); dst.push(b.tip, b.top) }
   // the very ends (snout tip, tail tip): the extreme points of the middle band
   const end = (pts: THREE.Vector3[], fr: Frame, head: boolean): THREE.Vector3 => {
@@ -156,5 +171,5 @@ export function landmarks (sp: THREE.Vector3[], sg: THREE.BufferGeometry[], sf: 
     return best.clone()
   }
   src.push(end(sp, sf, true), end(sp, sf, false)); dst.push(end(tp, tf, true), end(tp, tf, false))
-  return { src, dst, note: `${ms.length} body points, ${pairs.length} feet matched (${fs.length} → ${ft.length})` }
+  return { src, dst, note: `${ms.length} body points, ${pairs.length} feet matched (${fs.length} → ${ft.length}), ${mono.length - 2} along-body anchors` }
 }

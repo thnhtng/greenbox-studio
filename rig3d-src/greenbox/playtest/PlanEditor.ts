@@ -25,6 +25,7 @@ export interface PlanShape {
   id: string, kind: PlanKind, form: PlanForm
   x: number, z: number, w: number, d: number, r: number // centre, size (m), turn (rad)
   label: string, color: string, height: number
+  note?: string // shown in a bubble when the block is clicked in 3D (any language: Roboto)
   gives?: string, takes?: string, time?: number, price?: number
   model?: string // a palette object / your 3D file instead of a box ("house", "file:oven.glb")
   image?: string // pads: your picture (data URL) instead of the built-in one
@@ -355,7 +356,7 @@ export class PlanEditor {
     if (pad && s.label === '') { g.restore(); return }
     // label + a small tag with the kind
     const fs = Math.max(10, Math.min(18, Math.min(w, h) * 0.28)); g.fillStyle = '#111'; g.textAlign = 'center'; g.textBaseline = 'middle'
-    g.font = `600 ${fs}px system-ui,sans-serif`; if (s.label !== '') g.fillText(s.label, 0, 0, w * 0.95)
+    g.font = `600 ${fs}px Roboto,system-ui,sans-serif`; if (s.label !== '') g.fillText(s.label + (s.note ? ' 📝' : ''), 0, 0, w * 0.95)
     g.font = `10px system-ui,sans-serif`; g.fillStyle = 'rgba(0,0,0,.6)'
     const tag = ({ zone: '', block: '', source: `↑ ${s.gives ?? ''}`, machine: `${s.takes ?? '?'} → ${s.gives ?? '?'}`, stack: '≡', counter: `${s.takes ?? '?'} → $`, unlock: `$${s.price ?? 0}`, player: '🙂' } as Record<PlanKind, string>)[s.kind]
     if (tag !== '') g.fillText(tag, 0, Math.min(h / 2 - 7, fs + 4))
@@ -401,6 +402,7 @@ export class PlanEditor {
       const kinds = (Object.keys(KIND_INFO) as PlanKind[]).map(k => `<option value="${k}"${s.kind === k ? ' selected' : ''}>${M(KIND_INFO[k].en, KIND_INFO[k].vi, KIND_INFO[k].en)}</option>`).join('')
       html += `<div style="border-top:1px solid #2c3440;padding-top:8px;display:flex;flex-direction:column;gap:6px">
         <label>${T('Name (what it is)', 'Tên (khối gì)')}<input data-f="label" value="${s.label.replace(/"/g, '&quot;')}" style="${inp}"></label>
+        <label>📝 ${T('Note (shows when the block is clicked in 3D)', 'Ghi chú (hiện khi bấm vào khối trong 3D)')}<textarea data-f="note" rows="3" style="${inp};font-family:Roboto,system-ui,sans-serif;resize:vertical" placeholder="${T('e.g. Pizza maker: 3 s per pizza, upgrade at $500', 'vd. Máy làm pizza: 3 giây / bánh, nâng cấp ở $500')}">${(s.note ?? '').replace(/</g, '&lt;')}</textarea></label>
         <label>${T('What it does', 'Vai trò trong game')}<select data-f="kind" style="${inp}">${kinds}</select></label>
         <label>${T('Shape', 'Hình')}<select data-f="form" style="${inp}">${FORMS.map(f => `<option value="${f[0]}"${s.form === f[0] ? ' selected' : ''}>${f[1]} ${T(f[2], f[3])}</option>`).join('')}</select></label>
         <div style="display:flex;flex-wrap:wrap;gap:3px">${SWATCHES.map(c => `<button data-sw="${c}" title="${c}" style="width:20px;height:20px;padding:0;border-radius:5px;border:${s.color.toLowerCase() === c ? '2px solid #fff' : '1px solid #39424f'};background:${c};cursor:pointer"></button>`).join('')}</div>

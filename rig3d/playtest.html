@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <script src="./gb-base.js?v=202611021034"></script>
-<script src="./gb-theme.js?v=202611021034"></script>
+  <script src="./gb-base.js?v=202611031029"></script>
+<script src="./gb-theme.js?v=202611031029"></script>
 <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Play test - Greenbox 3D</title>
@@ -59,9 +59,11 @@
     #pt-help b{color:var(--txt)}
     .pt-float{position:absolute;transform:translate(-50%,-50%);font:900 22px system-ui;color:#ffd23f;text-shadow:0 2px 0 #000;pointer-events:none;animation:ptf .7s ease-out forwards}
     @keyframes ptf{to{transform:translate(-50%,-160%);opacity:0}}
+    .pt-note{position:absolute;transform:translate(-50%,calc(-100% - 14px));max-width:260px;padding:10px 12px;border-radius:12px;background:#ffffff;color:#10241a;font:500 14px/1.45 Roboto,system-ui,sans-serif;white-space:pre-wrap;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer;z-index:5}
+    .pt-note::after{content:'';position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);border:8px solid transparent;border-top-color:#fff;border-bottom:0}
     #pt-rec.on{background:#e53935;border-color:#9a1f1d}
   </style>
-  <script type="module" crossorigin src="./assets/playtest-BQliR9cv.js"></script>
+  <script type="module" crossorigin src="./assets/playtest-DuNF-NUR.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/lang-IJiaf3lz.js">
   <link rel="modulepreload" crossorigin href="./assets/MacTrackpad-jjWcp26o.js">
   <link rel="modulepreload" crossorigin href="./assets/UndoKeys-DSOSWCJh.js">
@@ -122,6 +124,6 @@
       </section>
     </aside>
   </main>
-    <script src="./gb-i18n.js?v=202611021034"></script>
+    <script src="./gb-i18n.js?v=202611031029"></script>
 </body>
 </html>

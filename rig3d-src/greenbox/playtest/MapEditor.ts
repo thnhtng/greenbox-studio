@@ -43,7 +43,7 @@ export const OBJECTS: Array<{ id: string, icon: string, en: string, vi: string, 
 ]
 
 /** extra data of plan blocks / flow wires: size (w, h, d), colour, label, shape id, the 3D look, wire style */
-export interface MapExtra { pid?: string, size?: [number, number, number], color?: string, label?: string, form?: string, model?: string, mode?: string, role?: string, image?: string, price?: number }
+export interface MapExtra { pid?: string, size?: [number, number, number], color?: string, label?: string, form?: string, model?: string, mode?: string, role?: string, image?: string, price?: number, note?: string }
 export interface MapObject { kind: string, p: [number, number, number], r: number, s: number, x?: MapExtra }
 /** water poured into a hole / channel: grid points under the water and its level */
 export interface Pool { level: number, cells: number[] }
@@ -336,6 +336,22 @@ export class MapEditor {
     return pool
   }
 
+  /** the whole ground square to `size` m (same cell size): grows with flat ground around it, or is cut to its middle; what is built stays where it is */
+  public resize (size: number): void {
+    const o = this.n; const n = Math.max(8, 2 * Math.round(size / this.cell / 2)); if (n === o) return
+    this.on_edit_start?.()
+    const d = (n - o) / 2; const N0 = o + 1; const N1 = n + 1
+    const h = new Float32Array(N1 * N1); const t = new Uint8Array(N1 * N1)
+    const map = (k: number): number => { const i = k % N0 + d; const j = Math.floor(k / N0) + d; return i < 0 || j < 0 || i > n || j > n ? -1 : j * N1 + i }
+    for (let k = 0; k < N0 * N0; k++) { const m = map(k); if (m >= 0) { h[m] = this.heights[k]; t[m] = this.types[k] } }
+    this.n = n; this.heights = h; this.types = t
+    this.pools = this.pools.map(p => ({ level: p.level, cells: p.cells.map(map).filter(c => c >= 0) })).filter(p => p.cells.length > 0)
+    const H = this.half(); let gone = 0
+    for (const ob of this.placed()) if (Math.abs(ob.position.x) > H || Math.abs(ob.position.z) > H) { this.remove_object(ob); gone++ }
+    this.rebuild(); this.refresh_panel()
+    this.status?.(M(`Map size ${(n * this.cell).toFixed(0)} m${gone > 0 ? ` (${gone} objects outside removed)` : ''}.`, `Cỡ map ${(n * this.cell).toFixed(0)} m${gone > 0 ? ` (bỏ ${gone} vật nằm ngoài)` : ''}.`, `맵 크기 ${(n * this.cell).toFixed(0)} m`))
+  }
+
   public preset (kind: 'flat' | 'hills' | 'island' | 'valley' | 'mountains'): void {
     const n = this.n; this.heights = new Float32Array((n + 1) * (n + 1)); this.types = new Uint8Array((n + 1) * (n + 1))
     const nz = noise2(Math.floor(Math.random() * 1000))
@@ -578,6 +594,7 @@ export class MapEditor {
     for (const o of d.objects) { const ob = this.add_object(o.kind, o.p[0], o.p[2], o.r, o.s, o.x); ob.position.y = o.p[1] }
     this.plan = d.plan ?? null; this.on_plan?.(this.plan)
     this.wires_visible = d.wires_hidden !== true; if (!this.wires_visible) this.show_wires(false)
+    this.refresh_panel()
   }
 
   /* ---------------- 2D plan -> 3D ---------------- */
@@ -594,7 +611,7 @@ export class MapEditor {
     // big zones first (floors), then what stands on them
     for (const s of [...plan.shapes].sort((a, b) => b.w * b.d - a.w * a.d)) {
       const h = s.kind === 'player' ? 0.03 : Math.max(0.02, s.height ?? KIND_INFO[s.kind].height)
-      this.add_object('block', s.x, s.z, -s.r, 1, { pid: s.id, size: [s.w, h, s.d], color: s.color, label: s.kind === 'zone' || s.kind === 'player' ? (s.label !== '' ? s.label : '') : s.label, form: s.form, model: s.model, role: s.kind, image: s.image, price: s.price ?? (s.kind === 'unlock' ? 50 : undefined) })
+      this.add_object('block', s.x, s.z, -s.r, 1, { pid: s.id, size: [s.w, h, s.d], color: s.color, label: s.kind === 'zone' || s.kind === 'player' ? (s.label !== '' ? s.label : '') : s.label, form: s.form, model: s.model, role: s.kind, image: s.image, price: s.price ?? (s.kind === 'unlock' ? 50 : undefined), note: s.note })
     }
     for (const w of plan.wires) {
       const a = byid.get(w.from); const b = byid.get(w.to); if (a === undefined || b === undefined) continue
@@ -1025,6 +1042,7 @@ ${rows}
       <div class="row"><button data-x="addfile" title="${M('Your own GLB / FBX / OBJ: it joins the palette, then click to place as many as you want (Z turns it before placing)', 'GLB / FBX / OBJ của bạn: vào bảng vật thể, rồi bấm để đặt bao nhiêu cái cũng được (Z xoay trước khi đặt)', '내 3D 파일을 팔레트에 추가')}">＋ ${M('3D file to the palette…', 'File 3D vào bảng vật…', '3D 파일 추가…')}</button></div>
       <input type="file" data-k="cfile" accept=".glb,.gltf,.fbx,.obj,.dae,.stl,.ply,.3mf,.zip" multiple hidden>
       <div class="sm">${M('Placing: Z turns the object 15° one way, X the other way (Alt = 90°).', 'Đang đặt: Z xoay vật 15° một chiều, X xoay ngược lại (giữ Alt = 90°).', '배치 중: Z/X로 회전.')}</div>
+      <label class="sm" title="${M('The whole ground square: bigger adds flat ground around it, smaller cuts it to the middle (Ctrl+Z brings it back)', 'Cả ô đất vuông: lớn hơn thì thêm đất phẳng xung quanh, nhỏ hơn thì cắt lấy phần giữa (Ctrl+Z để lấy lại)', '전체 바닥 크기')}">⬛ ${M('Map size', 'Cỡ map tổng', '맵 크기')} <input type="range" data-k="msize" min="24" max="300" step="6" value="${Math.round(this.n * this.cell)}"> <span data-msizev>${Math.round(this.n * this.cell)} m</span></label>
       <label class="sm">${M('Brush size', 'Cỡ cọ', '브러시 크기')} <input type="range" data-k="radius" min="1" max="12" value="${this.radius}"></label>
       <label class="sm">${M('Strength', 'Lực', '강도')} <input type="range" data-k="strength" min="5" max="100" value="${this.strength * 100}"></label>
       <label class="sm"><input type="checkbox" data-k="sea"${this.sea ? ' checked' : ''}> ${M('Sea level', 'Mực nước biển', '해수면')} <input type="range" data-k="water" min="-30" max="30" value="${this.water * 10}"></label>
@@ -1076,9 +1094,11 @@ ${rows}
       else if (k === 'sea') { this.sea = el.checked; this.rebuild() }
       else if (k === 'dig') this.dig_depth = Number(el.value) / 10
       else if (k === 'fill') this.pool_fill = Number(el.value) / 100
+      else if (k === 'msize') { const v = sec.querySelector('[data-msizev]'); if (v !== null) v.textContent = `${el.value} m` }
     })
     sec.addEventListener('change', (e) => {
       const el = e.target as HTMLInputElement | HTMLSelectElement; const k = el.dataset.k
+      if (k === 'msize') this.resize(Number(el.value))
       if (k === 'preset' && el.value !== '') { if (confirm(M('Replace the current map?', 'Thay map hiện tại?', '현재 맵을 바꿀까요?'))) this.preset(el.value as any); el.value = '' }
       if (k === 'file') { const f = (el as HTMLInputElement).files?.[0]; if (f !== undefined) void f.text().then(t => this.load(JSON.parse(t) as MapData)); (el as HTMLInputElement).value = '' }
       if (k === 'cfile') {
@@ -1097,6 +1117,7 @@ ${rows}
     const sea = p.querySelector<HTMLInputElement>('[data-k="sea"]'); if (sea !== null) sea.checked = this.sea
     p.querySelectorAll<HTMLElement>('[data-gr]').forEach(b => { b.style.outline = this.tool === 'paint' && Number(b.dataset.gr) === this.ground ? '2px solid #fff' : 'none' })
     p.querySelectorAll<HTMLElement>('[data-ob]').forEach(b => b.classList.toggle('on', this.tool === 'place' && b.dataset.ob === this.object))
+    const ms = p.querySelector<HTMLInputElement>('[data-k="msize"]'); const mv = p.querySelector('[data-msizev]'); const sz = Math.round(this.n * this.cell); if (ms !== null && document.activeElement !== ms) ms.value = String(sz); if (mv !== null) mv.textContent = `${sz} m`
     if (this.tool === 'none') this.ring.visible = false
   }
 }

@@ -25,7 +25,7 @@ LIMIT = 4_900_000  # under 5 MB however it is counted (5 000 000 or 5 MiB), with
 KEEP = {
     'human-base-animations.glb': 'Idle_A,Jog,Walk,Sprint,Jump_Start,Jump_air,Jump_Land,Dance_Simple,Crouch_Walk,Hit_Chest,Death_D,Punch_Jab,Sword_Regular_Combo,Spell_Simple_Shoot,Roll',
     'human-addon-animations.glb': 'Backflip,Fighting Idle,Greeting,Dodge_left',
-    'human-mocap-animations.glb': 'Cheering_Two_Hands,Salute',
+    'human-mocap-animations.glb': 'Salute',
     'fox-animations.glb': 'Idle,Walk,Run,Bite,Rest Pose',
     'horse-animations.glb': 'Idle,Walk,Run,Rear,Rest_Pose',
     'kaiju-animations.glb': 'Idle,Walk,Roar,Attack,Rest Pose',
@@ -33,7 +33,7 @@ KEEP = {
     'dragon-animations.glb': 'Idle,Walk,Fly Flap,Rest Pose',
     'shark-animations.glb': 'Idle,Swim Horizontal,Bite,Rest Pose',
     'snake-animations.glb': 'Idle,Side winding,Bite,Rest Pose',
-    'xphero-animations.glb': 'Idle 3,Move 2,Jump,Landing,Attack_Sword_Bash1,Attack_Dagger,Attack_Gun,Attack_CrossBow,SK_Slash,SK_BigFireBall,Hit 1,Die 2,LevelUp,Chop,Idle_Sword',
+    'xphero-animations.glb': 'Idle 3,Move 2,Jump,Landing,Attack_Sword_Bash1,Attack_Gun,SK_Slash,Hit 1,Die 2,Idle_Sword',
 }
 PAGES = {'create.html': 'create', 'index.html': 'index', 'mocap.html': 'mocap', 'playtest.html': 'playtest', 'vehicle.html': 'vehicle', 'smash.html': 'smash', 'retarget/index.html': 'retarget'}
 ENTRY = {'create': 'create-', 'index': 'main-', 'mocap': 'mocap-', 'playtest': 'playtest-', 'vehicle': 'vehicle-', 'smash': 'smash-', 'retarget': 'retarget-'}
@@ -121,7 +121,7 @@ def files_js():
     for p in sorted((R3 / 'props').glob('weapon_xp_*.glb')): F['props/' + p.name] = p.read_bytes()
     # the sample clip of Video mocap (smaller copy)
     tmp = OUT / '_tmp' / 'mocap-sample.mp4'; tmp.parent.mkdir(parents=True, exist_ok=True)
-    sh(['ffmpeg', '-v', 'error', '-y', '-i', str(R3 / 'samples/mocap-sample.mp4'), '-vf', 'scale=320:-2', '-c:v', 'libx264', '-crf', '35', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-an', '-movflags', '+faststart', str(tmp)])
+    sh(['ffmpeg', '-v', 'error', '-y', '-i', str(R3 / 'samples/mocap-sample.mp4'), '-vf', 'scale=288:-2,fps=24', '-c:v', 'libx264', '-crf', '38', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-an', '-movflags', '+faststart', str(tmp)])
     F['samples/mocap-sample.mp4'] = tmp.read_bytes()
     js = 'window.__GB_FILES={' + ','.join(json.dumps(k) + ':"' + base64.b64encode(v).decode() + '"' for k, v in F.items()) + '};\n' + SHIM
     out = DST / 'rig3d' / 'gb3d-files.js'
@@ -149,6 +149,9 @@ def pages():
     # pictures shown with <img> / TextureLoader: plain files
     for d in ['images', 'rigs/reference']:
         shutil.copytree(R3 / d, DST / 'rig3d' / d, dirs_exist_ok=True)
+    # they are only shown as small thumbnails: 300 px, 128 colours
+    for f in list((DST / 'rig3d').glob('rigs/reference/*.png')) + list((DST / 'rig3d').glob('images/*.png')):
+        if f.stat().st_size > 15000: sh([CONVERT, str(f), '-resize', '300x300>', '-colors', '128', 'PNG8:' + str(f)])
     fav = next((R3 / 'assets').glob('favicon*'), None)
     if fav: (DST / 'rig3d/assets').mkdir(exist_ok=True); shutil.copy(fav, DST / 'rig3d/assets' / fav.name)
 
@@ -176,6 +179,21 @@ def cockpit():
         saved[0] += len(data) - len(new)
         return 'data:image/webp;base64,' + base64.b64encode(new).decode()
     s = re.sub(r'data:(image/[a-z+]+);base64,([A-Za-z0-9+/=]+)', re_enc, s)
+    # ▶ demo clip per feature (top bar button): tiny copies of the intro recordings
+    V = ROOT / 'dev/axhero/videos'; (DST / 'demo').mkdir(exist_ok=True); demo = {}
+    for fid, src, sec in [(k, V / 'feat' / (k + '.mp4'), 6) for k in ['joy', 'evo', 'stone', 'money', 'fuel', 'hpbar', 'countdown', 'vfx', 'wheel', 'gseq', 'gpick', 'gbag', 'gchest', 'endcard', 'gcar', 'sfx']] + [('smash', V / 'smash_ba.mp4', 5)] + \
+            [('rig', V / 'chibi/rig.mp4', 8), ('clonerig', V / 'feat/croc.mp4', 8), ('playtest', V / 'chibi/playtest.mp4', 8), ('mocap', V / 'chibi/mocap.mp4', 8), ('vehicle', V / 'vehicle.mp4', 8)]:
+        if not src.exists(): continue
+        dur = float(sh(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', str(src)]).strip() or 6)
+        sp = max(1.0, dur / sec)
+        sh(['ffmpeg', '-v', 'error', '-y', '-i', str(src), '-vf', f'setpts=PTS/{sp:.3f},fps=8,scale=432:-2', '-t', str(sec), '-c:v', 'libx264', '-crf', '42', '-preset', 'veryslow', '-pix_fmt', 'yuv420p', '-an', '-movflags', '+faststart', str(DST / 'demo' / (fid + '.mp4'))])
+        demo[fid] = 'demo/' + fid + '.mp4'
+    s = s.replace('</head>', '<script>window.__GB_DEMO=' + json.dumps(demo) + '</script></head>', 1)
+    log('demo clips: %d, %d KB' % (len(demo), sum((DST / v).stat().st_size for v in demo.values()) // 1024))
+    # the mockup's 3D pages are bundled to run from file:// (classic script + embedded files): no "use the server" note
+    guard = "if(location.protocol==='file:'){ fileNote(); return; }"
+    assert guard in s, 'cockpit file:// guard not found'
+    s = s.replace(guard, '')
     (DST / 'Greenbox-Cockpit.html').write_text(s)
     log('cockpit pictures: %d KB smaller' % (saved[0] // 1024))
     for f in ['hpbar.html', 'sfx-bench.html', 'gb-xp.js', 'gb-endcard.js']:  # arcade.html: Arena on hold

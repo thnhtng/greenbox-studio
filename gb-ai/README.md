@@ -64,3 +64,11 @@ Trong khung AI của Cockpit có 3 nút: **🔌 Claude Desktop**, **🔌 Codex**
 - Codex: `~/.codex/config.toml` (mục `[mcp_servers.greenbox]`, các mục khác giữ nguyên)
 - Claude Code: `~/.claude.json` (`mcpServers.greenbox`)
 Sau đó mở lại app đó. Nếu nút báo "máy chủ cũ", tắt và chạy lại Mo-Greenbox.
+
+### Cài 1 lệnh (bản web và bản máy đều dùng được)
+Trong Greenbox: 🤖 AI → ⚙ → mục **Claude / Codex (MCP)** có nút copy lệnh. Hoặc gõ thẳng (thay `SITE` bằng địa chỉ trang Greenbox của bạn):
+- Mac / Linux (Terminal): `curl -fsSL SITE/gb-ai/install.sh | sh -s -- SITE`
+- Windows (PowerShell): `$env:GREENBOX_SITE='SITE'; irm SITE/gb-ai/install.ps1 | iex`
+
+Lệnh tải `greenbox_mcp.py`, `tools.json`, `install_mcp.py` về `~/.greenbox/mcp`, rồi tự gắn Greenbox vào Claude Desktop, Codex và Claude Code nếu có trên máy (file cũ được sao lưu). Sau đó: mở lại app AI → nhắn "kết nối Greenbox" → nhập mã 6 số vào Greenbox. Cần Python 3.
+Khi đưa lên web, nhớ đưa kèm 3 file `gb-ai/install.sh`, `gb-ai/install.ps1`, `gb-ai/install_mcp.py`.
