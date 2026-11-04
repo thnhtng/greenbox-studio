@@ -34,38 +34,38 @@ index c14c257..77e32bb 100644
 +import { DownloadSuccessDialog } from './lib/components/download-success/DownloadSuccessDialog.ts'
  import { StepExportToFile } from './lib/processes/export-to-file/StepExportToFile.ts'
  import { StepWeightSkin } from './lib/processes/weight-skin/StepWeightSkin.ts'
- 
+
 @@ -50,6 +52,7 @@ export class Mesh2MotionEngine {
    public readonly transform_controls_hover_distance: number = 0.02 // distance to hover over bones to select them
    public is_model_gizmo_active: boolean = false
    public readonly mesh_drag_bone_placement: MeshDragBonePlacement
 +  public readonly easy_rig: EasyRig
- 
+
    public view_helper: CustomViewHelper | undefined // mini 3d view to help orient orthographic views
- 
+
 @@ -77,7 +80,7 @@ export class Mesh2MotionEngine {
    public transform_space_type: TransformSpace = TransformSpace.Global
- 
-   private readonly clock = new THREE.Clock()
+
+   private readonly timer = new THREE.Timer()
 -  private readonly scene_environment: SceneEnvironmentManager
 +  public readonly scene_environment: SceneEnvironmentManager
    private readonly eventListeners: EventListeners
    private readonly camera_shake: CameraShake
- 
+
 @@ -124,6 +127,9 @@ export class Mesh2MotionEngine {
      )
- 
+
      this.settings_dropdown_manager = new SettingsDropdownManager(this.scene_environment)
 +    this.easy_rig = new EasyRig(this)
 +    ;(window as any).__gb3d = this // debugging/automation hook
 +    this.load_skeleton_step.set_model_provider(() => this.load_model_step.model_meshes())
- 
+
      this.setup_environment()
      this.eventListeners.addEventListeners()
 @@ -133,6 +139,21 @@ export class Mesh2MotionEngine {
      this.setup_tooltips()
    }
- 
+
 +  /** Greenbox: tick every animation, pick the format, export once */
 +  public quick_export_all (format: 'glb' | 'fbx', file_name = 'exported-model', quiet = false): void {
 +    this.animations_listing_step.select_all_animations()
@@ -86,15 +86,15 @@ index c14c257..77e32bb 100644
    }
 @@ -361,6 +382,7 @@ export class Mesh2MotionEngine {
      this.update_current_process_step(process_step)
- 
+
      // clean up things related to steps in since we can navigate back and forth
 +    this.easy_rig?.on_exit()
      this.edit_skeleton_step.cleanup_on_exit_step()
      this.load_skeleton_step.dispose()
- 
+
 @@ -421,6 +443,7 @@ export class Mesh2MotionEngine {
        this.sync_skeleton_helper_joint_visibility()
- 
+
        this.changed_model_preview_display(this.mesh_preview_display_type) // show weight painted mesh by default
 +      this.easy_rig.on_enter()
      }
@@ -102,10 +102,10 @@ index c14c257..77e32bb 100644
        this.transform_controls.enabled = false // shouldn't be editing bones
 @@ -455,6 +478,7 @@ export class Mesh2MotionEngine {
        this.update_a_pose_options_visibility()
- 
+
        this.animations_listing_step.load_and_apply_default_animation_to_skinned_mesh(this.weight_skin_step.final_skinned_meshes())
 +      this.easy_rig.show_quick_export()
- 
+
        if (this.skeleton_helper !== undefined) {
          this.skeleton_helper.hide() // hide skeleton helper in animations listing step
 diff --git a/src/create.html b/src/create.html
@@ -122,7 +122,7 @@ index a3b6873..ba92608 100644
      <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
      <meta charset="UTF-8" />
 @@ -28,12 +28,13 @@
- 
+
      <nav>
        <div style="display: inline-flex; align-items: center">
 -        <a id="logo-branding" href="https://mesh2motion.org"
@@ -136,7 +136,7 @@ index a3b6873..ba92608 100644
 +        <a href="/playtest.html">Play test</a>
 +        <a href="/mocap.html">Video mocap</a>
        </div>
- 
+
        <div style="display: inline-flex; align-items: center;">
 @@ -68,7 +69,8 @@
              id="model-upload"
@@ -146,7 +146,7 @@ index a3b6873..ba92608 100644
 +            multiple
 +            accept=".glb,.gltf,.fbx,.obj,.mtl,.dae,.stl,.ply,.3mf,.zip,.bin,.png,.jpg,.jpeg,.tga,.webp"
            />
- 
+
            <div style="text-align: center; font-size: 1.5rem">or</div>
 @@ -194,10 +196,10 @@
            <!-- undo/redo system-->
@@ -6099,6 +6099,114 @@ index 0000000..9703311
 +    return new THREE.Vector3(past.x, top, past.z)
 +  }
 +}
+diff --git a/src/greenbox/rig/AutoFace.ts b/src/greenbox/rig/AutoFace.ts
+new file mode 100644
+index 0000000..ee55a78
+--- /dev/null
++++ b/src/greenbox/rig/AutoFace.ts
+@@ -0,0 +1,102 @@
++/*
++ * 🧭 Turn the model to the blue forward arrow (+Z) by itself, on "Use Your Model" (people and animals).
++ *   which axis: a body is wider across the shoulders / hips than front to back -> the narrow horizontal axis
++ *   which way:  a skeleton's left / right bones when there is one; else the toes reach further forward than the heels
++ *               go back (then the chest / belly vs the back; never the head: hair sticks out behind, nor a cape);
++ *               an animal's head end is the higher one
++ * It turns with the page's own 90° Y button (so the model is really turned, undo-able like a click) and runs once per
++ * new model; the 🧭 button runs it again.
++ */
++import * as THREE from 'three'
++import type { Mesh2MotionEngine } from '../../Mesh2MotionEngine.ts'
++import { model_geometries } from './ModelAnalyzer.ts'
++import { M } from '../common/lang.ts'
++
++/** the way the model looks, as one of +X, -X, +Z, -Z (null: cannot tell) */
++/** from a skeleton: the left bones are on the body's left, so forward = (left - right) × up; toes say it too */
++export function facing_from_bones (root: THREE.Object3D): THREE.Vector3 | null {
++  root.updateMatrixWorld(true)
++  const L = new THREE.Vector3(); const R = new THREE.Vector3(); let nl = 0; let nr = 0
++  root.traverse(o => {
++    if ((o as THREE.Bone).isBone !== true) return
++    const n = o.name; const left = /left|(^|[_.\-\s])l$|_l_|\.l\b/i.test(n); const right = /right|(^|[_.\-\s])r$|_r_|\.r\b/i.test(n)
++    if (left === right) return
++    const p = o.getWorldPosition(new THREE.Vector3()); if (left) { L.add(p); nl++ } else { R.add(p); nr++ }
++  })
++  if (nl < 2 || nr < 2) return null
++  const side = L.divideScalar(nl).sub(R.divideScalar(nr)); side.y = 0; if (side.lengthSq() < 1e-10) return null
++  const f = side.cross(new THREE.Vector3(0, 1, 0)).normalize() // left × up = forward
++  const v = new THREE.Vector3(); if (Math.abs(f.x) > Math.abs(f.z)) v.x = Math.sign(f.x); else v.z = Math.sign(f.z)
++  return v
++}
++
++/** the way the model looks, as one of +X, -X, +Z, -Z (null: cannot tell) */
++export function facing (model: THREE.Object3D): THREE.Vector3 | null {
++  const fb = facing_from_bones(model); if (fb !== null) return fb
++  const P: THREE.Vector3[] = []
++  for (const g of model_geometries(model)) { const pos = g.getAttribute('position'); const step = Math.max(1, Math.floor(pos.count / 20000)); for (let i = 0; i < pos.count; i += step) P.push(new THREE.Vector3().fromBufferAttribute(pos, i)) }
++  if (P.length < 50) return null
++  let y0 = Infinity; let y1 = -Infinity; for (const p of P) { y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y) }
++  const H = y1 - y0; if (H <= 0) return null
++  const band = (a: number, b: number): THREE.Vector3[] => P.filter(p => p.y >= y0 + H * a && p.y <= y0 + H * b)
++  const ext = (q: THREE.Vector3[], k: 'x' | 'z'): number => { let a = Infinity; let b = -Infinity; for (const p of q) { a = Math.min(a, p[k]); b = Math.max(b, p[k]) } return b - a }
++  const mean = (q: THREE.Vector3[], k: 'x' | 'z'): number => q.reduce((s, p) => s + p[k], 0) / Math.max(1, q.length)
++  // a standing body: narrower front-to-back than side-to-side; a long animal: longer front-to-back
++  const torso = band(0.35, 0.8); if (torso.length < 20) return null
++  const tall = H > Math.max(ext(P, 'x'), ext(P, 'z')) * 0.9
++  const ax: 'x' | 'z' = tall ? (ext(torso, 'x') < ext(torso, 'z') ? 'x' : 'z') : (ext(P, 'x') > ext(P, 'z') ? 'x' : 'z')
++  let s = 0
++  if (tall) {
++    // how far each side reaches from the middle: toes reach further forward than heels go back, chest / belly further
++    // than the back (the head is left out: hair often sticks out behind)
++    const reach = (q: THREE.Vector3[], c: number): number => { let lo = 0; let hi = 0; for (const p of q) { lo = Math.min(lo, p[ax] - c); hi = Math.max(hi, p[ax] - c) } return hi + lo }
++    const feet = band(0, 0.05); const ankles = band(0.06, 0.16); const body = band(0.35, 0.55)
++    // the feet decide when they can (a cape or a backpack makes the back of the body reach further than the chest)
++    if (feet.length > 10 && ankles.length > 5) s = reach(feet, mean(ankles, ax))
++    if (Math.abs(s) < H * 0.008 && body.length > 10) s = reach(body, mean(body, ax))
++  } else {
++    // an animal: the head end is higher and thicker than the tail end
++    const c = mean(P, ax); const L = ext(P, ax)
++    const end = (sg: number): number => { const q = P.filter(p => (p[ax] - c) * sg > L * 0.3); return q.length > 0 ? q.reduce((m, p) => m + p.y, 0) / q.length : 0 }
++    s = end(1) - end(-1)
++  }
++  if (Math.abs(s) < 1e-6) return null
++  const v = new THREE.Vector3(); v[ax] = Math.sign(s); return v
++}
++
++/** turn the model with the 90° Y button until it faces +Z; returns the number of turns, or -1 if it cannot tell */
++export async function face_forward (engine: Mesh2MotionEngine): Promise<number> {
++  const btn = document.getElementById('rotate-model-y-button') as HTMLButtonElement | null; if (btn === null) return -1
++  for (let i = 0; i < 4; i++) {
++    const f = facing(engine.load_model_step.model_meshes()); if (f === null) return -1
++    if (f.z > 0.5) { if (i > 0) (document.getElementById('auto-align-model-button') as HTMLButtonElement | null)?.click(); return i }
++    btn.click(); await new Promise(r => setTimeout(r, 200))
++  }
++  return 4
++}
++
++export function mount_auto_face (engine: Mesh2MotionEngine): void {
++  const note = (t: string): void => { const s = document.getElementById('gb-face-note'); if (s !== null) s.textContent = t }
++  const run = async (): Promise<void> => {
++    const n = await face_forward(engine)
++    note(n < 0 ? M('Could not tell which way it looks: turn it with Y.', 'Chưa nhận ra hướng: xoay bằng nút Y.', 'Y로 회전하세요.') : n === 0 ? M('✓ Already facing the blue arrow.', '✓ Đã nhìn đúng hướng mũi tên xanh.', '✓ 정면') : M(`✓ Turned ${n * 90}° to face the blue arrow.`, `✓ Đã xoay ${n * 90}° cho nhìn theo mũi tên xanh.`, `✓ ${n * 90}° 회전`))
++  }
++  // a 🧭 button beside the X / Y / Z turns
++  const add = (): void => {
++    const y = document.getElementById('rotate-model-y-button'); if (y === null || document.getElementById('gb-face-btn') !== null) return
++    const b = document.createElement('button'); b.id = 'gb-face-btn'; b.type = 'button'; b.className = 'secondary-button'
++    b.textContent = '🧭 ' + M('Face the arrow', 'Tự xoay theo mũi tên', '화살표 방향'); b.onclick = () => { void run() }
++    const s = document.createElement('div'); s.id = 'gb-face-note'; s.style.cssText = 'font-size:12px;opacity:.8;margin-top:4px'
++    y.parentElement?.after(b, s)
++  }
++  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add()
++  // once per new model, by itself (not while 🧬 Clone rig turns it to its rig file)
++  let last = ''
++  setInterval(() => {
++    if (engine.process_step !== 'load-skeleton') return
++    const m = engine.load_model_step.model_meshes(); const id = m?.uuid ?? ''; if (id === '' || id === last) return
++    last = id
++    if ((window as any).__gbCloneRig?.is_open?.() === true) return
++    setTimeout(() => { void run() }, 500)
++  }, 400)
++}
 diff --git a/src/greenbox/rig/BodyScan.ts b/src/greenbox/rig/BodyScan.ts
 new file mode 100644
 index 0000000..e6375ec
@@ -6911,10 +7019,10 @@ index 0000000..1f258ad
 +}
 diff --git a/src/greenbox/rig/CloneRigWizard.ts b/src/greenbox/rig/CloneRigWizard.ts
 new file mode 100644
-index 0000000..2c8b6ee
+index 0000000..ecabbc1
 --- /dev/null
 +++ b/src/greenbox/rig/CloneRigWizard.ts
-@@ -0,0 +1,338 @@
+@@ -0,0 +1,375 @@
 +/*
 + * 🧬 Clone rig — a guided, 4-step panel on the rig page:
 + *   1. drop the file that HAS a rig (+ animations): it shows up at once — model, skeleton, its animations playing
@@ -6924,6 +7032,7 @@ index 0000000..2c8b6ee
 + *   4. export: your base model, rigged, with the animations (GLB / FBX), or play-test it
 + * The rig file is remembered (my rigs), so the next model is two clicks.
 + */
++import { send_to_retarget } from './RetargetAuto.ts'
 +import * as THREE from 'three'
 +import { SAMPLES } from '../vehicle/Samples.ts'
 +import { RigConfig } from '../../lib/RigConfig.ts'
@@ -6959,6 +7068,7 @@ index 0000000..2c8b6ee
 +    return 3
 +  }
 +
++  public is_open (): boolean { return this.root !== null && this.root.style.display !== 'none' }
 +  public open (): void {
 +    if (this.root === null) this.build()
 +    this.root!.style.display = 'flex'; this.render()
@@ -6978,7 +7088,7 @@ index 0000000..2c8b6ee
 +      e.preventDefault(); e.stopPropagation()
 +      const fs = Array.from(e.dataTransfer?.files ?? []); if (fs.length === 0) return
 +      const card = (e.target as HTMLElement).closest<HTMLElement>('[data-card]')?.dataset.card
-+      if (card === '2' || (card === undefined && this.step() === 2)) this.load_model(fs); else void this.load_source(fs)
++      if (card === '2' || (card === undefined && this.step() === 2)) void this.route_model(fs); else void this.load_source(fs)
 +    })
 +    d.addEventListener('click', e => {
 +      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-a]'); if (b === null) return
@@ -7005,7 +7115,7 @@ index 0000000..2c8b6ee
 +    d.addEventListener('change', e => {
 +      const el = e.target as HTMLInputElement
 +      if (el.dataset.f === '1') { const fs = Array.from(el.files ?? []); el.value = ''; if (fs.length > 0) void this.load_source(fs) }
-+      if (el.dataset.f === '2') { const fs = Array.from(el.files ?? []); el.value = ''; if (fs.length > 0) this.load_model(fs) }
++      if (el.dataset.f === '2') { const fs = Array.from(el.files ?? []); el.value = ''; if (fs.length > 0) void this.route_model(fs) }
 +      if (el.dataset.k === 'adjust') this.adjust = el.checked
 +      if (el.dataset.k === 'warp') CLONE_FIT.warp = el.checked
 +      if (el.dataset.k === 'flip') CLONE_FIT.flip = el.checked
@@ -7062,6 +7172,16 @@ index 0000000..2c8b6ee
 +      <input type="file" data-f="1" accept=".glb,.gltf,.fbx,.zip,.bin" multiple hidden><input type="file" data-f="2" accept=".glb,.gltf,.fbx,.obj,.mtl,.dae,.stl,.ply,.3mf,.zip,.bin,.png,.jpg,.jpeg,.tga,.webp" multiple hidden>`
 +    d.querySelector<HTMLElement>(`[data-card="${s}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 +  }
++
++  /** a file dropped as "your model": if it has bones and there is no rig file yet, it IS the rig file (no need to know which box) */
++  private async route_model (files: File[]): Promise<void> {
++    if (this.src === null) {
++      try { const r = await load_any_files(files); let bones = 0; r.scene.traverse(o => { if ((o as THREE.Bone).isBone === true) bones++ }); if (bones > 0) { await this.load_source(files); return } } catch { /* the rig page reads it */ }
++    }
++    this.load_model(files)
++  }
++  /** opened with ?src=<saved rig file>: that file is step 1 at once */
++  public async load_saved (name: string): Promise<void> { const buf = await get_rig_file(name); if (buf !== null) await this.load_source([new File([buf], name)]) }
 +
 +  /* ---------------- 1: the rig file, shown at once ---------------- */
 +  private async load_source (files: File[]): Promise<void> {
@@ -7248,11 +7368,36 @@ index 0000000..2c8b6ee
 +    host.prepend(b)
 +  }
 +  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add()
-+  if (/[?&]clone=1/.test(location.search)) setTimeout(() => w.open(), 300)
++  if (/[?&]clone=1/.test(location.search)) setTimeout(() => { w.open(); const m = /[?&]src=([^&]+)/.exec(location.search); if (m !== null) void w.load_saved(decodeURIComponent(m[1])) }, 300)
++  // a model dropped on "Use Your Model" that already has a skeleton (and animations): say so, and offer it as a Clone rig source
++  document.addEventListener('change', e => {
++    const el = e.target as HTMLInputElement; if (el.id !== 'model-upload' || w.is_open()) return
++    const fs = Array.from(el.files ?? []); if (fs.length === 0) return
++    void (async () => {
++      try {
++        const r = await load_any_files(fs); let bones = 0; r.scene.traverse(o => { if ((o as THREE.Bone).isBone === true) bones++ }); if (bones === 0) return
++        const main = fs.find(f => /\.(glb|gltf|fbx|zip)$/i.test(f.name)) ?? fs[0]
++        rigged_toast(bones, r.clips.length, async () => { await save_rig_file(main.name, await main.arrayBuffer()); location.href = 'create.html?clone=1&src=' + encodeURIComponent(main.name) }, () => { void send_to_retarget(main) })
++      } catch { /* not readable here: the rig page says why */ }
++    })()
++  }, true)
 +  ;(window as any).__gbCloneRig = w; (window as any).__gbCloneFit = CLONE_FIT
 +  // the cockpit asks by message when it cannot reach into this frame (pages opened from file://)
 +  addEventListener('message', (e) => { if ((e.data as any)?.gbCloneOpen === 1) w.open() })
 +  return w
++}
++
++/** "this model already has N bones (+ M animations)": use it as the rig file of 🧬 Clone rig, or keep rigging it here */
++function rigged_toast (bones: number, clips: number, use: () => void, animate: () => void): void {
++  document.getElementById('gb-rigged-toast')?.remove()
++  const t = document.createElement('div'); t.id = 'gb-rigged-toast'
++  t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:70;display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:12px;background:var(--gbp-panel,#10151dF2);color:var(--gbp-ink,#e8edf3);border:2px solid var(--gbp-accent,#4fed89);box-shadow:0 10px 30px #000a;font:13px/1.4 system-ui,sans-serif;max-width:92vw'
++  t.innerHTML = `<span>🦴 ${M(`This model already has a skeleton (${bones} bones${clips > 0 ? `, ${clips} animations` : ''}).`, `Model này đã có xương (${bones} xương${clips > 0 ? `, ${clips} animation` : ''}).`, `이미 스켈레톤이 있습니다 (${bones}).`)}</span><button type="button" data-a2 style="padding:6px 10px;border-radius:8px;border:0;background:var(--gbp-accent,#4fed89);color:#06140c;font-weight:800;cursor:pointer">🎬 ${M('Animate it now (keep its bones)', 'Gắn animation luôn (giữ xương sẵn có)', '바로 애니메이션')}</button><button type="button" data-u style="padding:6px 10px;border-radius:8px;border:1px solid var(--gbp-accent,#4fed89);background:none;color:inherit;font-weight:700;cursor:pointer">🧬 ${M('Use it as a Clone rig source', 'Dùng làm file rig (Clone rig)', '리그 복제 원본으로')}</button><button type="button" data-x style="padding:6px 8px;border-radius:8px;border:1px solid #fff4;background:none;color:inherit;cursor:pointer">${M('Rig it again here', 'Gắn xương lại ở đây', '여기서 다시 리깅')}</button><button type="button" data-x2 title="${M('Close', 'Đóng', '닫기')}" style="padding:4px 8px;border:0;background:none;color:inherit;font-size:16px;cursor:pointer">✕</button>`
++  document.body.append(t)
++  ;(t.querySelector('[data-a2]') as HTMLButtonElement).onclick = () => { t.remove(); animate() }
++  ;(t.querySelector('[data-u]') as HTMLButtonElement).onclick = () => { t.remove(); use() }
++  ;(t.querySelector('[data-x]') as HTMLButtonElement).onclick = () => t.remove()
++  ;(t.querySelector('[data-x2]') as HTMLButtonElement).onclick = () => t.remove()
 +}
 diff --git a/src/greenbox/rig/CustomRig.ts b/src/greenbox/rig/CustomRig.ts
 new file mode 100644
@@ -7507,10 +7652,13 @@ index 0000000..4c18f1e
 +export async function delete_rig_file (name: string): Promise<void> { try { const d = await db(); d.transaction('f', 'readwrite').objectStore('f').delete(name) } catch { /* ignore */ } }
 diff --git a/src/greenbox/rig/EasyRig.ts b/src/greenbox/rig/EasyRig.ts
 new file mode 100644
-index 0000000..71f930a
+index 0000000..5caff19
 --- /dev/null
 +++ b/src/greenbox/rig/EasyRig.ts
-@@ -0,0 +1,1778 @@
+@@ -0,0 +1,1784 @@
++import { mount_tpose } from './TPose.ts'
++import { mount_auto_face } from './AutoFace.ts'
++import { mount_rig_keys } from './RigKeys.ts'
 +import { mount_clone_rig } from './CloneRigWizard'
 +import { TWIST } from './Twist'
 +import { CUSTOM_RIG } from './CustomRig'
@@ -7643,6 +7791,9 @@ index 0000000..71f930a
 +    CUSTOM_RIG.final_bones = () => this.engine.weight_skin_step.skeleton()?.bones ?? []
 +    TWIST.skeleton = () => this.engine.weight_skin_step.skeleton() ?? null
 +    mount_clone_rig(this.engine) // 🧬 the guided "rig file -> my model" panel
++    mount_rig_keys(this.engine) // Ctrl/Cmd+Z: joints, the applied rig, model turns
++    mount_auto_face(this.engine) // 🧭 the model turns to the blue forward arrow by itself
++    mount_tpose() // 🧍 T-pose button beside Expand / Contract Arms
 +  }
 +
 +  /* ---------------- lifecycle ---------------- */
@@ -10252,6 +10403,208 @@ index 0000000..6940035
 +    return new THREE.AnimationClip('Greenbox_Pose', 1 / 30, tracks)
 +  }
 +}
+diff --git a/src/greenbox/rig/RetargetAuto.ts b/src/greenbox/rig/RetargetAuto.ts
+new file mode 100644
+index 0000000..11ff8a7
+--- /dev/null
++++ b/src/greenbox/rig/RetargetAuto.ts
+@@ -0,0 +1,90 @@
++/*
++ * A model that already has a skeleton: no rigging, straight to its animations.
++ *   "Use Your Model" -> 🎬 Animate it now: the file is handed to "Use Your Rigged Model" (retarget page), which loads it,
++ *   picks the skeleton family (human / four legs / wings / snake), maps the bones and opens the animation list.
++ */
++import * as THREE from 'three'
++import { handoff_put, handoff_take } from '../common/Handoff.ts'
++import { load_any_files } from '../common/AnyLoader.ts'
++import { M } from '../common/lang.ts'
++import { facing_from_bones } from './AutoFace.ts'
++
++export async function send_to_retarget (file: File): Promise<void> {
++  await handoff_put('retarget', { name: file.name, data: await file.arrayBuffer(), at: Date.now() })
++  const lang = new URLSearchParams(location.search).get('lang') // same language on the next page
++  location.href = 'retarget/index.html?auto=1' + (lang !== null ? '&lang=' + lang : '')
++}
++
++/** the Mesh2Motion skeleton family that fits these bone names best */
++export function guess_family (names: string[]): string {
++  const has = (re: RegExp): number => names.filter(n => re.test(n)).length
++  const legs = has(/leg|thigh|knee|calf|foot|ankle|hip_/i); const arms = has(/arm|hand|elbow|wrist|shoulder|clavicle/i)
++  const tail = has(/tail/i); const wing = has(/wing/i); const head = has(/head|neck/i)
++  if (wing > 0 && tail > 0 && legs > 0) return 'dragon'
++  if (wing > 0) return 'bird'
++  if (legs === 0 && arms === 0 && (tail > 0 || has(/spine|body|seg/i) > 4)) return 'snake'
++  if (tail > 0 && legs > 0) return 'fox' // four legs and a tail: crocodile, dog, horse-like
++  if (arms > 0 && legs > 0 && head > 0) return 'human'
++  return 'human'
++}
++
++const wait = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms))
++function note (t: string): void {
++  let el = document.getElementById('gb-retarget-note')
++  if (el === null) { el = document.createElement('div'); el.id = 'gb-retarget-note'; el.style.cssText = 'position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:70;padding:10px 14px;border-radius:12px;background:var(--gbp-panel,#10151dF2);color:var(--gbp-ink,#e8edf3);border:2px solid var(--gbp-accent,#4fed89);font:13px/1.4 system-ui,sans-serif;max-width:92vw;box-shadow:0 10px 30px #000a'; document.body.append(el) }
++  el.textContent = t; clearTimeout((el as any).__t); (el as any).__t = setTimeout(() => el?.remove(), 9000)
++}
++
++/** on the retarget page: a file handed over from "Use Your Model" is loaded, mapped and opened on its animations */
++export async function mount_retarget_auto (): Promise<void> {
++  const h = await handoff_take('retarget'); if (h === null) return
++  const file = new File([h.data], h.name)
++  let family = 'human'
++  try { const r = await load_any_files([file]); const n: string[] = []; r.scene.traverse(o => { if ((o as THREE.Bone).isBone === true) n.push(o.name) }); family = guess_family(n) } catch { /* the page reads it */ }
++  const sel = document.getElementById('skeleton-type-select') as HTMLSelectElement | null
++  if (sel !== null && [...sel.options].some(o => o.value === family)) { sel.value = family; sel.dispatchEvent(new Event('change', { bubbles: true })) }
++  note(M(`🦴 ${h.name}: already rigged — loading it, matching its bones to the ${family} animations…`, `🦴 ${h.name}: đã có xương — đang nạp và ghép xương với bộ animation ${family}…`, `🦴 ${h.name}: 이미 리깅됨 — 본 매핑 중…`))
++  await wait(600)
++  const input = document.getElementById('upload-file') as HTMLInputElement | null; if (input === null) return
++  const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; input.dispatchEvent(new Event('change', { bubbles: true }))
++  const count = (): number => Number(document.getElementById('target-bone-count')?.textContent ?? '0')
++  for (let i = 0; i < 100 && count() === 0; i++) await wait(200)
++  if (count() === 0) { note(M('Could not read the skeleton of this file.', 'Không đọc được bộ xương của file này.', '스켈레톤을 읽을 수 없습니다.')); return }
++  face_target()
++  await wait(400)
++  ;(document.getElementById('auto-map-button') as HTMLButtonElement | null)?.click()
++  await wait(900)
++  const go = document.getElementById('continue-to-listing-button') as HTMLButtonElement | null
++  if (go !== null && !go.disabled) { go.click(); note(M('✅ Ready: pick animations from the list and export — no rigging needed.', '✅ Xong: chọn animation trong danh sách rồi xuất — không cần gắn xương lại.', '✅ 애니메이션을 고르고 내보내세요.')) }
++  else note(M('Some bones could not be matched by themselves: drag them on the left onto your bones, then Continue.', 'Vài xương chưa tự ghép được: kéo xương bên trái thả vào xương của bạn, rồi bấm Continue.', '일부 본은 수동 매핑이 필요합니다.'))
++}
++
++/** "several root bones": keep the skeleton with most of the bones (a few stray finger bones are the usual reason) */
++export function mount_root_autopick (): void {
++  new MutationObserver(() => {
++    const m = document.querySelector('.root-bone-selection-modal'); if (m === null || (m as any).__gbPicked === true) return
++    const opts = [...m.querySelectorAll('button')].map(b => ({ b, n: Number(/\((\d+) bones?\)/.exec(b.textContent ?? '')?.[1] ?? '0') })).filter(o => o.n > 0)
++    const total = opts.reduce((s, o) => s + o.n, 0); const best = opts.sort((a, b) => b.n - a.n)[0]
++    if (best === undefined || best.n < total * 0.8) return // no clear main skeleton: let the person choose
++    ;(m as any).__gbPicked = true; best.b.click()
++    note(M(`Kept the main skeleton (${best.n} of ${total} bones); ${opts.length - 1} stray bone group(s) left out.`, `Đã giữ bộ xương chính (${best.n}/${total} xương), bỏ ${opts.length - 1} nhóm xương lạc.`, `주 스켈레톤 유지 (${best.n}/${total})`))
++  }).observe(document.body, { childList: true, subtree: true })
++}
++
++/** 🧭 the loaded rigged model turned to the blue arrow (+Z), from its left / right bones (once per model) */
++export function face_target (): boolean {
++  const g = (window as any).__gb3d; const sc: THREE.Scene | undefined = g?.scene; if (sc === undefined) return false
++  let root: THREE.Object3D | null = null
++  for (const c of sc.children) { let sk = false; c.traverse(o => { if ((o as THREE.SkinnedMesh).isSkinnedMesh === true) sk = true }); if (sk && !/Mesh2Motion|Setup/i.test(c.name)) { root = c; break } }
++  if (root === null || (root as any).__gbFaced === true) return false
++  const r = root as THREE.Object3D; (r as any).__gbFaced = true
++  const f = facing_from_bones(r); if (f === null || f.z > 0.5) return false
++  r.rotateY(-Math.atan2(f.x, f.z)); r.updateMatrixWorld(true)
++  note(M('🧭 Turned to face the blue arrow.', '🧭 Đã xoay cho nhìn theo mũi tên xanh.', '🧭 화살표 방향으로 회전'))
++  return true
++}
++/** a model loaded by hand on this page is turned too, as soon as its bones are listed */
++export function mount_face_target (): void {
++  const c = document.getElementById('target-bone-count'); if (c === null) return
++  new MutationObserver(() => { if (Number(c.textContent ?? '0') > 0) face_target() }).observe(c, { childList: true, characterData: true, subtree: true })
++}
+diff --git a/src/greenbox/rig/RigKeys.ts b/src/greenbox/rig/RigKeys.ts
+new file mode 100644
+index 0000000..86f1fb6
+--- /dev/null
++++ b/src/greenbox/rig/RigKeys.ts
+@@ -0,0 +1,29 @@
++/*
++ * Ctrl+Z / Cmd+Z (undo) and Ctrl+Shift+Z / Cmd+Shift+Z / Ctrl+Y (redo) on the rig page, for the human rig and 🧬 Clone rig:
++ *   placing joints        -> the joint moves (the page's own undo list)
++ *   rigged / skinned      -> back to the joints (the apply is undone, the joints are kept)
++ *   just turned the model -> turned back (90° buttons pressed three more times)
++ */
++import type { Mesh2MotionEngine } from '../../Mesh2MotionEngine.ts'
++
++export function mount_rig_keys (engine: Mesh2MotionEngine): void {
++  // the model turns you made with the X / Y / Z buttons (programmatic clicks, e.g. Clone rig's auto turn, are not counted)
++  const turns: string[] = []
++  for (const id of ['rotate-model-x-button', 'rotate-model-y-button', 'rotate-model-z-button']) {
++    document.getElementById(id)?.addEventListener('click', e => { if (e.isTrusted) turns.push(id) }, true)
++  }
++  const click = (id: string): boolean => { const b = document.getElementById(id) as HTMLButtonElement | null; if (b === null || b.disabled) return false; b.click(); return true }
++  addEventListener('keydown', e => {
++    if (!(e.ctrlKey || e.metaKey) || e.altKey) return
++    const t = e.target as HTMLElement | null; if (t !== null && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return
++    const z = e.code === 'KeyZ'; const y = e.code === 'KeyY'; if (!z && !y) return
++    const redo = y || e.shiftKey
++    const step = String(engine.process_step)
++    let done = false
++    if (step === 'edit-skeleton') done = redo ? engine.edit_skeleton_step.redo_bone_transformation() : engine.edit_skeleton_step.undo_bone_transformation()
++    else if (redo) return
++    else if (step === 'animations-export' || step === 'BindPose' || step === 'weight-skin') done = click('action_back_to_edit_skeleton')
++    else if (step === 'load-skeleton' && turns.length > 0) { const id = turns.pop()!; for (let i = 0; i < 3; i++) (document.getElementById(id) as HTMLButtonElement | null)?.click(); done = true }
++    if (done) { e.preventDefault(); e.stopPropagation() }
++  }, true)
++}
+diff --git a/src/greenbox/rig/TPose.ts b/src/greenbox/rig/TPose.ts
+new file mode 100644
+index 0000000..1a4956a
+--- /dev/null
++++ b/src/greenbox/rig/TPose.ts
+@@ -0,0 +1,65 @@
++/*
++ * 🧍 T-pose: next to "Expand / Contract Arms", one click puts the character in a T-pose — the "Rest Pose" clip plays
++ * and the arm amount is searched until the upper arms are level (on the rig page and on Use Your Rigged Model alike).
++ * Export the Rest Pose clip afterwards to get a T-pose file.
++ */
++import * as THREE from 'three'
++import { M } from '../common/lang.ts'
++
++const wait = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms))
++
++/** the left upper arm and the bone after it, in the model on screen */
++function arm_bones (): [THREE.Bone, THREE.Bone] | null {
++  const sc: THREE.Scene | undefined = (window as any).__gb3d?.scene; if (sc === undefined) return null
++  let up: THREE.Bone | null = null
++  const re = [/upperarm_l$/i, /leftarm$/i, /left_?upper_?arm$/i, /l_?upper_?arm$/i, /upper_?arm[._]l$/i, /(^|[^a-z])arm[._]l$/i] // Mesh2Motion, Mixamo (mixamorigLeftArm), Rigify / others
++  for (const r of re) { if (up !== null) break; sc.traverse(o => { if (up === null && (o as THREE.Bone).isBone === true && r.test(o.name) && o.parent?.name !== 'Source Skeleton Scene (Mesh2Motion)') { let sk = false; let p: THREE.Object3D | null = o; while (p !== null) { if (/Mesh2Motion/.test(p.name)) { sk = true; break } p = p.parent } if (!sk) up = o as THREE.Bone } }) }
++  if (up === null) return null
++  const low = (up as THREE.Bone).children.find(c => (c as THREE.Bone).isBone === true) as THREE.Bone | undefined
++  return low === undefined ? null : [up, low]
++}
++
++/** how far the upper arm points above (+) or below (-) level, in radians */
++function arm_tilt (b: [THREE.Bone, THREE.Bone]): number {
++  b[0].updateWorldMatrix(true, true)
++  const a = b[0].getWorldPosition(new THREE.Vector3()); const d = b[1].getWorldPosition(new THREE.Vector3()).sub(a)
++  return Math.atan2(d.y, Math.hypot(d.x, d.z))
++}
++
++function play_rest_pose (): boolean {
++  const L = (window as any).__gb3d?.animations_listing_step
++  if (L?.animation_clips !== undefined && document.getElementById('animations-items') === null) {
++    const i = (L.animation_clips() as THREE.AnimationClip[]).findIndex(c => /rest ?pose|t-?pose/i.test(c.name)); if (i >= 0) { L.play_animation(i); return true }
++  }
++  // Use Your Rigged Model: the list's own play buttons
++  const item = [...document.querySelectorAll<HTMLElement>('#animations-items *')].find(e => e.children.length === 0 && /^(rest ?pose|t-?pose)$/i.test(e.textContent?.trim() ?? ''))
++  let c: HTMLElement | null = item ?? null; for (let k = 0; k < 6 && c !== null && c.querySelector('.play') === null; k++) c = c.parentElement
++  const pb = c?.querySelector<HTMLElement>('.play'); if (pb != null) { pb.click(); return true }
++  return false
++}
++
++export async function to_tpose (): Promise<string> {
++  const num = document.getElementById('extend-arm-numeric-input') as HTMLInputElement | null; if (num === null) return M('Open the animation list first.', 'Mở danh sách animation trước.', '애니메이션 목록을 먼저 여세요.')
++  if (!play_rest_pose()) return M('No "Rest Pose" clip in this list.', 'Danh sách này không có clip "Rest Pose".', 'Rest Pose 없음')
++  await wait(400)
++  const b = arm_bones(); if (b === null) return M('Could not find the upper arm bone.', 'Không tìm thấy xương cánh tay trên.', '위팔 본 없음')
++  const set = async (v: number): Promise<number> => { num.value = String(Math.round(v)); num.dispatchEvent(new Event('input', { bubbles: true })); await wait(140); return arm_tilt(b) }
++  // the arm angle moves one way as the amount goes up: halve the range until it is level
++  let lo = -200; let hi = 120; let tlo = await set(lo); const thi = await set(hi)
++  if (Math.sign(tlo) === Math.sign(thi)) { const v = Math.abs(tlo) < Math.abs(thi) ? lo : hi; await set(v); return M(`Closest to a T-pose at ${v}%.`, `Gần T-pose nhất ở ${v}%.`, `${v}%`) }
++  for (let k = 0; k < 9; k++) { const mid = (lo + hi) / 2; const t = await set(mid); if (Math.sign(t) === Math.sign(tlo)) { lo = mid; tlo = t } else hi = mid }
++  const v = Math.round((lo + hi) / 2); await set(v)
++  return M(`🧍 T-pose: arms level (${v}%). Export "Rest Pose" to keep it.`, `🧍 T-pose: tay đã ngang (${v}%). Xuất clip "Rest Pose" để lưu tư thế này.`, `🧍 T-포즈 (${v}%)`)
++}
++
++/** the 🧍 T-pose button beside the arm reset button (waits for the animation step to draw it) */
++export function mount_tpose (): void {
++  setInterval(() => {
++    const reset = document.getElementById('reset-arm-extension-button'); if (reset === null || document.getElementById('gb-tpose-btn') !== null) return
++    const b = document.createElement('button'); b.id = 'gb-tpose-btn'; b.type = 'button'; b.className = 'secondary-button'
++    b.textContent = '🧍 T-pose'; b.title = M('Put the character in a T-pose (arms level)', 'Đổi nhân vật sang T-pose (tay dang ngang)', 'T-포즈')
++    const note = document.createElement('div'); note.id = 'gb-tpose-note'; note.style.cssText = 'font-size:12px;opacity:.8;margin-top:4px'
++    b.onclick = async () => { b.disabled = true; note.textContent = '…'; note.textContent = await to_tpose(); b.disabled = false }
++    reset.after(b); (reset.closest('div')?.parentElement ?? reset.parentElement)?.append(note)
++  }, 700)
++}
 diff --git a/src/greenbox/rig/Twist.ts b/src/greenbox/rig/Twist.ts
 new file mode 100644
 index 0000000..98ec048
@@ -11820,10 +12173,10 @@ index 0000000..962edaf
 +}
 diff --git a/src/greenbox/smash/SmashApp.ts b/src/greenbox/smash/SmashApp.ts
 new file mode 100644
-index 0000000..fb259ad
+index 0000000..5167402
 --- /dev/null
 +++ b/src/greenbox/smash/SmashApp.ts
-@@ -0,0 +1,487 @@
+@@ -0,0 +1,545 @@
 +/**
 + * SMASH DOWN blockout (game genre: shoot a stacked wall of boxes / cans off a table).
 + *   1. draw the wall: a grid of cells, each empty or one of 4 colours (presets: wall, pyramid, towers, checker, random)
@@ -11839,8 +12192,8 @@ index 0000000..fb259ad
 +type Shape = 'box' | 'can'
 +/** a piece placed by hand in the 3D view: grid cell (x column, y row, z layer), colour 1..4, shape */
 +interface Piece { x: number, y: number, z: number, c: number, s: Shape }
-+interface Layout { cols: number, rows: number, depth: number, cells: number[], shape: Shape, size: number, power: number, ammo: number, look: string, hand: boolean, style: string, extra: Piece[], showAmmo: boolean, showScore: boolean, newShape: Shape, base: string, baseSpeed: number, baseColor: string }
-+interface Block { mesh: THREE.Mesh, body: CANNON.Body, home: number, cell: [number, number, number], src: number } // src: -1 = drawn grid, k = extra[k]
++interface Layout { cols: number, rows: number, depth: number, cells: number[], shape: Shape, size: number, power: number, ammo: number, look: string, hand: boolean, style: string, extra: Piece[], showAmmo: boolean, showScore: boolean, newShape: Shape, base: string, baseSpeed: number, baseColor: string, hit: string, bShape: string, bThick: number, bW: number, bD: number, bLegs: string }
++interface Block { mesh: THREE.Mesh, body: CANNON.Body, home: number, cell: [number, number, number], src: number, broken?: boolean } // src: -1 = drawn grid, k = extra[k]
 +const COLORS = [0, 0xe53935, 0x2457d6, 0x2fbf4f, 0xffc21a]
 +const KEY = 'gb.smash.v1'
 +const RW = 720, RH = 1280 // recorded size (9:16)
@@ -11868,7 +12221,7 @@ index 0000000..fb259ad
 +  }
 +  return c
 +}
-+function defaults (): Layout { const cols = 8, rows = 9; return { cols, rows, depth: 1, cells: preset('wall', cols, rows), shape: 'can', size: 0.42, power: 16, ammo: 30, look: 'grey', hand: true, style: 'candy', extra: [], showAmmo: true, showScore: true, newShape: 'box', base: 'table', baseSpeed: 0.6, baseColor: '#ffffff' } }
++function defaults (): Layout { const cols = 8, rows = 9; return { cols, rows, depth: 1, cells: preset('wall', cols, rows), shape: 'can', size: 0.42, power: 16, ammo: 30, look: 'grey', hand: true, style: 'candy', extra: [], showAmmo: true, showScore: true, newShape: 'box', base: 'table', baseSpeed: 0.6, baseColor: '#ffffff', hit: 'knock', bShape: 'box', bThick: 0.12, bW: 1, bD: 1, bLegs: 'two' } }
 +
 +class SmashApp {
 +  L: Layout
@@ -11894,6 +12247,8 @@ index 0000000..fb259ad
 +  edit = false // ✏️ place / remove pieces in the 3D view (physics paused)
 +  ghost: THREE.Mesh | null = null
 +  supT = 0
++  shards: Array<{ mesh: THREE.Mesh, body: CANNON.Body, t: number }> = [] // pieces of blocks that broke
++  to_break = new Map<Block, CANNON.Vec3>() // block -> the ball's velocity, broken after the physics step
 +  plat: CANNON.Body | null = null // the moving base (turntable / slider), kinematic
 +  platMesh: THREE.Object3D | null = null
 +  platT = 0
@@ -11950,8 +12305,8 @@ index 0000000..fb259ad
 +
 +  /* ---------------- the wall on the table ---------------- */
 +  reset (): void {
-+    for (const b of [...this.blocks, ...this.balls]) { this.scene.remove(b.mesh); this.world.removeBody(b.body) }
-+    this.blocks = []; this.balls = []
++    for (const b of [...this.blocks, ...this.balls, ...this.shards]) { this.scene.remove(b.mesh); this.world.removeBody(b.body) }
++    this.blocks = []; this.balls = []; this.shards = []; this.to_break.clear()
 +    for (const o of this.scene.children.filter(o => o.userData.table === true)) this.scene.remove(o)
 +    for (const b of this.world.bodies.filter(b => (b as any).table === true)) this.world.removeBody(b)
 +    const L = this.L, s = L.size
@@ -11990,7 +12345,19 @@ index 0000000..fb259ad
 +    const Z = this.tableZ, r = Math.max(w, d) / 2 + 0.12
 +    this.plat = null; this.platMesh = null; this.platT = 0
 +    this.foot = { w, d, r, round: kind === 'pedestal' || kind === 'spin' }
-+    if (kind === 'pedestal') {
++    if (kind === 'custom') {
++      // 🛠 your own base: top slab (box / round, thick or thin, wide / deep) on 1 pole, 2 thin pillars, 4 legs, a solid block or nothing
++      const ww = w * L.bW, dd = d * L.bD, t = Math.max(0.02, L.bThick), round = L.bShape === 'round', rr = Math.max(ww, dd) / 2, H = top - t
++      this.foot = { w: ww, d: dd, r: rr, round }
++      if (round) { mesh(new THREE.CylinderGeometry(rr, rr, t, 48), main, 0, top - t / 2, Z); body(new CANNON.Cylinder(rr, rr, t, 24), 0, top - t / 2, Z) }
++      else { mesh(new THREE.BoxGeometry(ww, t, dd), main, 0, top - t / 2, Z); mesh(new THREE.BoxGeometry(ww + 0.04, Math.min(0.04, t * 0.5), 0.06), red, 0, top - t * 0.75, Z + dd / 2); body(new CANNON.Box(new CANNON.Vec3(ww / 2, t / 2, dd / 2)), 0, top - t / 2, Z) }
++      const leg = (x: number, z: number, sx: number, sz: number): void => { if (H <= 0.02) return; mesh(new THREE.BoxGeometry(sx, H, sz), dark, x, H / 2, Z + z); body(new CANNON.Box(new CANNON.Vec3(sx / 2, H / 2, sz / 2)), x, H / 2, Z + z) }
++      const ex = round ? rr * 0.62 : ww / 2 - 0.12, ez = round ? rr * 0.62 : dd / 2 - 0.1
++      if (L.bLegs === 'pole') { leg(0, 0, 0.14, 0.14); mesh(new THREE.BoxGeometry(0.7, 0.08, 0.5), red, 0, 0.04, Z) }
++      else if (L.bLegs === 'two') { leg(-ex, 0, 0.09, 0.09); leg(ex, 0, 0.09, 0.09); for (const x of [-ex, ex]) mesh(new THREE.BoxGeometry(0.28, 0.05, 0.28), red, x, 0.025, Z) }
++      else if (L.bLegs === 'four') { for (const x of [-ex, ex]) for (const z of [-ez, ez]) leg(x, z, 0.09, 0.09) }
++      else if (L.bLegs === 'solid') { if (round) { if (H > 0.02) { mesh(new THREE.CylinderGeometry(rr * 0.92, rr * 0.92, H, 40), dark, 0, H / 2, Z); body(new CANNON.Cylinder(rr * 0.92, rr * 0.92, H, 20), 0, H / 2, Z) } } else leg(0, 0, ww * 0.92, dd * 0.92) }
++    } else if (kind === 'pedestal') {
 +      mesh(new THREE.CylinderGeometry(r, r, 0.14, 48), main, 0, top - 0.07, Z)
 +      mesh(new THREE.CylinderGeometry(r + 0.03, r + 0.03, 0.05, 48), red, 0, top - 0.16, Z)
 +      mesh(new THREE.CylinderGeometry(r * 0.5, r * 0.62, top - 0.3, 32), dark, 0, (top - 0.3) / 2 + 0.12, Z)
@@ -12057,6 +12424,24 @@ index 0000000..fb259ad
 +    if (this.platMesh !== null) { this.platMesh.position.set(b.position.x, b.position.y, b.position.z); this.platMesh.quaternion.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w) }
 +  }
 +  cell_pos (x: number, y: number, z: number): THREE.Vector3 { const L = this.L, s = L.size; return new THREE.Vector3((x - (L.cols - 1) / 2) * s, this.top + s * 0.48 + y * s * 0.985, this.tableZ - (z - (L.depth - 1) / 2) * s) }
++  /** 💥 the block shatters: ~22 shards of different sizes (some flat, like broken pieces) burst out with the hit; it counts as knocked */
++  shatter (b: Block, hit: CANNON.Vec3): void {
++    b.broken = true; this.world.removeBody(b.body); b.mesh.visible = false
++    const s = this.L.size, mat = b.mesh.material as THREE.Material; const q = b.body.quaternion; const p = b.body.position
++    const n = 22
++    for (let k = 0; k < n; k++) {
++      const sx = s * (0.1 + Math.random() * 0.28), sy = s * (0.05 + Math.random() * 0.22), sz = s * (0.1 + Math.random() * 0.28) // uneven, often flat
++      const off = q.vmult(new CANNON.Vec3((Math.random() - 0.5) * s * 0.8, (Math.random() - 0.5) * s * 0.8, (Math.random() - 0.5) * s * 0.8))
++      const rq = new CANNON.Quaternion().setFromEuler(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28)
++      const body = new CANNON.Body({ mass: 0.02 + sx * sy * sz * 4, shape: new CANNON.Box(new CANNON.Vec3(sx / 2, sy / 2, sz / 2)), position: p.vadd(off), quaternion: rq })
++      const out = off.length() > 1e-6 ? off.unit() : new CANNON.Vec3(0, 1, 0); const f = 2.5 + Math.random() * 3
++      body.velocity.set(hit.x * 0.3 + out.x * f, hit.y * 0.2 + out.y * f + 1.8, hit.z * 0.3 + out.z * f)
++      body.angularVelocity.set((Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20)
++      body.linearDamping = 0.08
++      const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat); m.castShadow = true; m.position.copy(body.position as any); m.quaternion.copy(body.quaternion as any)
++      this.world.addBody(body); this.scene.add(m); this.shards.push({ mesh: m, body, t: 0 })
++    }
++  }
 +  /** a sleeping block whose support is gone (shot away) must fall: wake it */
 +  support_check (): void {
 +    const s = this.L.size
@@ -12109,7 +12494,7 @@ index 0000000..fb259ad
 +    this.save(); this.reset(); this.edit_hover(x, y); this.grid()
 +  }
 +
-+  knocked (): number { return this.blocks.filter(b => b.body.position.y < this.top - 0.15 || !this.on_base(b.body.position, 0.4)).length }
++  knocked (): number { return this.blocks.filter(b => b.broken === true || b.body.position.y < this.top - 0.15 || !this.on_base(b.body.position, 0.4)).length }
 +
 +  /* ---------------- shooting ---------------- */
 +  ray (x: number, y: number): THREE.Vector3 {
@@ -12128,6 +12513,12 @@ index 0000000..fb259ad
 +    const v = to.sub(muzzle).divideScalar(t); v.y += 0.5 * 9.82 * t // aim so gravity brings it onto the point
 +    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 16), new THREE.MeshStandardMaterial({ color: 0xb8f24a, roughness: 0.5 })); mesh.castShadow = true
 +    const body = new CANNON.Body({ mass: 2.2, shape: new CANNON.Sphere(0.16), position: new CANNON.Vec3(muzzle.x, muzzle.y, muzzle.z), velocity: new CANNON.Vec3(v.x, v.y, v.z) })
++    // 💥 break mode: a block hit hard by the ball shatters (done after the physics step)
++    body.addEventListener('collide', (ev: any) => {
++      if (this.L.hit !== 'break') return
++      const b = this.blocks.find(q => q.body === ev.body); if (b === undefined || b.broken === true) return
++      const sp = Math.abs(ev.contact?.getImpactVelocityAlongNormal?.() ?? 0); if (sp > 2.2) this.to_break.set(b, body.velocity.clone())
++    })
 +    this.world.addBody(body); this.scene.add(mesh); this.balls.push({ mesh, body, t: 0 })
 +    this.ammo--; this.recoil = 1
 +  }
@@ -12135,7 +12526,7 @@ index 0000000..fb259ad
 +  auto_step (dt: number): void {
 +    this.autoT -= dt; if (this.autoT > 0 || this.ammo <= 0) return
 +    this.autoT = 0.55 + Math.random() * 0.35
-+    const up = this.blocks.filter(b => b.body.position.y > this.top && b.body.position.y < this.top + this.L.rows * this.L.size * 0.7)
++    const up = this.blocks.filter(b => b.broken !== true && b.body.position.y > this.top && b.body.position.y < this.top + this.L.rows * this.L.size * 0.7)
 +    const b = up[Math.floor(Math.random() * up.length)]; if (b === undefined) return
 +    const p = b.mesh.position.clone().project(this.camera)
 +    this.shoot_at((p.x + 1) / 2 * RW, (1 - p.y) / 2 * RH)
@@ -12146,7 +12537,11 @@ index 0000000..fb259ad
 +    const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now
 +    if (this.auto) this.auto_step(dt)
 +    if (!this.edit) { const was = this.base_pre(dt); this.world.fixedStep(1 / 60, dt); this.base_post(was); this.supT -= dt; if (this.supT <= 0) { this.supT = 0.2; this.support_check() } }
-+    for (const b of this.blocks) { b.mesh.position.copy(b.body.position as any); b.mesh.quaternion.copy(b.body.quaternion as any) }
++    if (this.to_break.size > 0) { this.to_break.forEach((v, b) => this.shatter(b, v)); this.to_break.clear() }
++    for (const b of this.blocks) { if (b.broken === true) continue; b.mesh.position.copy(b.body.position as any); b.mesh.quaternion.copy(b.body.quaternion as any) }
++    for (const q of this.shards) { q.t += dt; q.mesh.position.copy(q.body.position as any); q.mesh.quaternion.copy(q.body.quaternion as any) }
++    for (const q of this.shards.filter(x => x.t > 7)) { this.scene.remove(q.mesh); this.world.removeBody(q.body) }
++    this.shards = this.shards.filter(x => x.t <= 7)
 +    for (const b of this.balls) { b.t += dt; b.mesh.position.copy(b.body.position as any); b.mesh.quaternion.copy(b.body.quaternion as any) }
 +    for (const b of this.balls.filter(q => q.t > 6)) { this.scene.remove(b.mesh); this.world.removeBody(b.body) }
 +    this.balls = this.balls.filter(q => q.t <= 6)
@@ -12233,12 +12628,18 @@ index 0000000..fb259ad
 +          <label class="sm">${M('Shape', 'Hình', '모양')} <select id="sm-shape"><option value="can"${L.shape === 'can' ? ' selected' : ''}>${M('Cans', 'Lon', '캔')}</option><option value="box"${L.shape === 'box' ? ' selected' : ''}>${M('Boxes', 'Hộp', '상자')}</option></select></label></div>
 +      </section>
 +      <section><h3><b>⬓</b>${M('Base', 'Đế', '받침')}</h3>
-+        <div class="row" style="flex-wrap:wrap">${([['table', M('Table', 'Bàn', '테이블')], ['pedestal', M('Round pedestal', 'Bệ tròn', '원형 받침')], ['steps', M('Podium steps', 'Bục bậc thang', '계단 단상')], ['float', M('Floating island', 'Đảo nổi', '떠 있는 섬')], ['spin', M('⟳ Turntable', '⟳ Đế xoay', '⟳ 회전판')], ['slide', M('⇆ Slider', '⇆ Đế trượt', '⇆ 슬라이더')]] as Array<[string, string]>).map(([k, t]) => `<button data-base="${k}" class="${L.base === k ? 'on' : ''}">${t}</button>`).join('')}</div>
++        <div class="row" style="flex-wrap:wrap">${([['table', M('Table', 'Bàn', '테이블')], ['pedestal', M('Round pedestal', 'Bệ tròn', '원형 받침')], ['steps', M('Podium steps', 'Bục bậc thang', '계단 단상')], ['float', M('Floating island', 'Đảo nổi', '떠 있는 섬')], ['spin', M('⟳ Turntable', '⟳ Đế xoay', '⟳ 회전판')], ['slide', M('⇆ Slider', '⇆ Đế trượt', '⇆ 슬라이더')], ['custom', M('🛠 Build your own', '🛠 Tự build đế', '🛠 직접 만들기')]] as Array<[string, string]>).map(([k, t]) => `<button data-base="${k}" class="${L.base === k ? 'on' : ''}">${t}</button>`).join('')}</div>
 +        ${L.base === 'spin' || L.base === 'slide' ? `<label class="sm">${M('Speed', 'Tốc độ', '속도')} <input type="range" id="sm-bspeed" min="0" max="30" value="${Math.round(L.baseSpeed * 10)}"> <span id="sm-bspeedv">${L.baseSpeed.toFixed(1)}</span></label><div class="sm">${M('The untouched stack rides on it; pieces you hit fall off by themselves.', 'Khối chưa bị bắn đi theo đế; khối bị bắn trúng tự rơi theo vật lý.', '맞지 않은 블록은 함께 움직입니다')}</div>` : ''}
++        ${L.base === 'custom' ? `<div class="row"><button data-bshape="box" class="${L.bShape === 'box' ? 'on' : ''}">▭ ${M('Square top', 'Mặt vuông', '사각')}</button><button data-bshape="round" class="${L.bShape === 'round' ? 'on' : ''}">◯ ${M('Round top', 'Mặt tròn', '원형')}</button></div>
++          <label class="sm">${M('Thickness', 'Độ dày', '두께')} <input type="range" data-bk="bThick" min="2" max="80" value="${Math.round(L.bThick * 100)}"> <span>${Math.round(L.bThick * 100)} cm</span></label>
++          <label class="sm">${M('Width', 'Rộng', '폭')} <input type="range" data-bk="bW" min="50" max="220" value="${Math.round(L.bW * 100)}"> <span>${Math.round(L.bW * 100)}%</span></label>
++          <label class="sm">${M('Depth', 'Sâu', '깊이')} <input type="range" data-bk="bD" min="50" max="400" value="${Math.round(L.bD * 100)}"> <span>${Math.round(L.bD * 100)}%</span></label>
++          <label class="sm">${M('Legs', 'Chân đế', '다리')} <select data-bk="bLegs">${([['pole', M('1 pole', '1 cột giữa', '1기둥')], ['two', M('2 thin pillars', '2 cột mỏng', '2기둥')], ['four', M('4 legs', '4 chân', '4다리')], ['solid', M('Solid block', 'Khối đặc', '통짜')], ['none', M('None (floating)', 'Không chân (lơ lửng)', '없음')]] as Array<[string, string]>).map(([k, t]) => `<option value="${k}"${L.bLegs === k ? ' selected' : ''}>${t}</option>`).join('')}</select></label>` : ''}
 +        <div class="row">${['#ffffff', '#e53935', '#2457d6', '#c08a52', '#3a4258', '#4fed89'].map(c => `<button data-bcol="${c}" title="${c}" style="width:30px;height:24px;background:${c};${L.baseColor === c ? 'outline:2px solid #fff;' : ''}"></button>`).join('')}</div>
 +      </section>
 +      <section><h3><b>2</b>${M('Play it', 'Chơi thử', '플레이')}</h3>
 +        <div class="row"><button id="sm-reset">↺ ${M('Rebuild the stack', 'Dựng lại khối', '다시')}</button><button id="sm-auto" class="${this.auto ? 'on' : ''}">⚡ ${M('Auto shoot', 'Bắn tự động', '자동 사격')}</button></div>
++        <div class="row"><span class="sm">${M('A hit', 'Khi trúng đạn', '맞으면')}</span><button data-hit="knock" class="${L.hit !== 'break' ? 'on' : ''}">🎳 ${M('Knock over', 'Bắn đổ', '쓰러뜨리기')}</button><button data-hit="break" class="${L.hit === 'break' ? 'on' : ''}">💥 ${M('Break', 'Bắn vỡ', '부수기')}</button></div>
 +        <label class="sm">${M('Shot power', 'Lực bắn', '파워')} <input type="range" id="sm-power" min="8" max="30" value="${L.power}"></label>
 +        <label class="sm">${M('Balls', 'Số đạn', '탄')} <input type="range" id="sm-ammo" min="5" max="60" value="${L.ammo}"> ${L.ammo}</label>
 +        <div class="row"><label class="sm">${M('Look', 'Nền', '배경')} <select id="sm-look"><option value="grey"${L.look === 'grey' ? ' selected' : ''}>${M('Grey blockout', 'Xám blockout', '회색')}</option><option value="pastel"${L.look === 'pastel' ? ' selected' : ''}>${M('Pastel', 'Pastel', '파스텔')}</option><option value="night"${L.look === 'night' ? ' selected' : ''}>${M('Night', 'Tối', '밤')}</option></select></label>
@@ -12276,6 +12677,16 @@ index 0000000..fb259ad
 +    $('sm-edit').onclick = () => { this.edit = !this.edit; this.auto = false; this.reset(); if (!this.edit && this.ghost !== null) this.ghost.visible = false; this.panel() }
 +    document.getElementById('sm-clear-extra')?.addEventListener('click', () => { L.extra = []; ch() })
 +    side.querySelectorAll<HTMLButtonElement>('[data-base]').forEach(b => { b.onclick = () => { L.base = b.dataset.base as string; ch() } })
++    side.querySelectorAll<HTMLButtonElement>('[data-bshape]').forEach(b => { b.onclick = () => { L.bShape = b.dataset.bshape as string; ch() } })
++    side.querySelectorAll<HTMLButtonElement>('[data-hit]').forEach(b => { b.onclick = () => { L.hit = b.dataset.hit as string; this.save(); this.panel() } })
++    side.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-bk]').forEach(el => {
++      const k = el.dataset.bk as 'bThick' | 'bW' | 'bD' | 'bLegs'
++      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
++        if (k === 'bLegs') { L.bLegs = el.value; ch(); return }
++        ;(L as any)[k] = Number(el.value) / 100; const o = el.nextElementSibling; if (o !== null) o.textContent = k === 'bThick' ? `${el.value} cm` : `${el.value}%`
++        this.save(); this.reset()
++      })
++    })
 +    side.querySelectorAll<HTMLButtonElement>('[data-bcol]').forEach(b => { b.onclick = () => { L.baseColor = b.dataset.bcol as string; ch() } })
 +    document.getElementById('sm-bspeed')?.addEventListener('input', e => { L.baseSpeed = Number((e.target as HTMLInputElement).value) / 10; const v = document.getElementById('sm-bspeedv'); if (v !== null) v.textContent = L.baseSpeed.toFixed(1); this.save() })
 +    $('sm-reset').onclick = () => { this.reset() }
@@ -12309,7 +12720,7 @@ index 0000000..fb259ad
 +const app = new SmashApp()
 +;(window as any).__smash = {
 +  shoot: (x: number, y: number) => app.shoot_at(x * RW, y * RH), auto: (on: boolean) => { app.auto = on; app.panel() }, reset: () => app.reset(),
-+  preset: (p: string) => { app.L.cells = preset(p, app.L.cols, app.L.rows); app.save(); app.reset(); app.panel() }, base: (kind: string, speed?: number, color?: string) => { app.L.base = kind; if (speed !== undefined) app.L.baseSpeed = speed; if (color !== undefined) app.L.baseColor = color; app.save(); app.reset(); app.panel() }, record: () => app.record(), stop: () => app.stop_record(), state: () => ({ ammo: app.ammo, knocked: app.knocked(), blocks: app.blocks.length }), layout: () => app.L
++  preset: (p: string) => { app.L.cells = preset(p, app.L.cols, app.L.rows); app.save(); app.reset(); app.panel() }, hit: (mode: 'knock' | 'break') => { app.L.hit = mode; app.save(); app.panel() }, build_base: (o: { shape?: string, thick?: number, width?: number, depth?: number, legs?: string }) => { const L = app.L; L.base = 'custom'; if (o.shape !== undefined) L.bShape = o.shape; if (o.thick !== undefined) L.bThick = o.thick; if (o.width !== undefined) L.bW = o.width; if (o.depth !== undefined) L.bD = o.depth; if (o.legs !== undefined) L.bLegs = o.legs; app.save(); app.reset(); app.panel() }, base: (kind: string, speed?: number, color?: string) => { app.L.base = kind; if (speed !== undefined) app.L.baseSpeed = speed; if (color !== undefined) app.L.baseColor = color; app.save(); app.reset(); app.panel() }, record: () => app.record(), stop: () => app.stop_record(), state: () => ({ ammo: app.ammo, knocked: app.knocked(), blocks: app.blocks.length }), layout: () => app.L
 +}
 diff --git a/src/greenbox/vehicle/Mechanics.ts b/src/greenbox/vehicle/Mechanics.ts
 new file mode 100644
@@ -13118,10 +13529,10 @@ index 0000000..29f3b13
 +}
 diff --git a/src/greenbox/vehicle/VehicleApp.ts b/src/greenbox/vehicle/VehicleApp.ts
 new file mode 100644
-index 0000000..cdf987d
+index 0000000..7236ff2
 --- /dev/null
 +++ b/src/greenbox/vehicle/VehicleApp.ts
-@@ -0,0 +1,2693 @@
+@@ -0,0 +1,2861 @@
 +import { WeightPaint } from '../skin/WeightPaint.ts'
 +/*
 + * Greenbox 3D — Vehicle rig.
@@ -13154,7 +13565,7 @@ index 0000000..cdf987d
 +import { signature, nbox, box_of, iou, remember, recall, load_mem, export_mem, import_mem, MIN_SCORE, type PartRec, type RecType } from './RigMemory.ts'
 +
 +interface Part { mesh: THREE.Mesh, owner: Int16Array } // owner per vertex: -1 = body, k = wheel k, DOOR0 + j = door j
-+interface Wheel { name: string, center: THREE.Vector3, radius: number, front: boolean, guessed: boolean, axle?: THREE.Vector3 } // axle: the wheel's own spin axis
++interface Wheel { name: string, center: THREE.Vector3, radius: number, front: boolean, guessed: boolean, axle?: THREE.Vector3, locked?: boolean } // locked: 🔒 the axle was set by hand // axle: the wheel's own spin axis
 +const DOOR0 = 100 // owner codes from here on are mechanical parts (doors, turret, boom, hook…)
 +interface TrackRig { links: THREE.Bone[], s0: number[], loop: Loop, x: number, pivot: THREE.Vector3, side: number }
 +type VehicleType = 'car' | 'truck' | 'tracked' | 'roller'
@@ -13238,7 +13649,9 @@ index 0000000..cdf987d
 +  { k: 'track', icon: '⛓', en: 'Track (caterpillar)', vi: 'Bánh xích', preset: { icon: '⛓', label: 'Track', kind: 'track' } },
 +  { k: 'drill', icon: '🔩', en: 'Drill', vi: 'Mũi khoan', preset: { icon: '🔩', label: 'Drill', kind: 'spin', axis: 'long', angle: 150 } },
 +  { k: 'blade', icon: '🚜', en: 'Blade / bucket', vi: 'Lưỡi ủi / gàu', preset: { icon: '🚜', label: 'Blade', kind: 'blade' } },
-+  { k: 'turret', icon: '🔄', en: 'Turning cab / turret', vi: 'Cabin xoay / tháp pháo', preset: { icon: '🔄', label: 'Turret / cab', kind: 'turret' } }
++  { k: 'turret', icon: '🔄', en: 'Turning cab / turret', vi: 'Cabin xoay / tháp pháo', preset: { icon: '🔄', label: 'Turret / cab', kind: 'turret' } },
++  // a character on this tab too: an arm / leg cut off becomes its own piece on a bone, swinging from its top (shoulder / hip)
++  { k: 'limb', icon: '🦾', en: 'Arm / leg (swings)', vi: 'Tay / chân (đung đưa)', preset: { icon: '🦾', label: 'Limb', kind: 'door', hinge: 'top', angle: 45 } }
 +]
 +/** a part's name in plain words (the bone keeps its technical name for the export) */
 +function nice_name (n: string, kind?: string): string {
@@ -13287,6 +13700,8 @@ index 0000000..cdf987d
 +  private box_start: { x: number, y: number } | null = null
 +  private poly: Array<{ x: number, y: number }> = [] // lasso / pen points (client px)
 +  private lassoing = false
++  private shift_sel = false // a ⇧ Shift + left drag / click selection is under way
++  private drag_grab = false // a selected piece is being pulled off with the mouse held down
 +  private down_at: { x: number, y: number } | null = null
 +  private brush_radius_pct = 6
 +  private painting = false
@@ -13327,6 +13742,7 @@ index 0000000..cdf987d
 +    this.bind_ui()
 +    this.make_history()
 +    this.renderer.setAnimationLoop(() => {
++      this.markers.children.forEach(r => { const f = r.userData.face as THREE.Vector3 | undefined; if (f === undefined) return; const m = (r as THREE.Mesh).material as THREE.MeshBasicMaterial; const near = this.camera.position.clone().sub(r.position).dot(f) > 0; m.depthTest = !near /* the far side (even the picked wheel) never shows through the body */ })
 +      this.timer.update()
 +      const dt = this.timer.getDelta()
 +      this.mixer?.update(dt * Number(($('vh-speed') as HTMLInputElement).value) / 100)
@@ -13461,15 +13877,17 @@ index 0000000..cdf987d
 +    ;($('vh-part-parent') as HTMLSelectElement).onchange = (e) => { const d = this.mechs[this.active - DOOR0]; if (d === undefined) return; const v = (e.target as HTMLSelectElement).value; if (v === '') delete d.parent; else d.parent = v; this.clear_rig(); this.refresh_part_select() }
 +    addEventListener('keydown', (e) => {
 +      const t = e.target as HTMLElement
-+      if (t !== null && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return
++      if (t !== null && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) && t.closest('#vh-qmenu, #vh-axle') === null) return
 +      if (this.grab !== null) { if (e.key === 'Escape') this.q_grab_end(false); if (e.key === 'Enter') this.q_grab_end(true); return }
 +      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); if (this.q_count() > 0) this.q_delete(); else this.delete_selected() }
 +      if (e.key === 'Escape') { if (this.q_count() > 0) this.q_clear(); this.set_brush(null); if (this.placing) this.set_placing(false) }
 +      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-+        const dig = /^Digit([1-8])$/.exec(e.code)
++        const dig = /^Digit([1-9])$/.exec(e.code)
 +        if (dig !== null && this.q_count() > 0) { e.preventDefault(); const c = CHOICES[Number(dig[1]) - 1]; if (c !== undefined) this.q_choose(c.k) }
 +        if (e.code === 'KeyX' && this.q_count() > 0) { e.preventDefault(); this.history.begin(); this.q_detach(e.shiftKey ? 'wheel' : 'part'); this.history.commit_soon() }
-+        if (e.code === 'KeyG' && this.q_count() > 0) { e.preventDefault(); this.history.begin(); this.q_grab_start() }
++        if (e.code === 'KeyZ' && this.active >= 0 && this.active < DOOR0 && this.q_count() === 0) { e.preventDefault(); this.set_axle(e.shiftKey ? 'flip' : 'next') }
++        if (e.code === 'KeyG' && this.q_count() === 0 && this.active >= 0) { this.parts.forEach(p => { let q: Uint8Array | undefined; for (let i = 0; i < p.owner.length; i++) if (p.owner[i] === this.active) { if (q === undefined) { q = this.qsel.get(p) ?? new Uint8Array(p.owner.length); this.qsel.set(p, q) } q[i] = 1 } }) } // G on a picked part: take all of it
++        if (e.code === 'KeyG' && this.q_count() > 0) { e.preventDefault(); (document.activeElement as HTMLElement | null)?.blur?.(); this.history.begin(); if (this.rig !== null) this.clear_rig(); this.q_grab_start() }
 +        if (e.code === 'BracketLeft' || e.code === 'BracketRight') { this.ring_scale = Math.min(2, Math.max(0.15, this.ring_scale * (e.code === 'BracketLeft' ? 0.8 : 1.25))); this.draw_markers() }
 +        if (e.code === 'KeyO') this.markers.visible = !this.markers.visible
 +      }
@@ -13484,8 +13902,13 @@ index 0000000..cdf987d
 +    $('vh-export-fbx').onclick = () => { void this.export('fbx') }
 +    const el = this.renderer.domElement
 +    el.addEventListener('pointerdown', (e) => {
++      const ae = document.activeElement as HTMLElement | null; if (ae !== null && ae !== document.body && ae !== el) ae.blur() // keys (G, X, Z…) go to the view again
 +      if (e.button !== 0) return
 +      this.down_at = { x: e.clientX, y: e.clientY }; this.q_menu_at = { x: e.clientX, y: e.clientY }
++      // a pink (selected) piece under the mouse: left-drag pulls it off the body, release = drop it there
++      if (this.brush_mode === null && this.grab === null && !this.placing && this.q_count() > 0 && this.on_selection(e)) { this.history.begin(); this.q_grab_start(); this.grab_from(e); this.drag_grab = true; return }
++      // ⇧ Shift + left, no tool needed: drag = a free selection shape, click = the whole separate piece
++      if (e.shiftKey && this.brush_mode === null && this.grab === null && !this.placing && this.parts.length > 0) { if (this.rig !== null) this.clear_rig(); this.shift_sel = true; this.lassoing = true; this.poly = [{ x: e.clientX, y: e.clientY }]; this.draw_poly(); return }
 +      if (this.brush_mode === 'add' || this.brush_mode === 'remove') { this.painting = true; this.paint(e) }
 +      else if (this.brush_mode === 'box_add' || this.brush_mode === 'box_remove') { this.box_start = { x: e.clientX, y: e.clientY }; this.draw_box(e) }
 +      else if (this.brush_mode === 'lasso_add' || this.brush_mode === 'lasso_remove') { this.lassoing = true; this.poly = [{ x: e.clientX, y: e.clientY }]; this.draw_poly() }
@@ -13508,9 +13931,15 @@ index 0000000..cdf987d
 +      else if ((this.brush_mode === 'pen_add' || this.brush_mode === 'pen_remove' || this.brush_mode === 'quad') && this.poly.length > 0) this.draw_poly({ x: e.clientX, y: e.clientY })
 +    })
 +    addEventListener('pointerup', (e) => {
++      if (this.drag_grab) { this.drag_grab = false; this.q_grab_end(true); this.q_menu_at = { x: e.clientX, y: e.clientY }; this.q_hint(); this.down_at = null; return }
 +      if (this.painting) { this.painting = false; this.after_paint() }
 +      else if (this.box_start !== null && this.brush_mode === 'circle') { this.q_menu_at = { x: e.clientX, y: e.clientY }; this.finish_circle(e) }
 +      else if (this.box_start !== null) { this.finish_box(e) }
++      else if (this.shift_sel) {
++        this.shift_sel = false; this.lassoing = false; const pts = this.poly; this.poly = []; this.draw_poly(); this.q_menu_at = { x: e.clientX, y: e.clientY }
++        if (pts.length < 3 || (this.down_at !== null && Math.hypot(e.clientX - this.down_at.x, e.clientY - this.down_at.y) < 5)) this.q_piece(e, true)
++        else this.select_screen(true, pts, true)
++      }
 +      else if (this.lassoing) { this.lassoing = false; this.finish_poly() }
 +      else if ((this.brush_mode === 'piece_add' || this.brush_mode === 'piece_remove') && e.button === 0 && this.down_at !== null && e.target === el && Math.hypot(e.clientX - this.down_at.x, e.clientY - this.down_at.y) < 4) this.click_piece(e)
 +      else if (this.placing && e.button === 0 && this.down_at !== null && e.target === el && Math.hypot(e.clientX - this.down_at.x, e.clientY - this.down_at.y) < 4) this.place_bone(e)
@@ -13833,6 +14262,7 @@ index 0000000..cdf987d
 +    const s = make_sample(id)
 +    this.vtype = s.type; ($('vh-type') as HTMLSelectElement).value = s.type
 +    this.set_model(s.group, s.name)
++    this.square_up(); this.unify_axles()
 +    // helicopters and boats have no wheels: drop the scan's corner guess
 +    if (!s.group.children.some(o => role_of(o.name)?.role === 'wheel')) { this.wheels = []; this.parts.forEach(p => { for (let i = 0; i < p.owner.length; i++) if (p.owner[i] < DOOR0) p.owner[i] = -1 }); this.name_parts(); this.refresh_part_select(); this.refresh_colors(); this.draw_markers() }
 +    this.build_rig()
@@ -14270,6 +14700,8 @@ index 0000000..cdf987d
 +
 +  private auto_turned = false
 +  private finish_wheels (msg: string, warn = false): void {
++    this.square_up()
++    setTimeout(() => { this.unify_axles(); this.draw_markers() }, 0) // once, after the scan sets the axles (each wheel is free after that)
 +    if (this.vtype === 'tracked') setTimeout(() => { if (!this.mechs.some(m => m.kind === 'track')) this.find_tracks() }, 0)
 +    this.wheels.forEach((w, k) => { w.axle = this.wheel_axle(k) })
 +    // the wheels' own axles say which way the vehicle really points: axles along Z = the car lies sideways
@@ -14305,10 +14737,11 @@ index 0000000..cdf987d
 +  }
 +
 +  /**
-+   * a wheel's spin axis = the direction its vertices spread least (a tyre is a flat disc). Works whatever way the
-+   * file was turned. Pointed to +X (the vehicle's left) so "forward" spins the same way for every wheel.
++   * a wheel's spin axis: which way its round side faces (a tyre is a flat disc), made level so the wheel stands
++   * upright, pointed to +X (the vehicle's left) so every wheel spins the same way.
 +   */
 +  private wheel_axle (k: number): THREE.Vector3 | undefined {
++    const lw = this.wheels[k]; if (lw?.locked === true && lw.axle !== undefined) return lw.axle // 🔒 set by hand
 +    const P: THREE.Vector3[] = []
 +    this.parts.forEach(p => { const pos = p.mesh.geometry.getAttribute('position'); for (let i = 0; i < pos.count; i++) if (p.owner[i] === k) P.push(new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i))) })
 +    if (P.length < 12) return undefined
@@ -14326,7 +14759,10 @@ index 0000000..cdf987d
 +    }
 +    const v = vecs[best].clone()
 +    if (Math.abs(v.y) > 0.7) return undefined // flat lying thing, not a wheel on its edge: keep the default
-+    if (v.x < 0 || (Math.abs(v.x) < 1e-3 && v.z < 0)) v.negate()
++    // a wheel stands upright: its axle is level (a caliper or a hub cap tilting the measured axis up / down is
++    // dropped), but keeps the way the wheel really faces sideways (a model turned a few degrees spins true, no wobble)
++    v.y = 0; if (v.lengthSq() < 1e-8) return new THREE.Vector3(1, 0, 0)
++    v.normalize(); if (v.x < 0 || (Math.abs(v.x) < 1e-3 && v.z < 0)) v.negate()
 +    return v
 +  }
 +
@@ -14884,6 +15320,65 @@ index 0000000..cdf987d
 +    this.refresh_part_select(); this.refresh_colors(); this.draw_markers()
 +  }
 +
++  /* ---------------- 🛞 axle panel: which way the picked wheel turns (its pink ring), lock it, turn the wheel with it ---------------- */
++  private axle_panel (): void {
++    let el = document.getElementById('vh-axle')
++    const k = this.active; const w = k >= 0 && k < DOOR0 ? this.wheels[k] : undefined
++    if (w === undefined) { if (el !== null) el.style.display = 'none'; return }
++    if (el === null) {
++      el = document.createElement('div'); el.id = 'vh-axle'
++      el.style.cssText = 'position:absolute;left:8px;top:48px;z-index:15;display:flex;flex-direction:column;gap:5px;padding:8px 10px;border-radius:10px;background:rgba(20,22,26,.92);border:1px solid #ff2bd6;font-size:12px;max-width:300px'
++      $('vh-view').appendChild(el)
++      el.addEventListener('click', e => {
++        const b = (e.target as HTMLElement).closest<HTMLElement>('[data-ax],[data-axr],[data-axa]'); if (b === null) return
++        if (b.dataset.ax !== undefined) this.set_axle(b.dataset.ax)
++        if (b.dataset.axr !== undefined) this.turn_wheel(b.dataset.axr as 'x' | 'y' | 'z')
++        if (b.dataset.axa === 'lock') this.lock_axle()
++      })
++    }
++    const a = w.axle ?? new THREE.Vector3(1, 0, 0); const on = (v: string): string => (v === 'x' && Math.abs(a.x) > 0.9) || (v === 'y' && Math.abs(a.y) > 0.9) || (v === 'z' && Math.abs(a.z) > 0.9) ? 'background:#ff2bd6;color:#fff' : ''
++    const B = (attr: string, t: string, tip: string, st = ''): string => `<button type="button" ${attr} title="${tip}" style="font-size:12px;padding:3px 7px;${st}">${t}</button>`
++    el.innerHTML = `<b style="color:#ff7be6">🛞 ${this.part_name(k)} — ${M('spin axle (pink ring)', 'trục quay (khung hồng)', '회전축')}</b>
++      <div style="display:flex;gap:4px;flex-wrap:wrap">${B('data-ax="x"', 'X', M('Axle along X', 'Trục theo X', 'X'), on('x'))}${B('data-ax="y"', 'Y', M('Axle along Y', 'Trục theo Y', 'Y'), on('y'))}${B('data-ax="z"', 'Z', M('Axle along Z', 'Trục theo Z', 'Z'), on('z'))}${B('data-ax="next"', '⟲ (Z)', M('Turn the ring to the next axis (key Z)', 'Xoay khung sang trục kế (phím Z)', '다음 축 (Z)'))}${B('data-ax="flip"', '⇄', M('Spin the other way', 'Quay chiều ngược lại', '반대'))}</div>
++      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center"><span>${M('Turn wheel + ring 90°', 'Xoay bánh + khung 90°', '바퀴+링 90°')}</span>${B('data-axr="x"', '↻X', 'X')}${B('data-axr="y"', '↻Y', 'Y')}${B('data-axr="z"', '↻Z', 'Z')}</div>
++      ${B('data-axa="lock"', w.locked === true ? '🔒 ' + M('Grouped (click to unlock)', 'Đã gom (bấm để mở)', '고정됨') : '🔗 ' + M('Group wheel + ring (lock the axle)', 'Gom bánh + khung (khoá trục)', '바퀴+링 고정'), M('The axle stays as you set it: auto scans and fixes leave it alone', 'Trục giữ đúng như bạn chỉnh: tự quét / tự sửa không đụng vào', '자동으로 바뀌지 않음'), w.locked === true ? 'background:#2a6f3a;color:#fff' : 'border-color:#ff2bd6')}`
++    el.style.display = 'flex'
++  }
++  /** the picked wheel's axle: 'x' | 'y' | 'z', 'next' (the next axis round, also key Z) or 'flip' */
++  public set_axle (how: string): void {
++    const k = this.active; const w = this.wheels[k]; if (w === undefined || k >= DOOR0) return
++    this.history.begin(); this.clear_rig()
++    const a = w.axle?.clone() ?? new THREE.Vector3(1, 0, 0)
++    if (how === 'flip') a.negate()
++    else if (how === 'next') { const i = Math.abs(a.x) > 0.9 ? 0 : Math.abs(a.z) > 0.9 ? 1 : 2; const n = [new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0)][i]; a.copy(n) }
++    else a.set(how === 'x' ? 1 : 0, how === 'y' ? 1 : 0, how === 'z' ? 1 : 0)
++    w.axle = a; w.locked = true // set by hand: the auto passes keep it
++    this.draw_markers(); this.history.commit_soon()
++  }
++  public lock_axle (): void { const w = this.wheels[this.active]; if (w === undefined || this.active >= DOOR0) return; this.history.begin(); w.locked = w.locked !== true; this.axle_panel(); this.history.commit_soon() }
++  /** turn the picked wheel's mesh and its axle together by 90° round its centre (to fit it on the vehicle) */
++  public turn_wheel (axis: 'x' | 'y' | 'z'): void {
++    const k = this.active; const w = this.wheels[k]; if (w === undefined || k >= DOOR0) return
++    this.history.begin(); this.clear_rig()
++    const R = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0), Math.PI / 2)
++    const c = w.center.clone(); const v = new THREE.Vector3()
++    // fresh meshes for the ones that change, so Ctrl+Z gets the old ones back
++    this.parts = this.parts.map(p => {
++      if (!p.owner.some(o => o === k)) return p
++      const m = new THREE.Mesh(p.mesh.geometry.clone(), p.mesh.material); m.name = p.mesh.name
++      this.original_materials.set(m, this.original_materials.get(p.mesh) ?? p.mesh.material)
++      this.holder.remove(p.mesh); this.holder.add(m)
++      const pos = m.geometry.getAttribute('position') as THREE.BufferAttribute
++      for (let i = 0; i < pos.count; i++) if (p.owner[i] === k) { v.fromBufferAttribute(pos, i).sub(c).applyMatrix4(R).add(c); pos.setXYZ(i, v.x, v.y, v.z) }
++      pos.needsUpdate = true; m.geometry.computeVertexNormals(); m.geometry.computeBoundingBox(); m.geometry.computeBoundingSphere()
++      return { mesh: m, owner: Int16Array.from(p.owner) }
++    })
++    this.comp_cache.clear()
++    if (w.axle !== undefined) w.axle = w.axle.clone().applyMatrix4(R).normalize()
++    w.locked = true
++    this.refresh_colors(); this.draw_markers(); this.history.commit_soon()
++  }
++
 +  private color_of (code: number): number {
 +    return code >= DOOR0 ? DOOR_COLORS[(code - DOOR0) % DOOR_COLORS.length] : WHEEL_COLORS[code % WHEEL_COLORS.length]
 +  }
@@ -14918,6 +15413,7 @@ index 0000000..cdf987d
 +  /** wheel rings: [ smaller, ] bigger, O hide / show */
 +  private ring_scale = 1
 +  private draw_markers (): void {
++    this.axle_panel()
 +    this.markers.clear()
 +    this.wheels.forEach((w, k) => {
 +      const on = k === this.active
@@ -14925,8 +15421,12 @@ index 0000000..cdf987d
 +      // the ring lies in the wheel's own plane (around its axle), pushed a little outwards
 +      const ax = w.axle ?? new THREE.Vector3(1, 0, 0)
 +      ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), ax)
-+      ring.position.copy(w.center).addScaledVector(ax, Math.sign(w.center.dot(ax) || 1) * this.size.x * 0.02)
-+      ring.renderOrder = 10
++      // on the wheel's own outer face (snug on the wheel / its track), whichever side it is on
++      const side = Math.sign(w.center.dot(ax) || 1); const wb = this.part_box(k)
++      const half = wb.isEmpty() ? 0 : Math.abs(wb.getSize(new THREE.Vector3()).dot(ax)) / 2
++      ring.position.copy(w.center).addScaledVector(ax, side * (half + this.size.x * 0.01))
++      ring.userData.face = ax.clone().multiplyScalar(side) // which way this ring looks (to the outside)
++      ring.renderOrder = 10; ring.userData.on = on
 +      this.markers.add(ring)
 +    })
 +  }
@@ -15016,7 +15516,7 @@ index 0000000..cdf987d
 +    const red = this.brush_mode === 'lasso_remove' || this.brush_mode === 'pen_remove'
 +    const col = red ? '#ef5350' : '#f5a623'
 +    svg.innerHTML = `<polygon points="${pts}" fill="${red ? 'rgba(239,83,80,.12)' : 'rgba(245,166,35,.12)'}" stroke="${col}" stroke-width="1.5" stroke-dasharray="5 3"/>` +
-+      (this.brush_mode?.startsWith('pen') === true || this.brush_mode === 'quad' ? this.poly.map((p, i) => `<circle cx="${p.x - v.left}" cy="${p.y - v.top}" r="${i === 0 ? 6 : 3.5}" fill="${i === 0 ? col : '#fff'}" stroke="${col}"/>`).join('') : '') 
++      (this.brush_mode?.startsWith('pen') === true || this.brush_mode === 'quad' ? this.poly.map((p, i) => `<circle cx="${p.x - v.left}" cy="${p.y - v.top}" r="${i === 0 ? 6 : 3.5}" fill="${i === 0 ? col : '#fff'}" stroke="${col}"/>`).join('') : '')
 +  }
 +
 +  private finish_poly (): void {
@@ -15045,11 +15545,17 @@ index 0000000..cdf987d
 +    el.innerHTML = `<div style="color:#ff7be6;font-weight:700">${M('What is this part?', 'Đây là bộ phận gì?', '이 부품은?')}</div>
 +      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">${CHOICES.map((c, n) => b(c, String(n + 1))).join('')}</div>
 +      <select data-qmore style="font-size:12px"><option value="">${M('Something else…', 'Bộ phận khác…', '기타…')}</option>${PRESETS.map((p, i) => `<option value="${i}">${p.icon} ${p.label}</option>`).join('')}<option value="bone">🦴 ${M('Free bone', 'Xương tự do', '자유 본')}</option></select>
++      <select data-qattach style="font-size:12px"><option value="">🔗 ${M('Attach to a part…', 'Gắn vào bộ phận…', '부품에 붙이기…')}</option><option value="-1">${M('Body (no animation)', 'Thân xe (không animation)', '차체')}</option>${this.wheels.map((_w, i) => `<option value="${i}">🛞 ${this.part_name(i)}</option>`).join('')}${this.mechs.map((_m, i) => `<option value="${DOOR0 + i}">⚙ ${this.part_name(DOOR0 + i)}</option>`).join('')}</select>
 +      <div style="display:flex;gap:4px"><button type="button" data-qa="g" style="flex:1;font-size:12px;padding:4px">✋ ${M('Drag out', 'Kéo ra', '끌기')} (G)</button><button type="button" data-qa="del" style="flex:1;font-size:12px;padding:4px">🗑 ${M('Remove', 'Xoá', '삭제')}</button><button type="button" data-qa="x" style="font-size:12px;padding:4px">✕</button></div>`
 +    const v = $('vh-view').getBoundingClientRect()
-+    el.style.left = `${Math.min(v.width - 260, Math.max(4, this.q_menu_at.x - v.left + 14))}px`; el.style.top = `${Math.min(v.height - 250, Math.max(4, this.q_menu_at.y - v.top + 14))}px`; el.style.display = 'flex'
++    // it fits in the view (taller than the room: it scrolls), next to the mouse
++    const visTop = Math.max(0, -v.top); const visH = Math.min(v.height, innerHeight - v.top) - visTop // the part of the view on the screen
++    el.style.maxHeight = `${Math.max(160, visH - 16)}px`; el.style.overflowY = 'auto'; el.style.display = 'flex'
++    const h = el.offsetHeight
++    el.style.left = `${Math.min(v.width - 260, Math.max(4, this.q_menu_at.x - v.left + 14))}px`; el.style.top = `${Math.max(visTop + 8, Math.min(visTop + visH - h - 8, this.q_menu_at.y - v.top + 14))}px`
 +    el.querySelectorAll<HTMLButtonElement>('[data-qc]').forEach(x => { x.onclick = () => { this.q_choose(x.dataset.qc!) } })
 +    ;(el.querySelector('[data-qmore]') as HTMLSelectElement).onchange = (e) => { const v2 = (e.target as HTMLSelectElement).value; if (v2 === '') return; this.history.begin(); this.q_detach('part', v2 === 'bone' ? { icon: '🦴', label: 'Bone', kind: 'bone' } : PRESETS[Number(v2)]); this.history.commit_soon() }
++    ;(el.querySelector('[data-qattach]') as HTMLSelectElement).onchange = (e) => { const v2 = (e.target as HTMLSelectElement).value; if (v2 !== '') this.q_attach(Number(v2)) }
 +    el.querySelectorAll<HTMLButtonElement>('[data-qa]').forEach(x => { x.onclick = () => { const a = x.dataset.qa; if (a === 'g') { this.history.begin(); this.q_grab_start() } else if (a === 'del') this.q_delete(); else this.q_clear(); this.q_menu_hide() } })
 +  }
 +  /** a choice of the "what is this part?" menu (or its number key) */
@@ -15061,6 +15567,26 @@ index 0000000..cdf987d
 +    this.q_detach('part', c.preset)
 +    if (c.preset.kind === 'track' && this.vtype !== 'tracked') { this.vtype = 'tracked'; ($('vh-type') as HTMLSelectElement).value = 'tracked' }
 +    this.history.commit_soon()
++    this.rig_and_show(c.preset.kind)
++  }
++  /** 🔗 the selection joins a part that is already there (a hubcap back onto its wheel, a mirror onto its door) and moves with it */
++  public q_attach (code: number): void {
++    if (this.q_count() === 0) return
++    this.history.begin(); this.q_menu_hide(); this.clear_rig()
++    this.qsel.forEach((q, p) => { for (let i = 0; i < q.length; i++) if (q[i] === 1) p.owner[i] = code })
++    this.qsel.clear(); this.active = code
++    this.after_paint(); this.refresh_colors(); this.history.commit_soon()
++    this.status(M(`Attached to ${code < 0 ? 'the body' : this.part_name(code)}. Ctrl+Z / Cmd+Z undoes it.`, `Đã gắn vào ${code < 0 ? 'thân xe' : this.part_name(code)}. Ctrl+Z / Cmd+Z để hoàn tác.`, '붙였습니다.'))
++    if (code >= 0) this.rig_and_show(code < DOOR0 ? 'wheel' : this.mechs[code - DOOR0]?.kind ?? '')
++  }
++  /** after a cut / attach: build the rig and play the animation that shows that kind of part move */
++  private rig_and_show (kind: string): void {
++    setTimeout(() => {
++      try { this.build_rig() } catch (e) { console.warn('Greenbox vehicle rig:', e); return }
++      const want: Record<string, RegExp> = { wheel: /^04_Drive$|Drive/, door: /door|open/i, track: /Drive/, spin: /drill|spin|work/i, turret: /turret|turn|aim/i, blade: /blade|dig|lift/i, boom: /boom|lift|crane/i, arm: /dig|arm|bucket/i, bucket: /dig|bucket/i, barrel: /fire|shoot|recoil/i }
++      const re = want[kind] ?? /Drive/
++      const i = this.clips.findIndex(c => re.test(c.name)); this.play(i >= 0 ? i : 0)
++    }, 60)
 +  }
 +  /** add every separate piece that lies inside the selection's box (glass of a door, its handle, its mirror) */
 +  private q_grow_inside (): void {
@@ -15086,8 +15612,8 @@ index 0000000..cdf987d
 +    this.q_menu()
 +    const n = this.q_count()
 +    this.status(n === 0 ? M('Nothing selected.', 'Chưa chọn gì.', '선택 없음.')
-+      : M(`${n} points selected (pink). Pick what it is in the menu (1 wheel · 2 door · 3 hood · 4 trunk…) · G = drag it out · Delete = remove · Shift+click = add a piece · Esc = clear`,
-+        `Đã chọn ${n} điểm (màu hồng). Chọn nó là gì trong menu (1 bánh · 2 cửa · 3 capo · 4 cốp…) · G = kéo ra · Delete = xoá · Shift+bấm = chọn thêm mảnh · Esc = bỏ chọn`,
++      : M(`${n} points selected (pink). Pick what it is in the menu (it gets a rig and plays its animation) or 🔗 attach it to a part · drag it (or G) = pull it off · Delete = remove · Shift+drag / Shift+click = add more · Ctrl/Cmd+Z = undo · Esc = clear`,
++        `Đã chọn ${n} điểm (màu hồng). Chọn nó là gì trong menu (tự gắn rig và chạy animation) hoặc 🔗 gắn vào bộ phận có sẵn · kéo nó (hoặc G) = kéo đứt ra · Delete = xoá · Shift+kéo / Shift+bấm = chọn thêm · Ctrl/Cmd+Z = hoàn tác · Esc = bỏ chọn`,
 +        `${n}개 선택. X 분리 · Shift+X 바퀴 · G 끌기 · Delete 삭제 · Esc 해제`))
 +  }
 +  /** click: the connected piece under the cursor (Shift adds) */
@@ -15099,7 +15625,14 @@ index 0000000..cdf987d
 +    const p = this.parts.find(x => x.mesh === h.object); if (p === undefined) return
 +    let comp = this.comp_cache.get(p); if (comp === undefined) { comp = this.components(p); this.comp_cache.set(p, comp) }
 +    const id = comp[h.face.a]; let q = this.qsel.get(p); if (q === undefined) { q = new Uint8Array(p.owner.length); this.qsel.set(p, q) }
-+    let n = 0; for (let i = 0; i < comp.length; i++) if (comp[i] === id) { q[i] = 1; n++ }
++    let n = 0
++    // a part found already (a wheel = tyre + rim + hub, a door…): one click takes all of it, in every mesh
++    const own = [h.face.a, h.face.b, h.face.c].map(i => p.owner[i]).find(o => o >= 0)
++    if (own !== undefined) {
++      this.parts.forEach(pp => { let qq = this.qsel.get(pp); for (let i = 0; i < pp.owner.length; i++) if (pp.owner[i] === own) { if (qq === undefined) { qq = new Uint8Array(pp.owner.length); this.qsel.set(pp, qq) } qq[i] = 1; n++ } })
++      this.refresh_colors(); this.q_hint(); return
++    }
++    for (let i = 0; i < comp.length; i++) if (comp[i] === id) { q[i] = 1; n++ }
 +    this.refresh_colors(); this.q_hint()
 +    if (n > p.owner.length * 0.6 && this.parts.length === 1) this.status(M('That piece is the whole welded model: cut a part out with ⬚ 4 points or ◯ circle instead.', 'Mảnh này là cả model dính liền: hãy cắt bằng ⬚ 4 điểm hoặc ◯ khoanh tròn.', '모델 전체입니다: 4점 / 원으로 자르세요.'), true)
 +  }
@@ -15133,7 +15666,9 @@ index 0000000..cdf987d
 +    this.q_menu_hide()
 +    this.clear_rig(); this.q_cut()
 +    let code: number
-+    if (as === 'wheel' || preset?.kind === 'wheel') { this.wheels.push({ name: 'wheel_new', center: new THREE.Vector3(), radius: 0.1, front: false, guessed: false }); code = this.wheels.length - 1 }
++    let was = -2; let same = true; this.qsel.forEach((q, p) => { for (let i = 0; i < q.length; i++) if (q[i] === 1) { if (was === -2) was = p.owner[i]; else if (p.owner[i] !== was) same = false } })
++    if ((as === 'wheel' || preset?.kind === 'wheel') && same && was >= 0 && was < DOOR0) code = was // it is that wheel already
++    else if (as === 'wheel' || preset?.kind === 'wheel') { this.wheels.push({ name: 'wheel_new', center: new THREE.Vector3(), radius: 0.1, front: false, guessed: false }); code = this.wheels.length - 1 }
 +    else {
 +      const kind = (preset?.kind as MechKind | undefined) ?? ((($('vh-part-kind') as HTMLSelectElement).value as MechKind) || 'bone')
 +      this.mechs.push({ kind, name: preset?.label === 'Drill' ? 'drill' : kind, hinge: preset?.hinge ?? 'auto', angle: preset?.angle ?? default_angle(kind), flip: false, axis: preset?.axis ?? 'auto' }); code = DOOR0 + this.mechs.length - 1
@@ -15141,7 +15676,8 @@ index 0000000..cdf987d
 +    }
 +    this.qsel.forEach((q, p) => { for (let i = 0; i < q.length; i++) if (q[i] === 1) p.owner[i] = code })
 +    this.qsel.clear(); this.active = code
-+    this.after_paint(); this.refresh_colors()
++    if (code < DOOR0) { const w = this.wheels[code]; const b = this.part_box(code); if (w !== undefined && !b.isEmpty()) { const sz = b.getSize(new THREE.Vector3()); w.center.copy(b.getCenter(new THREE.Vector3())); w.radius = Math.max(sz.y, sz.z) / 2; w.guessed = false; w.axle = this.wheel_axle(code); w.front = w.center.z > 0.05 * this.size.z; this.name_wheels() } }
++    this.after_paint(); this.refresh_colors(); this.draw_markers()
 +    this.status(M(`Detached as ${this.part_name(code)} (its own mesh, holes filled). Change its kind / pivot below, or press G to drag it.`, `Đã tách thành ${this.part_name(code)} (mesh riêng, đã fill lỗ). Đổi loại / trục bên dưới, hoặc bấm G để kéo.`, `${this.part_name(code)}(으)로 분리.`))
 +  }
 +  /** Delete: the selected triangles leave the model (a lamp post, a house, the floor, a sign…) */
@@ -15187,6 +15723,20 @@ index 0000000..cdf987d
 +    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(this.camera.getWorldDirection(new THREE.Vector3()).negate(), c)
 +    this.grab = { start: c, plane, orig }; this.refresh_colors()
 +    this.status(M('Move the mouse to drag the piece · click / Enter = OK · Esc / right-click = cancel', 'Rê chuột để kéo mảnh · bấm / Enter = xong · Esc / chuột phải = huỷ', '마우스로 끌기 · 클릭 확인 · Esc 취소'))
++  }
++  /** is the mouse on a selected (pink) bit of the model? */
++  private on_selection (e: PointerEvent): boolean {
++    const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
++    const h = ray.intersectObjects(this.parts.map(p => p.mesh), false)[0]; if (h === undefined || h.face == null) return false
++    const p = this.parts.find(x => x.mesh === h.object); const q = p !== undefined ? this.qsel.get(p) : undefined
++    return q !== undefined && (q[h.face.a] === 1 || q[h.face.b] === 1 || q[h.face.c] === 1)
++  }
++  /** the drag starts where the mouse is (the piece does not jump to it) */
++  private grab_from (e: PointerEvent): void {
++    const g = this.grab; if (g === null) return
++    const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
++    const hit = ray.ray.intersectPlane(g.plane, new THREE.Vector3()); if (hit !== null) g.start.copy(hit)
++    this.status(M('Pulling it off: release the mouse to drop it · Ctrl/Cmd+Z puts it back', 'Đang kéo ra: thả chuột để đặt · Ctrl/Cmd+Z để gắn lại chỗ cũ', '떼어내는 중: 놓으면 배치 · Ctrl/Cmd+Z 복구'))
 +  }
 +  private q_grab_move (e: PointerEvent): void {
 +    const g = this.grab; if (g === null) return
@@ -15468,6 +16018,35 @@ index 0000000..cdf987d
 +    if (this.bone_helper !== null) { this.scene.remove(this.bone_helper); this.bone_helper = null }
 +    $('vh-anims').innerHTML = ''
 +    $('vh-anim-box').classList.add('disabled')
++  }
++
++  /** (once, when the wheels are found) every wheel of a vehicle turns on the same axle direction: level and square to the line the wheels run along
++   *  (from all the wheel centres), so a model placed a few degrees off still rolls straight along its tracks */
++  /** a vehicle set a few degrees off the forward arrow (its wheel rows not along Z) drives off to one side:
++   *  turn the whole model so the rows run straight along the arrow (only small turns: a big one is left to the person) */
++  private square_up (): boolean {
++    const W = this.wheels.filter(w => !w.guessed); if (W.length < 3) return false
++    const c = new THREE.Vector3(); W.forEach(w => c.add(w.center)); c.divideScalar(W.length)
++    let xx = 0; let zz = 0; let xz = 0; W.forEach(w => { const dx = w.center.x - c.x; const dz = w.center.z - c.z; xx += dx * dx; zz += dz * dz; xz += dx * dz })
++    const a0 = 0.5 * Math.atan2(2 * xz, xx - zz); let f = new THREE.Vector3(Math.cos(a0), 0, Math.sin(a0))
++    if (Math.abs(f.z) < Math.abs(f.x)) f = new THREE.Vector3(-f.z, 0, f.x)
++    if (f.z < 0) f.negate()
++    const a = Math.atan2(f.x, f.z); const deg = Math.abs(THREE.MathUtils.radToDeg(a))
++    if (deg < 0.5 || deg > 20) return false
++    this.rotate_model(-a)
++    this.status(M(`Turned ${deg.toFixed(1)}° so the wheels run straight along the arrow (it was drifting to one side).`, `Đã xoay ${deg.toFixed(1)}° cho hàng bánh chạy thẳng theo mũi tên (trước đó xe bị quẹo lệch).`, `${deg.toFixed(1)}° 정렬`))
++    return true
++  }
++
++  private unify_axles (): void {
++    const W = this.wheels; if (W.length < 3) return
++    const c = new THREE.Vector3(); W.forEach(w => c.add(w.center)); c.divideScalar(W.length)
++    let xx = 0; let zz = 0; let xz = 0; W.forEach(w => { const dx = w.center.x - c.x; const dz = w.center.z - c.z; xx += dx * dx; zz += dz * dz; xz += dx * dz })
++    const a = 0.5 * Math.atan2(2 * xz, xx - zz); let f = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)) // the long way of the wheel layout
++    // a vehicle's wheels spread front-to-back more than side-to-side; if not (a wide 4-wheel layout), take the axis nearer Z
++    if (Math.abs(f.z) < Math.abs(f.x)) f = new THREE.Vector3(-f.z, 0, f.x)
++    const ax = new THREE.Vector3(f.z, 0, -f.x).normalize(); if (ax.x < 0) ax.negate()
++    for (const w of W) { if (w.locked === true) continue; const own = w.axle; if (own === undefined || Math.abs(own.dot(ax)) > Math.cos(THREE.MathUtils.degToRad(35))) w.axle = ax.clone() } // a wheel turned on purpose (steered, sideways) keeps its own
 +  }
 +
 +  public build_rig (): void {
@@ -16105,7 +16684,7 @@ index 588b0fa..cebbe16 100644
      <link rel="shortcut icon" type="image/x-icon" href="./favicon.ico" />
      <meta charset="UTF-8">
 @@ -23,12 +23,13 @@
- 
+
      <nav>
          <div style="display: inline-flex; align-items: center;">
 -            <a id="logo-branding" href="https://mesh2motion.org">
@@ -16119,15 +16698,15 @@ index 588b0fa..cebbe16 100644
 +        <a href="/playtest.html">Play test</a>
 +        <a href="/mocap.html">Video mocap</a>
          </div>
- 
+
          <div style="display: inline-flex; align-items: center;">
 diff --git a/src/lib/DOMUtilities.ts b/src/lib/DOMUtilities.ts
-index de042b5..12ae465 100644
+index de042b5..edb89ff 100644
 --- a/src/lib/DOMUtilities.ts
 +++ b/src/lib/DOMUtilities.ts
 @@ -73,10 +73,11 @@ export class DOMUtilities {
      mount.style.alignItems = 'center'
- 
+
      mount.innerHTML = `
 -      <a href="#" id="learn-link">Learn</a>
 -      <a href="#" id="attribution-link">Contributors</a>
@@ -16141,6 +16720,15 @@ index de042b5..12ae465 100644
          <img src="${nav_links.github_icon_src}" width="24" height="24" alt="GitHub" />
        </a>
        <span id="settings-dropdown-mount"></span>
+@@ -172,7 +173,7 @@ export class DOMUtilities {
+             value="0" step="1" />
+           <span class="suffix-unit">%</span>
+           <input id="extend-arm-range-input" style="flex-grow: 1" type="range"
+-            min="-120" max="20" value="0" />
++            min="-200" max="120" value="0" />
+         </div>
+
+         <hr />
 @@ -366,6 +367,8 @@ export class DOMUtilities {
    private static get_download_option_label (value: string): string {
      const custom_labels: Partial<Record<string, string>> = {
@@ -16166,11 +16754,11 @@ index f38a5c0..1032e8c 100644
 +      // fresh skeleton: stretch it into the model so beginners start close
 +      this.bootstrap.easy_rig.fit_to_model()
      })
- 
+
      // Listen for skeleton transformation events to update UI and visuals
 @@ -75,6 +78,7 @@ export class EventListeners {
      this.bootstrap.renderer.domElement.style.touchAction = 'none'
- 
+
      this.bootstrap.renderer.domElement.addEventListener('pointermove', (event: PointerEvent) => {
 +      if (this.bootstrap.easy_rig.handle_move(event)) return
        if (this.active_canvas_pointer_id !== null && event.pointerId !== this.active_canvas_pointer_id) {
@@ -16178,7 +16766,7 @@ index f38a5c0..1032e8c 100644
        }
 @@ -111,6 +115,7 @@ export class EventListeners {
      })
- 
+
      this.bootstrap.renderer.domElement.addEventListener('pointerdown', (event: PointerEvent) => {
 +      if (this.bootstrap.process_step === ProcessStep.EditSkeleton && this.bootstrap.easy_rig.handle_down(event)) return
        const use_mesh_drag_mode =
@@ -16186,7 +16774,7 @@ index f38a5c0..1032e8c 100644
          this.bootstrap.edit_skeleton_step.is_mesh_drag_placement_enabled()
 @@ -134,6 +139,10 @@ export class EventListeners {
      }, false)
- 
+
      document.addEventListener('pointerup', (event: PointerEvent) => {
 +      if (this.bootstrap.easy_rig.handle_up(event)) {
 +        if (this.bootstrap.mesh_preview_display_type === ModelPreviewDisplay.WeightPainted) this.bootstrap.regenerate_weight_painted_preview_mesh()
@@ -16200,7 +16788,7 @@ index f38a5c0..1032e8c 100644
          return
        }
 +      this.bootstrap.easy_rig.handle_key(event)
- 
+
        // Define undo/redo shortcut conditions
        // Ctrl+Z or Cmd+Z for undo
        // Ctrl+Y, Cmd+Y, Ctrl+Shift+Z, or Cmd+Shift+Z for redo
@@ -16211,7 +16799,7 @@ index f38a5c0..1032e8c 100644
 +      if (action !== null && typing(event)) return
 +      const is_undo_shortcut_pressed = action === 'undo'
 +      const is_redo_shortcut_pressed = action === 'redo'
- 
+
        if (is_undo_shortcut_pressed) {
          event.preventDefault()
 diff --git a/src/lib/RigConfig.ts b/src/lib/RigConfig.ts
@@ -16246,7 +16834,7 @@ index 20204e5..8115ae8 100644
 +      skeleton_template_image_url: 'rigs/reference/snakeclash.png'
      } satisfies RigConfigEntry
    ]
- 
+
 diff --git a/src/lib/SceneEnvironmentManager.ts b/src/lib/SceneEnvironmentManager.ts
 index c2d612d..ba44b81 100644
 --- a/src/lib/SceneEnvironmentManager.ts
@@ -16257,12 +16845,12 @@ index c2d612d..ba44b81 100644
  import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 +import '../greenbox/common/MacTrackpad.ts' // Mac trackpad: two-finger rotate, Shift pan, pinch zoom
  import { type CustomTransformControls } from './components/CustomTransformControls.ts'
- 
+
  import { CustomViewHelper } from './CustomViewHelper.ts'
 @@ -82,6 +83,8 @@ export class SceneEnvironmentManager {
      return this.view_helper
    }
- 
+
 +  public orbit_controls (): OrbitControls | undefined { return this.controls }
 +
    public enable_orbit_controls (enabled: boolean): void {
@@ -16270,7 +16858,7 @@ index c2d612d..ba44b81 100644
        return
 @@ -201,8 +204,8 @@ export class SceneEnvironmentManager {
      }
- 
+
      return {
 -      grid_color: 0x4f6f6f,
 -      floor_color: 0x2d4353,
@@ -16287,7 +16875,7 @@ index 735669d..8629740 100644
 +import { friendly_bone_name } from '../greenbox/rig/EasyRig.ts'
  export class UI {
    private static instance: UI
- 
+
 @@ -307,7 +308,7 @@ export class UI {
      if (this.dom_selected_bone_overlay === null || this.dom_selected_bone_overlay_text === null) {
        return
@@ -16296,7 +16884,7 @@ index 735669d..8629740 100644
 +    this.dom_selected_bone_overlay_text.textContent = friendly_bone_name(bone_name)
      this.dom_selected_bone_overlay.style.display = 'flex'
    }
- 
+
 diff --git a/src/lib/enums/SkeletonType.ts b/src/lib/enums/SkeletonType.ts
 index e1eef99..8161b6d 100644
 --- a/src/lib/enums/SkeletonType.ts
@@ -16317,17 +16905,17 @@ index 4d38cb9..5162748 100644
 @@ -301,7 +301,8 @@ export class AnimationSearch extends EventTarget {
        const theme_name: string = this.theme_manager.get_current_theme()
        const is_custom_animation = animation_clip.metadata?.source_type === 'custom-import'
- 
+
 -      const preview_data_src_attribute = is_custom_animation
 +      // Greenbox rigs (XP Hero, Snake Clash) have no preview videos
 +      const preview_data_src_attribute = is_custom_animation || preview_folder === 'xphero' || preview_folder === 'snakeclash'
          ? ''
          : ` data-src="../animpreviews/${preview_folder}/${theme_name}_${anim_name}.mp4"`
- 
+
 @@ -458,6 +459,11 @@ export class AnimationSearch extends EventTarget {
      }
    }
- 
+
 +  public select_all_animations (): void {
 +    if (this.all_animations.every(animation => animation.isChecked === true)) return
 +    this.toggle_select_all_animations()
@@ -16345,7 +16933,7 @@ index e339c7a..98383a4 100644
 +import { AnimationClip, AnimationMixer, Matrix3, Matrix4, Quaternion, Vector3, type Bone, type KeyframeTrack, type QuaternionKeyframeTrack, type SkinnedMesh } from 'three'
  import type { TransformedAnimationClipPair } from './interfaces/TransformedAnimationClipPair'
  import { RigConfig } from '../../RigConfig'
- 
+
 @@ -92,7 +92,7 @@ export class AnimationUtility {
    private static is_rotation_or_position_tracking_track (track: KeyframeTrack,
      position_tracking_bone_name: string | undefined): boolean {
@@ -16353,7 +16941,7 @@ index e339c7a..98383a4 100644
 -      track.name.toLowerCase().includes(position_tracking_bone_name + '.position')
 +      track.name.toLowerCase().includes(`${(position_tracking_bone_name ?? '').toLowerCase()}.position`) // Greenbox: 'Hips' (XP Hero) vs lower-case track names
    }
- 
+
    static apply_arm_extension_warp (animation_clips: TransformedAnimationClipPair[], percentage: number): void {
 @@ -320,4 +320,57 @@ export class AnimationUtility {
        })
@@ -16423,9 +17011,9 @@ index 733a770..3ec9926 100644
 +import { bake_clips } from '../../../greenbox/rig/BoneReduce'
  import { UI } from '../../UI.ts'
  import { AnimationPlayer } from './AnimationPlayer.ts'
- 
+
 @@ -165,7 +168,11 @@ export class StepAnimationsListing extends EventTarget {
- 
+
    // setup in the bootstrap.ts file and only called if we are actively
    // on this step
 +  /** Greenbox: true while the user poses the character by hand (IK / FK controls): animations stop driving the bones */
@@ -16439,7 +17027,7 @@ index 733a770..3ec9926 100644
 @@ -295,9 +302,18 @@ export class StepAnimationsListing extends EventTarget {
      // Create an animation mixer to do the playback. Play the first by default
      this.animation_mixer = new AnimationMixer(new Object3D())
- 
+
 +    // Greenbox: a rig from your own file plays that file's animations (moved onto your joints)
 +    if (CUSTOM_RIG.active) {
 +      this.animation_clips_loaded = custom_clips().map(c => ({ original_animation_clip: c, display_animation_clip: c.clone(), metadata: { source_type: 'custom-import' as const, tags: ['own'] } }))
@@ -16456,7 +17044,7 @@ index 733a770..3ec9926 100644
          this.onAllAnimationsLoaded()
        })
 @@ -311,6 +327,9 @@ export class StepAnimationsListing extends EventTarget {
- 
+
    private onAllAnimationsLoaded (): void {
      this.is_loading_default_animations = false
 +    add_twist_tracks(this.animation_clips_loaded.map(c => c.display_animation_clip)) // Greenbox: forearm twist
@@ -16468,7 +17056,7 @@ index 733a770..3ec9926 100644
 @@ -398,12 +417,19 @@ export class StepAnimationsListing extends EventTarget {
      /// Apply the arm extension warp:
      AnimationUtility.apply_arm_extension_warp(this.animation_clips_loaded, this.arm_extension_control.value())
- 
+
 +    // Greenbox: the forearm twist bones follow half of the hand's turn
 +    add_twist_tracks(this.animation_clips_loaded.map(c => c.display_animation_clip))
 +
@@ -16483,12 +17071,12 @@ index 733a770..3ec9926 100644
 +    AnimationUtility.ground_feet(this.animation_clips_loaded, this.skinned_meshes_to_animate[0],
 +      RigConfig.by_skeleton_type(this.skeleton_type)?.position_tracking_bone_name, this.model_variation_pelvis_position_scale === 1.0)
    }
- 
+
    /**
 @@ -556,6 +582,10 @@ export class StepAnimationsListing extends EventTarget {
      return this.animation_search.get_selected_animation_indices()
    }
- 
+
 +  public select_all_animations (): void {
 +    this.animation_search?.select_all_animations()
 +  }
@@ -16502,11 +17090,11 @@ index feac844..adde998 100644
 +++ b/src/lib/processes/animations-listing/props/PropCatalog.ts
 @@ -49,7 +49,7 @@ function create_definition (
  }
- 
+
  export class PropCatalog {
 -  public static readonly supported_skeleton_types: SkeletonType[] = [SkeletonType.Human, SkeletonType.Kaiju]
 +  public static readonly supported_skeleton_types: SkeletonType[] = [SkeletonType.Human, SkeletonType.Kaiju, SkeletonType.XPHero]
- 
+
    private static readonly loader: GLTFLoader = new GLTFLoader()
    private static readonly model_cache = new Map<string, Promise<Group>>()
 @@ -66,6 +66,10 @@ export class PropCatalog {
@@ -16539,19 +17127,19 @@ index 33fc5b6..6515a01 100644
 --- a/src/lib/processes/export-to-file/DownloadSettings.ts
 +++ b/src/lib/processes/export-to-file/DownloadSettings.ts
 @@ -2,7 +2,8 @@ import { SkeletonType } from '../../enums/SkeletonType.ts'
- 
+
  export enum BoneNamingStructure {
    Default = 'default',
 -  Mixamo = 'mixamo'
 +  Mixamo = 'mixamo',
 +  Rigify = 'rigify' // Greenbox: Blender Rigify deform names (DEF-*)
  }
- 
+
  export enum ExportContents {
 @@ -57,6 +58,12 @@ export class DownloadSettings extends EventTarget {
      return this.selected_export_format
    }
- 
+
 +  public set_export_format (format: ExportFormat): void {
 +    this.selected_export_format = format
 +    this.set_radio_group_value(this.dom_export_format_group, 'export-format', format)
@@ -16570,7 +17158,7 @@ index b1ab05d..7499848 100644
  import { BoneNamingStructure } from './DownloadSettings.ts'
  import { MixamoMapper } from '../../../retarget/bone-automap/MixamoMapper.ts'
 +import { rigify_name } from '../../../greenbox/export/BoneNames.ts'
- 
+
  // eslint-disable-next-line @typescript-eslint/no-extraneous-class
  export class ExportBoneNamingService {
 +  private static map_name: (n: string) => string | undefined = (n: string) => MixamoMapper.map_source_bone_name_to_mixamo(n)
@@ -16588,20 +17176,20 @@ index b1ab05d..7499848 100644
 +    this.map_name = bone_naming_structure === BoneNamingStructure.Rigify
 +      ? rigify_name
 +      : (n: string) => MixamoMapper.map_source_bone_name_to_mixamo(n)
- 
+
      const renamed_bones = new Map<Object3D, string>()
      this.rename_bones_to_mixamo(skinned_meshes, renamed_bones)
 @@ -31,7 +38,7 @@ export class ExportBoneNamingService {
            return
          }
- 
+
 -        const mixamo_name = MixamoMapper.map_source_bone_name_to_mixamo(scene_object.name)
 +        const mixamo_name = this.map_name(scene_object.name)
          if (mixamo_name === undefined) {
            return
          }
 @@ -62,7 +69,7 @@ export class ExportBoneNamingService {
- 
+
      // handle PropertyBinding names like .bones[bone_name].quaternion
      return track_name.replace(/(\.bones\["?)([^\]"]+)("?\])/g, (match: string, prefix: string, bone_name: string, suffix: string) => {
 -      const mixamo_name = MixamoMapper.map_source_bone_name_to_mixamo(bone_name)
@@ -16611,19 +17199,19 @@ index b1ab05d..7499848 100644
        }
 @@ -72,14 +79,14 @@ export class ExportBoneNamingService {
    }
- 
+
    private static rename_node_path_to_mixamo (node_path: string): string {
 -    const direct_mixamo_name = MixamoMapper.map_source_bone_name_to_mixamo(node_path)
 +    const direct_mixamo_name = this.map_name(node_path)
      if (direct_mixamo_name !== undefined) {
        return direct_mixamo_name
      }
- 
+
      const path_parts = node_path.split('/')
      const node_leaf_name = path_parts[path_parts.length - 1]
 -    const mapped_leaf_name = MixamoMapper.map_source_bone_name_to_mixamo(node_leaf_name)
 +    const mapped_leaf_name = this.map_name(node_leaf_name)
- 
+
      if (mapped_leaf_name === undefined) {
        return node_path
 diff --git a/src/lib/processes/load-model/StepLoadModel.ts b/src/lib/processes/load-model/StepLoadModel.ts
@@ -16640,7 +17228,7 @@ index cdf9ca8..e408b8c 100644
  import { ModelAnalysisReport, type ModelImportAnalysis, type SceneSnapshot } from './ModelAnalysisReport.ts'
  import { PlatformUtils } from '../../PlatformUtils.ts'
 +import { load_any_files } from '../../../greenbox/common/AnyLoader.ts'
- 
+
  // Note: EventTarget is a built-ininterface and do not need to import it
  export class StepLoadModel extends EventTarget {
 @@ -119,9 +121,23 @@ export class StepLoadModel extends EventTarget {
@@ -16665,7 +17253,7 @@ index cdf9ca8..e408b8c 100644
 +          ;(event.target as HTMLInputElement).value = ''
 +          return
 +        }
- 
+
          const reader = new FileReader()
          reader.readAsDataURL(file)
 @@ -204,14 +220,16 @@ export class StepLoadModel extends EventTarget {
@@ -16673,7 +17261,7 @@ index cdf9ca8..e408b8c 100644
      // would keep forcing the fallback material onto every model loaded after it
      this.mesh_has_broken_material = false
 +    OWN.clips = []
- 
+
      if (file_extension === 'fbx') {
        this.load_fbx_file(model_file_path)
      } else if (file_extension === 'glb') {
@@ -16687,11 +17275,11 @@ index cdf9ca8..e408b8c 100644
        console.log('ZIP file can contain GLTF+BIN model data')
        this.handle_zip_file(model_file_path)
 @@ -234,10 +252,18 @@ export class StepLoadModel extends EventTarget {
- 
+
        // TODO: add the processed, cleaned up data instead of the fbx_scene directly
        loaded_scene.add(results.fbx_scene)
 +      OWN.clips = results.fbx_scene.animations ?? [] // Greenbox: the file's own animations
- 
+
        this.process_loaded_scene(loaded_scene)
      }).catch((error) => {
        console.warn('some type of error', error)
@@ -16704,7 +17292,7 @@ index cdf9ca8..e408b8c 100644
 +      } else new ModalDialog('Error loading FBX', String(error?.message ?? error)).show()
      })
    }
- 
+
 diff --git a/src/lib/processes/load-skeleton/StepLoadSkeleton.ts b/src/lib/processes/load-skeleton/StepLoadSkeleton.ts
 index 89a5ca2..3acd073 100644
 --- a/src/lib/processes/load-skeleton/StepLoadSkeleton.ts
@@ -16721,7 +17309,7 @@ index 89a5ca2..3acd073 100644
 @@ -28,7 +30,81 @@ export class StepLoadSkeleton extends EventTarget {
    // probably could refactor this a bit to be cleaner later.
    private manual_set_skeleton_type: SkeletonType = SkeletonType.None
- 
+
 +  // Greenbox easy mode: size the skeleton to the imported model automatically
 +  private model_provider: (() => Object3D) | null = null
 +  private readonly reference_boxes = new Map<string, Box3>()
@@ -16808,7 +17396,7 @@ index 89a5ca2..3acd073 100644
 +    if (!this.has_select_skeleton_ui_option() && this.auto_fit_wanted()) {
 +      void this.auto_fit_scale()
 +    }
- 
+
      // when we come back to this step, there is a good chance we already selected a skeleton
      // so just use that and load the preview right when we enter this step
 @@ -147,7 +227,14 @@ export class StepLoadSkeleton extends EventTarget {
@@ -16829,7 +17417,7 @@ index 89a5ca2..3acd073 100644
          }).catch((err) => {
 @@ -164,12 +251,14 @@ export class StepLoadSkeleton extends EventTarget {
          }
- 
+
          // add back loading information here
 +        CUSTOM_RIG.active = false // Greenbox: a template skeleton, not one from a file
          const rig_file = RigConfig.rig_file_for(this.skeleton_file_path())
@@ -16839,13 +17427,13 @@ index 89a5ca2..3acd073 100644
        })
      }// end if statement
 +    this.add_custom_rig_ui()
- 
+
      // when hand skeleton type changes. update the preview skeleton
      this.ui.dom_hand_skeleton_selection?.addEventListener('change', () => {
 @@ -214,6 +303,75 @@ export class StepLoadSkeleton extends EventTarget {
        this.hand_skeleton_type(), this.skeleton_scale(), false)
    }
- 
+
 +  /* Greenbox: "rig + animations from a file" — the skeleton of a dropped rigged model, fitted into this model */
 +  private add_custom_rig_ui (): void {
 +    const btn = document.getElementById('load-skeleton-button'); if (btn === null || document.getElementById('gb-custom-rig') !== null) return
@@ -16929,18 +17517,18 @@ index 9d598b6..2f1074b 100644
 +import { smooth_weights, apply_manual } from '../../../greenbox/skin/WeightPost'
  import { UI } from '../../UI.ts'
  import SkinningAlgorithm from '../../solvers/SkinningAlgorithm.ts'
- 
+
 @@ -34,6 +38,8 @@ export class StepWeightSkin extends EventTarget {
    public create_bone_formula_object (editable_armature: Object3D, skeleton_type: SkeletonType): void {
      this.skinning_armature = editable_armature.clone()
      this.skinning_armature.name = 'Armature for skinning'
 +    merge_off_bones(this.skinning_armature) // Greenbox: joints turned off for hyper-casual go to their parent
 +    if (String(skeleton_type) === 'human') add_twist_bones(this.skinning_armature) // Greenbox: forearm twist bones (pro-rig style)
- 
+
      this.bone_skinning_formula = new SkinningAlgorithm(this.skinning_armature.children[0], skeleton_type)
    }
 @@ -181,6 +187,12 @@ export class StepWeightSkin extends EventTarget {
- 
+
        geometry_data.setAttribute('skinIndex', new Uint16BufferAttribute(final_skin_indices, 4))
        geometry_data.setAttribute('skinWeight', new Float32BufferAttribute(final_skin_weights, 4))
 +      // Greenbox: softer joints (neighbour averaging), then the hand split between the palm and each finger,
@@ -16949,9 +17537,9 @@ index 9d598b6..2f1074b 100644
 +      if (this.binding_skeleton !== undefined) split_twist(geometry_data, this.binding_skeleton.bones)
 +      if (FINGER_WEIGHTS.enabled && this.binding_skeleton !== undefined) FINGER_WEIGHTS.last = refine_finger_weights(geometry_data, this.binding_skeleton.bones)
 +      if (this.binding_skeleton !== undefined) apply_manual(geometry_data, this.binding_skeleton.bones, idx)
- 
+
        const associated_material: Material = this.all_mesh_materials[idx]
- 
+
 diff --git a/src/lib/solvers/SkinningAlgorithm.ts b/src/lib/solvers/SkinningAlgorithm.ts
 index 31bfedd..378f0bc 100644
 --- a/src/lib/solvers/SkinningAlgorithm.ts
@@ -16966,12 +17554,12 @@ index 31bfedd..378f0bc 100644
  import { WeightSmoother } from './WeightSmoother.js'
  import { WeightNormalizer } from './WeightNormalizer.js'
 +import { CAGE, build_capsules, apply_settings, estimate_radii, sample_points, cage_weights } from '../../greenbox/skin/CageWeights.ts'
- 
+
  /**
   * SkinningAlgorithm
 @@ -62,6 +64,22 @@ export default class SkinningAlgorithm {
    }
- 
+
    public calculate_indexes_and_weights (): number[][] {
 +    return this.base_indexes_and_weights()
 +  }
@@ -16991,7 +17579,7 @@ index 31bfedd..378f0bc 100644
 +    }
      const skin_indices: number[] = []
      const skin_weights: number[] = []
- 
+
 @@ -116,3 +134,4 @@ export default class SkinningAlgorithm {
      return [skin_indices, skin_weights]
    }
@@ -17004,15 +17592,15 @@ index 1f107a9..ee2be7c 100644
 @@ -116,9 +116,8 @@ export class WeightCalculator {
        return name.includes(position_tracking_bone_name.toLowerCase())
      })
- 
--    if (position_tracking_bone_object === undefined) { 
+
+-    if (position_tracking_bone_object === undefined) {
 -        throw new Error('Position tracking bone not found')
 -    }
 +    // only the human hip rule uses it: a cloned animal rig (no pelvis / hips name) just skips it
 +    if (position_tracking_bone_object === undefined) return 0
- 
+
      const intesection_point: Vector3 | null = this.cast_intersection_ray_down_from_bone(position_tracking_bone_object)
- 
+
 diff --git a/src/mocap.html b/src/mocap.html
 new file mode 100644
 index 0000000..8862849
@@ -17270,7 +17858,7 @@ index 2549f55..1214ce1 100644
 @@ -165,6 +166,12 @@ export class RetargetAnimationListing extends EventTarget {
        return 0
      })
- 
+
 +    // Greenbox: the model's own animations (★) first; they are already on this rig, so they are not retargeted
 +    if (OWN.clips.length > 0 && !this.animation_clips_loaded.some(c => is_own(c.display_animation_clip.name))) {
 +      const own = OWN.clips.map(c => { const k = c.clone(); k.name = OWN_MARK + (c.name !== '' ? c.name : 'animation'); return { original_animation_clip: k, display_animation_clip: k.clone(), metadata: { source_type: 'custom-import' as const, tags: ['own'] } } })
@@ -17279,19 +17867,19 @@ index 2549f55..1214ce1 100644
 +
      // Build animation UI
      this.build_animation_clip_ui(this.animation_clips_loaded)
- 
+
 @@ -226,7 +233,7 @@ export class RetargetAnimationListing extends EventTarget {
      })
- 
+
      /// Apply the arm extension warp:
 -    AnimationUtility.apply_arm_extension_warp(this.animation_clips_loaded, this.arm_extension_control.value())
 +    AnimationUtility.apply_arm_extension_warp(this.animation_clips_loaded.filter(c => !is_own(c.display_animation_clip.name)), this.arm_extension_control.value())
    }
- 
+
    // called by ArmExtensionControl whenever the arm extension amount changes
 @@ -257,9 +264,9 @@ export class RetargetAnimationListing extends EventTarget {
      this.animation_mixer = new AnimationMixer(new Object3D())
- 
+
      // Retarget the animation using the shared service
 -    const retargeted_clip: AnimationClip = AnimationRetargetService.getInstance().retarget_animation_clip(
 -      display_clip
@@ -17299,7 +17887,7 @@ index 2549f55..1214ce1 100644
 +    const retargeted_clip: AnimationClip = is_own(display_clip.name)
 +      ? display_clip // Greenbox: the model's own animation, already on this rig
 +      : AnimationRetargetService.getInstance().retarget_animation_clip(display_clip)
- 
+
      // Create new actions for each skinned mesh with the retargeted animation
      const skinned_meshes_to_animate: SkinnedMesh[] = AnimationRetargetService.getInstance().get_target_skinned_meshes()
 diff --git a/src/retarget/index.html b/src/retarget/index.html
@@ -17312,11 +17900,11 @@ index 769c278..5a51712 100644
          <meta name="viewport" content="width=device-width, initial-scale=1.0">
 -        <title>Retarget - Mesh2Motion</title>
 +        <title>Retarget - Greenbox 3D</title>
- 
+
          <!-- Stylesheets-->
          <link href="../styles.css" rel="stylesheet" crossorigin="anonymous" />
 @@ -22,11 +22,13 @@
- 
+
          <nav>
          <div style="display: inline-flex; align-items: center;">
 -            <a id="logo-branding" href="https://mesh2motion.org">
@@ -17329,8 +17917,32 @@ index 769c278..5a51712 100644
 +        <a href="/playtest.html">Play test</a>
 +        <a href="/mocap.html">Video mocap</a>
          </div>
- 
+
          <div style="display: inline-flex; align-items: center;">
+diff --git a/src/retarget/retarget.ts b/src/retarget/retarget.ts
+index 6dab65b..9cae1dd 100644
+--- a/src/retarget/retarget.ts
++++ b/src/retarget/retarget.ts
+@@ -8,6 +8,8 @@ import { RetargetAnimationListing } from './RetargetAnimationListing.ts'
+ import { AnimationRetargetService } from './AnimationRetargetService'
+ import { type SkeletonType } from '../lib/enums/SkeletonType.ts'
+ import { RetargetUtils } from './RetargetUtils.ts'
++import { mount_retarget_auto, mount_root_autopick, mount_face_target } from '../greenbox/rig/RetargetAuto.ts'
++import { mount_tpose } from '../greenbox/rig/TPose.ts'
+
+ class RetargetModule {
+   private readonly mesh2motion_engine: Mesh2MotionEngine
+@@ -227,6 +229,10 @@ class RetargetModule {
+ // Initialize when DOM is ready
+ document.addEventListener('DOMContentLoaded', () => {
+   retarget_app.init()
++  mount_root_autopick() // stray bones (several roots): keep the main skeleton without asking
++  mount_face_target() // 🧭 the loaded model turns to the blue arrow
++  mount_tpose() // 🧍 T-pose button beside Expand / Contract Arms
++  void mount_retarget_auto() // a rigged model handed over from Use Your Model: load, map, open its animations
+ })
+
+ const retarget_app = new RetargetModule()
 diff --git a/src/retarget/steps/StepExportRetargetedAnimations.ts b/src/retarget/steps/StepExportRetargetedAnimations.ts
 index cf30918..30030d2 100644
 --- a/src/retarget/steps/StepExportRetargetedAnimations.ts
@@ -17341,7 +17953,7 @@ index cf30918..30030d2 100644
  import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
  import { FBXExporter } from '@comfyorg/fbx-exporter-three'
 @@ -47,6 +48,8 @@ export class StepExportRetargetedAnimations extends EventTarget {
- 
+
      // Retarget all animation clips before export
      const retargeted_clips: AnimationClip[] = this.animation_clips_to_export.map((clip) => {
 +      // Greenbox: the model's own animations (★) are exported as they are, under their own name
@@ -17435,7 +18047,7 @@ index 8f204d3..fab0fb0 100644
 --- a/src/styles.css
 +++ b/src/styles.css
 @@ -2,26 +2,26 @@
- 
+
  /* CSS Variables for theming */
  :root {
 -  /* Dark theme (default) */
@@ -17446,17 +18058,17 @@ index 8f204d3..fab0fb0 100644
 +  --text-primary: #e6e6e6;
 +  --text-alternate: #b4b4b4;
 +  --link-color: #cfcfcf;
- 
+
 -  --bg-primary: #2b4353;
 -  --bg-alternate: #426074;
 -  --bg-tertiary: #7a97aa;
 +  --bg-primary: #303030;
 +  --bg-alternate: #3d3d3d;
 +  --bg-tertiary: #474747;
- 
+
 -  --nav-background: #1c3445;
 -  --nav-active-item-bg: #4f6074;
--  
+-
 -  --button-primary-bg: rgb(175, 58, 190);
 -  --button-alternate-bg: rgba(175, 58, 190, 0.521);
 -  --button-shadow-color: rgba(65, 48, 124, 0.705);
@@ -17466,21 +18078,21 @@ index 8f204d3..fab0fb0 100644
 +  --button-primary-bg: #4772b3;
 +  --button-alternate-bg: #545454;
 +  --button-shadow-color: rgba(0, 0, 0, 0.45);
- 
+
 -  --current-step-indicator: rgb(20, 43, 59);
 +  --current-step-indicator: #232323;
- 
+
 -  --radio-button-group-bg: rgb(81, 114, 151);
 -  --radio-button-group-hover: rgb(37, 65, 97);
 +  --radio-button-group-bg: #545454;
 +  --radio-button-group-hover: #656565;
- 
+
    --navigation-height: 40px;
    --icon-size: 20px;
 @@ -1086,3 +1086,15 @@ div.modal-dialog-body p.survey-thank-you {
      display: none;
  }
- 
+
 +
 +
 +/* Greenbox: a compact side panel — a fixed width, long things wrap or fold away (<details>) */

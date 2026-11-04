@@ -3529,7 +3529,16 @@ window.__gbDrive={
   load:file=>new Promise(r=>{ loadVideo(file); const w=()=>hasVideo?r(true):setTimeout(w,100); w(); }),
   auto:autoDrive,
   export:async(mode)=>{ setExMode(mode||'video'); await runExport(); return exBlob ? { blob:exBlob, name:`${(videoName||'gameplay').replace(/[^\w\-]+/g,'_')}_drive_${S.exMode}.${exExt}` } : null; },
-  samples:()=>samples.length
+  samples:()=>samples.length,
+  // the layout for an AI to show you before it changes anything (MCP gb_drive layout / set_layout)
+  layout:()=>({ orient:S.orient, frame:[W,H], items:IDS.map(id=>{ const it=L()[id]; return { id, name:(SLOTS.find(s=>s.id===id)||{}).name, x:Math.round(it.x), y:Math.round(it.y), size:Math.round(it.r*2), w:it.w!=null?Math.round(it.w):undefined, rot:it.rot||0, hidden:!!(L().hidden&&L().hidden[id]) }; }) }),
+  preview:()=>{ const k=Math.min(1, 900/Math.max(W,H)), c=document.createElement('canvas'); c.width=Math.round(W*k); c.height=Math.round(H*k); const x=c.getContext('2d');
+    x.drawImage(view,0,0,c.width,c.height); x.scale(k,k); x.lineWidth=4/k*0.5; x.font=`800 ${Math.round(34)}px system-ui,sans-serif`; x.textBaseline='top';
+    IDS.forEach((id,i)=>{ const it=L()[id]; if(L().hidden&&L().hidden[id]) return; const r=it.r, w=it.w!=null?it.w/2:r; x.strokeStyle='#ffb020'; x.setLineDash([14,10]); x.strokeRect(it.x-w,it.y-r,w*2,r*2); x.setLineDash([]);
+      const lab=`${i+1}. ${(SLOTS.find(s=>s.id===id)||{}).name}  (${Math.round(it.x)}, ${Math.round(it.y)})`; const tw=x.measureText(lab).width; x.fillStyle='rgba(0,0,0,.75)'; x.fillRect(it.x-w,it.y-r-44,tw+16,42); x.fillStyle='#ffd27a'; x.fillText(lab,it.x-w+8,it.y-r-40); });
+    return c.toDataURL('image/jpeg',.82); },
+  set_layout:items=>{ for(const o of items||[]){ const it=L()[o.id]; if(!it) continue; if(o.x!=null) it.x=Math.round(o.x); if(o.y!=null) it.y=Math.round(o.y); if(o.size!=null) it.r=Math.round(o.size/2); if(o.w!=null) it.w=Math.round(o.w); if(o.rot!=null) it.rot=Math.round(o.rot); if(o.hidden!=null){ L().hidden=L().hidden||{}; L().hidden[o.id]=!!o.hidden; } }
+    saveLayout(); try{ syncSize(); }catch(e){} return window.__gbDrive.layout(); }
 };
 /* ---------- init ---------- */
 setOrient(S.orient); renderGpMap(); setTab(S.tab||'A'); refreshUI();
@@ -6136,7 +6145,8 @@ const GROUPS=[
    rec:['recStart','recStop'], mp4:'exportBtn', mov:'movFl', layer:'fl'},
   {id:'hpbar', ic:'❤️', app:'Hp', hp:'hp', name:T3('Thanh máu / HUD','Health bar / HUD','체력 바 / HUD'), d:T3('Thanh HP hero + máu boss (1 thanh lớn), mana, khung, logo, avatar; chỉnh dài / dày / bo góc / vị trí; hero bị đánh ở giây nào thì máu tụt lúc đó. Lớp video riêng: xuất MP4 phông xanh (keylight) hoặc .MOV alpha.','HP + mana bars, frame, logo, avatar; the HP drops at the second the hero is hit. Its own video layer: green MP4 (Keylight) or alpha .MOV.','HP·마나 바, 프레임, 로고, 아바타. 피격 시점에 HP 감소. 그린 MP4 또는 알파 MOV.')},
   {id:'countdown', ic:'⏱', app:'Hp', hp:'count', name:T3('Đếm ngược','Countdown','카운트다운'), d:T3('Một con số đếm ngược (10 → 0, 59:59, 1:00:00…), kéo để căn vị trí, chỉnh cỡ / màu / viền / vòng tròn, chữ kết thúc. Xuất MP4 phông xanh hoặc .MOV alpha.','A countdown (10 → 0, 59:59, 1:00:00…), drag to place, size / colour / outline / ring, end text. Export green MP4 or alpha .MOV.','카운트다운 (10 → 0, 59:59, 1:00:00…). 그린 MP4 또는 알파 MOV.')},
-  {id:'vfx', ic:'🎬', app:'Hp', hp:'fx', name:T3('Video FX: blur, mask, viền đỏ','Video FX: blur, masks, red hits','비디오 FX: 블러, 마스크, 피격'), d:T3('Làm mờ / vỡ hạt một vùng có mask (chữ nhật, tròn, sao, tim, 4 điểm…), mask tự bám theo vật hoặc kéo tay ghi mốc. Khung có sẵn để chèn ảnh / video gọn trong khung. Viền đỏ các góc khi trúng đòn. Xuất MP4.','Blur / pixelate a masked area (rectangle, circle, star, heart, 4 points…) that follows an object (auto track or drag keys). Ready frames that hold a picture / video. Red screen corners on hits. Export MP4.','마스크 블러(추적), 이미지/영상 프레임, 피격 붉은 테두리. MP4 내보내기.')}]},
+  {id:'vfx', ic:'🎬', app:'Hp', hp:'fx', name:T3('Video FX: blur, mask, chuyển cảnh','Video FX: blur, masks, transitions','비디오 FX: 블러, 마스크, 전환'), d:T3('Làm mờ / vỡ hạt một vùng có mask (chữ nhật, tròn, sao, tim, 4 điểm…), mask tự bám theo vật hoặc kéo tay ghi mốc. Khung có sẵn để chèn ảnh / video gọn trong khung. Xuất MP4.','Blur / pixelate a masked area (rectangle, circle, star, heart, 4 points…) that follows an object (auto track or drag keys). Ready frames that hold a picture / video. Export MP4.','마스크 블러(추적), 이미지/영상 프레임. MP4 내보내기.')},
+  {id:'flash', ic:'🩸', app:'Hp', hp:'flash', name:T3('Nháy đỏ khi trúng đòn','Red flash when hit','피격 붉은 플래시'), d:T3('Viền đỏ nháy ở 4 góc mỗi lần nhân vật trúng đòn: chọn màu, độ đậm, độ lấn, thời gian; bấm V ở đúng giây trúng đòn (hoặc lấy theo trang Thanh máu). Lớp riêng: xuất .MOV alpha rồi đặt lên video gameplay.','Red corners flash each time the hero is hit: colour, strength, reach, length; press V at each hit (or take the hits from the Health bar page). Its own layer: export the alpha .MOV and lay it over the gameplay.','피격 시 네 모서리 붉은 플래시. 알파 .MOV로 내보내기.')}]},
  {id:'dr', name:T3('Lái xe','Driving','운전'), items:[
   {id:'wheel',ic:'🏎', app:'Drive', name:T3('Vô lăng & bàn đạp','Wheel & pedals','핸들 & 페달'), d:T3('Lái theo video bằng chuột hoặc vô lăng USB, xuất vô lăng + bàn đạp + đồng hồ.','Drive along with the mouse or a USB wheel; export wheel + pedals + gauge.','마우스나 USB 핸들로 따라 운전; 핸들 + 페달 + 계기판 내보내기.'),
    rec:['dr-recStart','dr-recStop'], mp4:'dr-exportBtn', mov:'dr-movAll'}]},

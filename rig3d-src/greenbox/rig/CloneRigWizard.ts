@@ -7,6 +7,7 @@
  *   4. export: your base model, rigged, with the animations (GLB / FBX), or play-test it
  * The rig file is remembered (my rigs), so the next model is two clicks.
  */
+import { send_to_retarget } from './RetargetAuto.ts'
 import * as THREE from 'three'
 import { SAMPLES } from '../vehicle/Samples.ts'
 import { RigConfig } from '../../lib/RigConfig.ts'
@@ -42,6 +43,7 @@ export class CloneRigWizard {
     return 3
   }
 
+  public is_open (): boolean { return this.root !== null && this.root.style.display !== 'none' }
   public open (): void {
     if (this.root === null) this.build()
     this.root!.style.display = 'flex'; this.render()
@@ -61,7 +63,7 @@ export class CloneRigWizard {
       e.preventDefault(); e.stopPropagation()
       const fs = Array.from(e.dataTransfer?.files ?? []); if (fs.length === 0) return
       const card = (e.target as HTMLElement).closest<HTMLElement>('[data-card]')?.dataset.card
-      if (card === '2' || (card === undefined && this.step() === 2)) this.load_model(fs); else void this.load_source(fs)
+      if (card === '2' || (card === undefined && this.step() === 2)) void this.route_model(fs); else void this.load_source(fs)
     })
     d.addEventListener('click', e => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-a]'); if (b === null) return
@@ -88,7 +90,7 @@ export class CloneRigWizard {
     d.addEventListener('change', e => {
       const el = e.target as HTMLInputElement
       if (el.dataset.f === '1') { const fs = Array.from(el.files ?? []); el.value = ''; if (fs.length > 0) void this.load_source(fs) }
-      if (el.dataset.f === '2') { const fs = Array.from(el.files ?? []); el.value = ''; if (fs.length > 0) this.load_model(fs) }
+      if (el.dataset.f === '2') { const fs = Array.from(el.files ?? []); el.value = ''; if (fs.length > 0) void this.route_model(fs) }
       if (el.dataset.k === 'adjust') this.adjust = el.checked
       if (el.dataset.k === 'warp') CLONE_FIT.warp = el.checked
       if (el.dataset.k === 'flip') CLONE_FIT.flip = el.checked
@@ -145,6 +147,16 @@ export class CloneRigWizard {
       <input type="file" data-f="1" accept=".glb,.gltf,.fbx,.zip,.bin" multiple hidden><input type="file" data-f="2" accept=".glb,.gltf,.fbx,.obj,.mtl,.dae,.stl,.ply,.3mf,.zip,.bin,.png,.jpg,.jpeg,.tga,.webp" multiple hidden>`
     d.querySelector<HTMLElement>(`[data-card="${s}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }
+
+  /** a file dropped as "your model": if it has bones and there is no rig file yet, it IS the rig file (no need to know which box) */
+  private async route_model (files: File[]): Promise<void> {
+    if (this.src === null) {
+      try { const r = await load_any_files(files); let bones = 0; r.scene.traverse(o => { if ((o as THREE.Bone).isBone === true) bones++ }); if (bones > 0) { await this.load_source(files); return } } catch { /* the rig page reads it */ }
+    }
+    this.load_model(files)
+  }
+  /** opened with ?src=<saved rig file>: that file is step 1 at once */
+  public async load_saved (name: string): Promise<void> { const buf = await get_rig_file(name); if (buf !== null) await this.load_source([new File([buf], name)]) }
 
   /* ---------------- 1: the rig file, shown at once ---------------- */
   private async load_source (files: File[]): Promise<void> {
@@ -331,9 +343,34 @@ export function mount_clone_rig (engine: Mesh2MotionEngine): CloneRigWizard {
     host.prepend(b)
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add()
-  if (/[?&]clone=1/.test(location.search)) setTimeout(() => w.open(), 300)
+  if (/[?&]clone=1/.test(location.search)) setTimeout(() => { w.open(); const m = /[?&]src=([^&]+)/.exec(location.search); if (m !== null) void w.load_saved(decodeURIComponent(m[1])) }, 300)
+  // a model dropped on "Use Your Model" that already has a skeleton (and animations): say so, and offer it as a Clone rig source
+  document.addEventListener('change', e => {
+    const el = e.target as HTMLInputElement; if (el.id !== 'model-upload' || w.is_open()) return
+    const fs = Array.from(el.files ?? []); if (fs.length === 0) return
+    void (async () => {
+      try {
+        const r = await load_any_files(fs); let bones = 0; r.scene.traverse(o => { if ((o as THREE.Bone).isBone === true) bones++ }); if (bones === 0) return
+        const main = fs.find(f => /\.(glb|gltf|fbx|zip)$/i.test(f.name)) ?? fs[0]
+        rigged_toast(bones, r.clips.length, async () => { await save_rig_file(main.name, await main.arrayBuffer()); location.href = 'create.html?clone=1&src=' + encodeURIComponent(main.name) }, () => { void send_to_retarget(main) })
+      } catch { /* not readable here: the rig page says why */ }
+    })()
+  }, true)
   ;(window as any).__gbCloneRig = w; (window as any).__gbCloneFit = CLONE_FIT
   // the cockpit asks by message when it cannot reach into this frame (pages opened from file://)
   addEventListener('message', (e) => { if ((e.data as any)?.gbCloneOpen === 1) w.open() })
   return w
+}
+
+/** "this model already has N bones (+ M animations)": use it as the rig file of 🧬 Clone rig, or keep rigging it here */
+function rigged_toast (bones: number, clips: number, use: () => void, animate: () => void): void {
+  document.getElementById('gb-rigged-toast')?.remove()
+  const t = document.createElement('div'); t.id = 'gb-rigged-toast'
+  t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:70;display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:12px;background:var(--gbp-panel,#10151dF2);color:var(--gbp-ink,#e8edf3);border:2px solid var(--gbp-accent,#4fed89);box-shadow:0 10px 30px #000a;font:13px/1.4 system-ui,sans-serif;max-width:92vw'
+  t.innerHTML = `<span>🦴 ${M(`This model already has a skeleton (${bones} bones${clips > 0 ? `, ${clips} animations` : ''}).`, `Model này đã có xương (${bones} xương${clips > 0 ? `, ${clips} animation` : ''}).`, `이미 스켈레톤이 있습니다 (${bones}).`)}</span><button type="button" data-a2 style="padding:6px 10px;border-radius:8px;border:0;background:var(--gbp-accent,#4fed89);color:#06140c;font-weight:800;cursor:pointer">🎬 ${M('Animate it now (keep its bones)', 'Gắn animation luôn (giữ xương sẵn có)', '바로 애니메이션')}</button><button type="button" data-u style="padding:6px 10px;border-radius:8px;border:1px solid var(--gbp-accent,#4fed89);background:none;color:inherit;font-weight:700;cursor:pointer">🧬 ${M('Use it as a Clone rig source', 'Dùng làm file rig (Clone rig)', '리그 복제 원본으로')}</button><button type="button" data-x style="padding:6px 8px;border-radius:8px;border:1px solid #fff4;background:none;color:inherit;cursor:pointer">${M('Rig it again here', 'Gắn xương lại ở đây', '여기서 다시 리깅')}</button><button type="button" data-x2 title="${M('Close', 'Đóng', '닫기')}" style="padding:4px 8px;border:0;background:none;color:inherit;font-size:16px;cursor:pointer">✕</button>`
+  document.body.append(t)
+  ;(t.querySelector('[data-a2]') as HTMLButtonElement).onclick = () => { t.remove(); animate() }
+  ;(t.querySelector('[data-u]') as HTMLButtonElement).onclick = () => { t.remove(); use() }
+  ;(t.querySelector('[data-x]') as HTMLButtonElement).onclick = () => t.remove()
+  ;(t.querySelector('[data-x2]') as HTMLButtonElement).onclick = () => t.remove()
 }

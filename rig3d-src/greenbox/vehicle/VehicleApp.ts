@@ -30,7 +30,7 @@ import { get_rig_file } from '../rig/CustomRig.ts'
 import { signature, nbox, box_of, iou, remember, recall, load_mem, export_mem, import_mem, MIN_SCORE, type PartRec, type RecType } from './RigMemory.ts'
 
 interface Part { mesh: THREE.Mesh, owner: Int16Array } // owner per vertex: -1 = body, k = wheel k, DOOR0 + j = door j
-interface Wheel { name: string, center: THREE.Vector3, radius: number, front: boolean, guessed: boolean, axle?: THREE.Vector3 } // axle: the wheel's own spin axis
+interface Wheel { name: string, center: THREE.Vector3, radius: number, front: boolean, guessed: boolean, axle?: THREE.Vector3, locked?: boolean } // locked: 🔒 the axle was set by hand // axle: the wheel's own spin axis
 const DOOR0 = 100 // owner codes from here on are mechanical parts (doors, turret, boom, hook…)
 interface TrackRig { links: THREE.Bone[], s0: number[], loop: Loop, x: number, pivot: THREE.Vector3, side: number }
 type VehicleType = 'car' | 'truck' | 'tracked' | 'roller'
@@ -114,7 +114,9 @@ const CHOICES: Array<{ k: string, icon: string, en: string, vi: string, preset: 
   { k: 'track', icon: '⛓', en: 'Track (caterpillar)', vi: 'Bánh xích', preset: { icon: '⛓', label: 'Track', kind: 'track' } },
   { k: 'drill', icon: '🔩', en: 'Drill', vi: 'Mũi khoan', preset: { icon: '🔩', label: 'Drill', kind: 'spin', axis: 'long', angle: 150 } },
   { k: 'blade', icon: '🚜', en: 'Blade / bucket', vi: 'Lưỡi ủi / gàu', preset: { icon: '🚜', label: 'Blade', kind: 'blade' } },
-  { k: 'turret', icon: '🔄', en: 'Turning cab / turret', vi: 'Cabin xoay / tháp pháo', preset: { icon: '🔄', label: 'Turret / cab', kind: 'turret' } }
+  { k: 'turret', icon: '🔄', en: 'Turning cab / turret', vi: 'Cabin xoay / tháp pháo', preset: { icon: '🔄', label: 'Turret / cab', kind: 'turret' } },
+  // a character on this tab too: an arm / leg cut off becomes its own piece on a bone, swinging from its top (shoulder / hip)
+  { k: 'limb', icon: '🦾', en: 'Arm / leg (swings)', vi: 'Tay / chân (đung đưa)', preset: { icon: '🦾', label: 'Limb', kind: 'door', hinge: 'top', angle: 45 } }
 ]
 /** a part's name in plain words (the bone keeps its technical name for the export) */
 function nice_name (n: string, kind?: string): string {
@@ -163,6 +165,8 @@ class VehicleApp {
   private box_start: { x: number, y: number } | null = null
   private poly: Array<{ x: number, y: number }> = [] // lasso / pen points (client px)
   private lassoing = false
+  private shift_sel = false // a ⇧ Shift + left drag / click selection is under way
+  private drag_grab = false // a selected piece is being pulled off with the mouse held down
   private down_at: { x: number, y: number } | null = null
   private brush_radius_pct = 6
   private painting = false
@@ -203,6 +207,7 @@ class VehicleApp {
     this.bind_ui()
     this.make_history()
     this.renderer.setAnimationLoop(() => {
+      this.markers.children.forEach(r => { const f = r.userData.face as THREE.Vector3 | undefined; if (f === undefined) return; const m = (r as THREE.Mesh).material as THREE.MeshBasicMaterial; const near = this.camera.position.clone().sub(r.position).dot(f) > 0; m.depthTest = !near /* the far side (even the picked wheel) never shows through the body */ })
       this.timer.update()
       const dt = this.timer.getDelta()
       this.mixer?.update(dt * Number(($('vh-speed') as HTMLInputElement).value) / 100)
@@ -337,15 +342,17 @@ class VehicleApp {
     ;($('vh-part-parent') as HTMLSelectElement).onchange = (e) => { const d = this.mechs[this.active - DOOR0]; if (d === undefined) return; const v = (e.target as HTMLSelectElement).value; if (v === '') delete d.parent; else d.parent = v; this.clear_rig(); this.refresh_part_select() }
     addEventListener('keydown', (e) => {
       const t = e.target as HTMLElement
-      if (t !== null && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return
+      if (t !== null && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) && t.closest('#vh-qmenu, #vh-axle') === null) return
       if (this.grab !== null) { if (e.key === 'Escape') this.q_grab_end(false); if (e.key === 'Enter') this.q_grab_end(true); return }
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); if (this.q_count() > 0) this.q_delete(); else this.delete_selected() }
       if (e.key === 'Escape') { if (this.q_count() > 0) this.q_clear(); this.set_brush(null); if (this.placing) this.set_placing(false) }
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        const dig = /^Digit([1-8])$/.exec(e.code)
+        const dig = /^Digit([1-9])$/.exec(e.code)
         if (dig !== null && this.q_count() > 0) { e.preventDefault(); const c = CHOICES[Number(dig[1]) - 1]; if (c !== undefined) this.q_choose(c.k) }
         if (e.code === 'KeyX' && this.q_count() > 0) { e.preventDefault(); this.history.begin(); this.q_detach(e.shiftKey ? 'wheel' : 'part'); this.history.commit_soon() }
-        if (e.code === 'KeyG' && this.q_count() > 0) { e.preventDefault(); this.history.begin(); this.q_grab_start() }
+        if (e.code === 'KeyZ' && this.active >= 0 && this.active < DOOR0 && this.q_count() === 0) { e.preventDefault(); this.set_axle(e.shiftKey ? 'flip' : 'next') }
+        if (e.code === 'KeyG' && this.q_count() === 0 && this.active >= 0) { this.parts.forEach(p => { let q: Uint8Array | undefined; for (let i = 0; i < p.owner.length; i++) if (p.owner[i] === this.active) { if (q === undefined) { q = this.qsel.get(p) ?? new Uint8Array(p.owner.length); this.qsel.set(p, q) } q[i] = 1 } }) } // G on a picked part: take all of it
+        if (e.code === 'KeyG' && this.q_count() > 0) { e.preventDefault(); (document.activeElement as HTMLElement | null)?.blur?.(); this.history.begin(); if (this.rig !== null) this.clear_rig(); this.q_grab_start() }
         if (e.code === 'BracketLeft' || e.code === 'BracketRight') { this.ring_scale = Math.min(2, Math.max(0.15, this.ring_scale * (e.code === 'BracketLeft' ? 0.8 : 1.25))); this.draw_markers() }
         if (e.code === 'KeyO') this.markers.visible = !this.markers.visible
       }
@@ -360,8 +367,13 @@ class VehicleApp {
     $('vh-export-fbx').onclick = () => { void this.export('fbx') }
     const el = this.renderer.domElement
     el.addEventListener('pointerdown', (e) => {
+      const ae = document.activeElement as HTMLElement | null; if (ae !== null && ae !== document.body && ae !== el) ae.blur() // keys (G, X, Z…) go to the view again
       if (e.button !== 0) return
       this.down_at = { x: e.clientX, y: e.clientY }; this.q_menu_at = { x: e.clientX, y: e.clientY }
+      // a pink (selected) piece under the mouse: left-drag pulls it off the body, release = drop it there
+      if (this.brush_mode === null && this.grab === null && !this.placing && this.q_count() > 0 && this.on_selection(e)) { this.history.begin(); this.q_grab_start(); this.grab_from(e); this.drag_grab = true; return }
+      // ⇧ Shift + left, no tool needed: drag = a free selection shape, click = the whole separate piece
+      if (e.shiftKey && this.brush_mode === null && this.grab === null && !this.placing && this.parts.length > 0) { if (this.rig !== null) this.clear_rig(); this.shift_sel = true; this.lassoing = true; this.poly = [{ x: e.clientX, y: e.clientY }]; this.draw_poly(); return }
       if (this.brush_mode === 'add' || this.brush_mode === 'remove') { this.painting = true; this.paint(e) }
       else if (this.brush_mode === 'box_add' || this.brush_mode === 'box_remove') { this.box_start = { x: e.clientX, y: e.clientY }; this.draw_box(e) }
       else if (this.brush_mode === 'lasso_add' || this.brush_mode === 'lasso_remove') { this.lassoing = true; this.poly = [{ x: e.clientX, y: e.clientY }]; this.draw_poly() }
@@ -384,9 +396,15 @@ class VehicleApp {
       else if ((this.brush_mode === 'pen_add' || this.brush_mode === 'pen_remove' || this.brush_mode === 'quad') && this.poly.length > 0) this.draw_poly({ x: e.clientX, y: e.clientY })
     })
     addEventListener('pointerup', (e) => {
+      if (this.drag_grab) { this.drag_grab = false; this.q_grab_end(true); this.q_menu_at = { x: e.clientX, y: e.clientY }; this.q_hint(); this.down_at = null; return }
       if (this.painting) { this.painting = false; this.after_paint() }
       else if (this.box_start !== null && this.brush_mode === 'circle') { this.q_menu_at = { x: e.clientX, y: e.clientY }; this.finish_circle(e) }
       else if (this.box_start !== null) { this.finish_box(e) }
+      else if (this.shift_sel) {
+        this.shift_sel = false; this.lassoing = false; const pts = this.poly; this.poly = []; this.draw_poly(); this.q_menu_at = { x: e.clientX, y: e.clientY }
+        if (pts.length < 3 || (this.down_at !== null && Math.hypot(e.clientX - this.down_at.x, e.clientY - this.down_at.y) < 5)) this.q_piece(e, true)
+        else this.select_screen(true, pts, true)
+      }
       else if (this.lassoing) { this.lassoing = false; this.finish_poly() }
       else if ((this.brush_mode === 'piece_add' || this.brush_mode === 'piece_remove') && e.button === 0 && this.down_at !== null && e.target === el && Math.hypot(e.clientX - this.down_at.x, e.clientY - this.down_at.y) < 4) this.click_piece(e)
       else if (this.placing && e.button === 0 && this.down_at !== null && e.target === el && Math.hypot(e.clientX - this.down_at.x, e.clientY - this.down_at.y) < 4) this.place_bone(e)
@@ -709,6 +727,7 @@ class VehicleApp {
     const s = make_sample(id)
     this.vtype = s.type; ($('vh-type') as HTMLSelectElement).value = s.type
     this.set_model(s.group, s.name)
+    this.square_up(); this.unify_axles()
     // helicopters and boats have no wheels: drop the scan's corner guess
     if (!s.group.children.some(o => role_of(o.name)?.role === 'wheel')) { this.wheels = []; this.parts.forEach(p => { for (let i = 0; i < p.owner.length; i++) if (p.owner[i] < DOOR0) p.owner[i] = -1 }); this.name_parts(); this.refresh_part_select(); this.refresh_colors(); this.draw_markers() }
     this.build_rig()
@@ -1146,6 +1165,8 @@ class VehicleApp {
 
   private auto_turned = false
   private finish_wheels (msg: string, warn = false): void {
+    this.square_up()
+    setTimeout(() => { this.unify_axles(); this.draw_markers() }, 0) // once, after the scan sets the axles (each wheel is free after that)
     if (this.vtype === 'tracked') setTimeout(() => { if (!this.mechs.some(m => m.kind === 'track')) this.find_tracks() }, 0)
     this.wheels.forEach((w, k) => { w.axle = this.wheel_axle(k) })
     // the wheels' own axles say which way the vehicle really points: axles along Z = the car lies sideways
@@ -1181,10 +1202,11 @@ class VehicleApp {
   }
 
   /**
-   * a wheel's spin axis = the direction its vertices spread least (a tyre is a flat disc). Works whatever way the
-   * file was turned. Pointed to +X (the vehicle's left) so "forward" spins the same way for every wheel.
+   * a wheel's spin axis: which way its round side faces (a tyre is a flat disc), made level so the wheel stands
+   * upright, pointed to +X (the vehicle's left) so every wheel spins the same way.
    */
   private wheel_axle (k: number): THREE.Vector3 | undefined {
+    const lw = this.wheels[k]; if (lw?.locked === true && lw.axle !== undefined) return lw.axle // 🔒 set by hand
     const P: THREE.Vector3[] = []
     this.parts.forEach(p => { const pos = p.mesh.geometry.getAttribute('position'); for (let i = 0; i < pos.count; i++) if (p.owner[i] === k) P.push(new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i))) })
     if (P.length < 12) return undefined
@@ -1202,7 +1224,10 @@ class VehicleApp {
     }
     const v = vecs[best].clone()
     if (Math.abs(v.y) > 0.7) return undefined // flat lying thing, not a wheel on its edge: keep the default
-    if (v.x < 0 || (Math.abs(v.x) < 1e-3 && v.z < 0)) v.negate()
+    // a wheel stands upright: its axle is level (a caliper or a hub cap tilting the measured axis up / down is
+    // dropped), but keeps the way the wheel really faces sideways (a model turned a few degrees spins true, no wobble)
+    v.y = 0; if (v.lengthSq() < 1e-8) return new THREE.Vector3(1, 0, 0)
+    v.normalize(); if (v.x < 0 || (Math.abs(v.x) < 1e-3 && v.z < 0)) v.negate()
     return v
   }
 
@@ -1760,6 +1785,65 @@ class VehicleApp {
     this.refresh_part_select(); this.refresh_colors(); this.draw_markers()
   }
 
+  /* ---------------- 🛞 axle panel: which way the picked wheel turns (its pink ring), lock it, turn the wheel with it ---------------- */
+  private axle_panel (): void {
+    let el = document.getElementById('vh-axle')
+    const k = this.active; const w = k >= 0 && k < DOOR0 ? this.wheels[k] : undefined
+    if (w === undefined) { if (el !== null) el.style.display = 'none'; return }
+    if (el === null) {
+      el = document.createElement('div'); el.id = 'vh-axle'
+      el.style.cssText = 'position:absolute;left:8px;top:48px;z-index:15;display:flex;flex-direction:column;gap:5px;padding:8px 10px;border-radius:10px;background:rgba(20,22,26,.92);border:1px solid #ff2bd6;font-size:12px;max-width:300px'
+      $('vh-view').appendChild(el)
+      el.addEventListener('click', e => {
+        const b = (e.target as HTMLElement).closest<HTMLElement>('[data-ax],[data-axr],[data-axa]'); if (b === null) return
+        if (b.dataset.ax !== undefined) this.set_axle(b.dataset.ax)
+        if (b.dataset.axr !== undefined) this.turn_wheel(b.dataset.axr as 'x' | 'y' | 'z')
+        if (b.dataset.axa === 'lock') this.lock_axle()
+      })
+    }
+    const a = w.axle ?? new THREE.Vector3(1, 0, 0); const on = (v: string): string => (v === 'x' && Math.abs(a.x) > 0.9) || (v === 'y' && Math.abs(a.y) > 0.9) || (v === 'z' && Math.abs(a.z) > 0.9) ? 'background:#ff2bd6;color:#fff' : ''
+    const B = (attr: string, t: string, tip: string, st = ''): string => `<button type="button" ${attr} title="${tip}" style="font-size:12px;padding:3px 7px;${st}">${t}</button>`
+    el.innerHTML = `<b style="color:#ff7be6">🛞 ${this.part_name(k)} — ${M('spin axle (pink ring)', 'trục quay (khung hồng)', '회전축')}</b>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${B('data-ax="x"', 'X', M('Axle along X', 'Trục theo X', 'X'), on('x'))}${B('data-ax="y"', 'Y', M('Axle along Y', 'Trục theo Y', 'Y'), on('y'))}${B('data-ax="z"', 'Z', M('Axle along Z', 'Trục theo Z', 'Z'), on('z'))}${B('data-ax="next"', '⟲ (Z)', M('Turn the ring to the next axis (key Z)', 'Xoay khung sang trục kế (phím Z)', '다음 축 (Z)'))}${B('data-ax="flip"', '⇄', M('Spin the other way', 'Quay chiều ngược lại', '반대'))}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center"><span>${M('Turn wheel + ring 90°', 'Xoay bánh + khung 90°', '바퀴+링 90°')}</span>${B('data-axr="x"', '↻X', 'X')}${B('data-axr="y"', '↻Y', 'Y')}${B('data-axr="z"', '↻Z', 'Z')}</div>
+      ${B('data-axa="lock"', w.locked === true ? '🔒 ' + M('Grouped (click to unlock)', 'Đã gom (bấm để mở)', '고정됨') : '🔗 ' + M('Group wheel + ring (lock the axle)', 'Gom bánh + khung (khoá trục)', '바퀴+링 고정'), M('The axle stays as you set it: auto scans and fixes leave it alone', 'Trục giữ đúng như bạn chỉnh: tự quét / tự sửa không đụng vào', '자동으로 바뀌지 않음'), w.locked === true ? 'background:#2a6f3a;color:#fff' : 'border-color:#ff2bd6')}`
+    el.style.display = 'flex'
+  }
+  /** the picked wheel's axle: 'x' | 'y' | 'z', 'next' (the next axis round, also key Z) or 'flip' */
+  public set_axle (how: string): void {
+    const k = this.active; const w = this.wheels[k]; if (w === undefined || k >= DOOR0) return
+    this.history.begin(); this.clear_rig()
+    const a = w.axle?.clone() ?? new THREE.Vector3(1, 0, 0)
+    if (how === 'flip') a.negate()
+    else if (how === 'next') { const i = Math.abs(a.x) > 0.9 ? 0 : Math.abs(a.z) > 0.9 ? 1 : 2; const n = [new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0)][i]; a.copy(n) }
+    else a.set(how === 'x' ? 1 : 0, how === 'y' ? 1 : 0, how === 'z' ? 1 : 0)
+    w.axle = a; w.locked = true // set by hand: the auto passes keep it
+    this.draw_markers(); this.history.commit_soon()
+  }
+  public lock_axle (): void { const w = this.wheels[this.active]; if (w === undefined || this.active >= DOOR0) return; this.history.begin(); w.locked = w.locked !== true; this.axle_panel(); this.history.commit_soon() }
+  /** turn the picked wheel's mesh and its axle together by 90° round its centre (to fit it on the vehicle) */
+  public turn_wheel (axis: 'x' | 'y' | 'z'): void {
+    const k = this.active; const w = this.wheels[k]; if (w === undefined || k >= DOOR0) return
+    this.history.begin(); this.clear_rig()
+    const R = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0), Math.PI / 2)
+    const c = w.center.clone(); const v = new THREE.Vector3()
+    // fresh meshes for the ones that change, so Ctrl+Z gets the old ones back
+    this.parts = this.parts.map(p => {
+      if (!p.owner.some(o => o === k)) return p
+      const m = new THREE.Mesh(p.mesh.geometry.clone(), p.mesh.material); m.name = p.mesh.name
+      this.original_materials.set(m, this.original_materials.get(p.mesh) ?? p.mesh.material)
+      this.holder.remove(p.mesh); this.holder.add(m)
+      const pos = m.geometry.getAttribute('position') as THREE.BufferAttribute
+      for (let i = 0; i < pos.count; i++) if (p.owner[i] === k) { v.fromBufferAttribute(pos, i).sub(c).applyMatrix4(R).add(c); pos.setXYZ(i, v.x, v.y, v.z) }
+      pos.needsUpdate = true; m.geometry.computeVertexNormals(); m.geometry.computeBoundingBox(); m.geometry.computeBoundingSphere()
+      return { mesh: m, owner: Int16Array.from(p.owner) }
+    })
+    this.comp_cache.clear()
+    if (w.axle !== undefined) w.axle = w.axle.clone().applyMatrix4(R).normalize()
+    w.locked = true
+    this.refresh_colors(); this.draw_markers(); this.history.commit_soon()
+  }
+
   private color_of (code: number): number {
     return code >= DOOR0 ? DOOR_COLORS[(code - DOOR0) % DOOR_COLORS.length] : WHEEL_COLORS[code % WHEEL_COLORS.length]
   }
@@ -1794,6 +1878,7 @@ class VehicleApp {
   /** wheel rings: [ smaller, ] bigger, O hide / show */
   private ring_scale = 1
   private draw_markers (): void {
+    this.axle_panel()
     this.markers.clear()
     this.wheels.forEach((w, k) => {
       const on = k === this.active
@@ -1801,8 +1886,12 @@ class VehicleApp {
       // the ring lies in the wheel's own plane (around its axle), pushed a little outwards
       const ax = w.axle ?? new THREE.Vector3(1, 0, 0)
       ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), ax)
-      ring.position.copy(w.center).addScaledVector(ax, Math.sign(w.center.dot(ax) || 1) * this.size.x * 0.02)
-      ring.renderOrder = 10
+      // on the wheel's own outer face (snug on the wheel / its track), whichever side it is on
+      const side = Math.sign(w.center.dot(ax) || 1); const wb = this.part_box(k)
+      const half = wb.isEmpty() ? 0 : Math.abs(wb.getSize(new THREE.Vector3()).dot(ax)) / 2
+      ring.position.copy(w.center).addScaledVector(ax, side * (half + this.size.x * 0.01))
+      ring.userData.face = ax.clone().multiplyScalar(side) // which way this ring looks (to the outside)
+      ring.renderOrder = 10; ring.userData.on = on
       this.markers.add(ring)
     })
   }
@@ -1921,11 +2010,17 @@ class VehicleApp {
     el.innerHTML = `<div style="color:#ff7be6;font-weight:700">${M('What is this part?', 'Đây là bộ phận gì?', '이 부품은?')}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">${CHOICES.map((c, n) => b(c, String(n + 1))).join('')}</div>
       <select data-qmore style="font-size:12px"><option value="">${M('Something else…', 'Bộ phận khác…', '기타…')}</option>${PRESETS.map((p, i) => `<option value="${i}">${p.icon} ${p.label}</option>`).join('')}<option value="bone">🦴 ${M('Free bone', 'Xương tự do', '자유 본')}</option></select>
+      <select data-qattach style="font-size:12px"><option value="">🔗 ${M('Attach to a part…', 'Gắn vào bộ phận…', '부품에 붙이기…')}</option><option value="-1">${M('Body (no animation)', 'Thân xe (không animation)', '차체')}</option>${this.wheels.map((_w, i) => `<option value="${i}">🛞 ${this.part_name(i)}</option>`).join('')}${this.mechs.map((_m, i) => `<option value="${DOOR0 + i}">⚙ ${this.part_name(DOOR0 + i)}</option>`).join('')}</select>
       <div style="display:flex;gap:4px"><button type="button" data-qa="g" style="flex:1;font-size:12px;padding:4px">✋ ${M('Drag out', 'Kéo ra', '끌기')} (G)</button><button type="button" data-qa="del" style="flex:1;font-size:12px;padding:4px">🗑 ${M('Remove', 'Xoá', '삭제')}</button><button type="button" data-qa="x" style="font-size:12px;padding:4px">✕</button></div>`
     const v = $('vh-view').getBoundingClientRect()
-    el.style.left = `${Math.min(v.width - 260, Math.max(4, this.q_menu_at.x - v.left + 14))}px`; el.style.top = `${Math.min(v.height - 250, Math.max(4, this.q_menu_at.y - v.top + 14))}px`; el.style.display = 'flex'
+    // it fits in the view (taller than the room: it scrolls), next to the mouse
+    const visTop = Math.max(0, -v.top); const visH = Math.min(v.height, innerHeight - v.top) - visTop // the part of the view on the screen
+    el.style.maxHeight = `${Math.max(160, visH - 16)}px`; el.style.overflowY = 'auto'; el.style.display = 'flex'
+    const h = el.offsetHeight
+    el.style.left = `${Math.min(v.width - 260, Math.max(4, this.q_menu_at.x - v.left + 14))}px`; el.style.top = `${Math.max(visTop + 8, Math.min(visTop + visH - h - 8, this.q_menu_at.y - v.top + 14))}px`
     el.querySelectorAll<HTMLButtonElement>('[data-qc]').forEach(x => { x.onclick = () => { this.q_choose(x.dataset.qc!) } })
     ;(el.querySelector('[data-qmore]') as HTMLSelectElement).onchange = (e) => { const v2 = (e.target as HTMLSelectElement).value; if (v2 === '') return; this.history.begin(); this.q_detach('part', v2 === 'bone' ? { icon: '🦴', label: 'Bone', kind: 'bone' } : PRESETS[Number(v2)]); this.history.commit_soon() }
+    ;(el.querySelector('[data-qattach]') as HTMLSelectElement).onchange = (e) => { const v2 = (e.target as HTMLSelectElement).value; if (v2 !== '') this.q_attach(Number(v2)) }
     el.querySelectorAll<HTMLButtonElement>('[data-qa]').forEach(x => { x.onclick = () => { const a = x.dataset.qa; if (a === 'g') { this.history.begin(); this.q_grab_start() } else if (a === 'del') this.q_delete(); else this.q_clear(); this.q_menu_hide() } })
   }
   /** a choice of the "what is this part?" menu (or its number key) */
@@ -1937,6 +2032,26 @@ class VehicleApp {
     this.q_detach('part', c.preset)
     if (c.preset.kind === 'track' && this.vtype !== 'tracked') { this.vtype = 'tracked'; ($('vh-type') as HTMLSelectElement).value = 'tracked' }
     this.history.commit_soon()
+    this.rig_and_show(c.preset.kind)
+  }
+  /** 🔗 the selection joins a part that is already there (a hubcap back onto its wheel, a mirror onto its door) and moves with it */
+  public q_attach (code: number): void {
+    if (this.q_count() === 0) return
+    this.history.begin(); this.q_menu_hide(); this.clear_rig()
+    this.qsel.forEach((q, p) => { for (let i = 0; i < q.length; i++) if (q[i] === 1) p.owner[i] = code })
+    this.qsel.clear(); this.active = code
+    this.after_paint(); this.refresh_colors(); this.history.commit_soon()
+    this.status(M(`Attached to ${code < 0 ? 'the body' : this.part_name(code)}. Ctrl+Z / Cmd+Z undoes it.`, `Đã gắn vào ${code < 0 ? 'thân xe' : this.part_name(code)}. Ctrl+Z / Cmd+Z để hoàn tác.`, '붙였습니다.'))
+    if (code >= 0) this.rig_and_show(code < DOOR0 ? 'wheel' : this.mechs[code - DOOR0]?.kind ?? '')
+  }
+  /** after a cut / attach: build the rig and play the animation that shows that kind of part move */
+  private rig_and_show (kind: string): void {
+    setTimeout(() => {
+      try { this.build_rig() } catch (e) { console.warn('Greenbox vehicle rig:', e); return }
+      const want: Record<string, RegExp> = { wheel: /^04_Drive$|Drive/, door: /door|open/i, track: /Drive/, spin: /drill|spin|work/i, turret: /turret|turn|aim/i, blade: /blade|dig|lift/i, boom: /boom|lift|crane/i, arm: /dig|arm|bucket/i, bucket: /dig|bucket/i, barrel: /fire|shoot|recoil/i }
+      const re = want[kind] ?? /Drive/
+      const i = this.clips.findIndex(c => re.test(c.name)); this.play(i >= 0 ? i : 0)
+    }, 60)
   }
   /** add every separate piece that lies inside the selection's box (glass of a door, its handle, its mirror) */
   private q_grow_inside (): void {
@@ -1962,8 +2077,8 @@ class VehicleApp {
     this.q_menu()
     const n = this.q_count()
     this.status(n === 0 ? M('Nothing selected.', 'Chưa chọn gì.', '선택 없음.')
-      : M(`${n} points selected (pink). Pick what it is in the menu (1 wheel · 2 door · 3 hood · 4 trunk…) · G = drag it out · Delete = remove · Shift+click = add a piece · Esc = clear`,
-        `Đã chọn ${n} điểm (màu hồng). Chọn nó là gì trong menu (1 bánh · 2 cửa · 3 capo · 4 cốp…) · G = kéo ra · Delete = xoá · Shift+bấm = chọn thêm mảnh · Esc = bỏ chọn`,
+      : M(`${n} points selected (pink). Pick what it is in the menu (it gets a rig and plays its animation) or 🔗 attach it to a part · drag it (or G) = pull it off · Delete = remove · Shift+drag / Shift+click = add more · Ctrl/Cmd+Z = undo · Esc = clear`,
+        `Đã chọn ${n} điểm (màu hồng). Chọn nó là gì trong menu (tự gắn rig và chạy animation) hoặc 🔗 gắn vào bộ phận có sẵn · kéo nó (hoặc G) = kéo đứt ra · Delete = xoá · Shift+kéo / Shift+bấm = chọn thêm · Ctrl/Cmd+Z = hoàn tác · Esc = bỏ chọn`,
         `${n}개 선택. X 분리 · Shift+X 바퀴 · G 끌기 · Delete 삭제 · Esc 해제`))
   }
   /** click: the connected piece under the cursor (Shift adds) */
@@ -1975,7 +2090,14 @@ class VehicleApp {
     const p = this.parts.find(x => x.mesh === h.object); if (p === undefined) return
     let comp = this.comp_cache.get(p); if (comp === undefined) { comp = this.components(p); this.comp_cache.set(p, comp) }
     const id = comp[h.face.a]; let q = this.qsel.get(p); if (q === undefined) { q = new Uint8Array(p.owner.length); this.qsel.set(p, q) }
-    let n = 0; for (let i = 0; i < comp.length; i++) if (comp[i] === id) { q[i] = 1; n++ }
+    let n = 0
+    // a part found already (a wheel = tyre + rim + hub, a door…): one click takes all of it, in every mesh
+    const own = [h.face.a, h.face.b, h.face.c].map(i => p.owner[i]).find(o => o >= 0)
+    if (own !== undefined) {
+      this.parts.forEach(pp => { let qq = this.qsel.get(pp); for (let i = 0; i < pp.owner.length; i++) if (pp.owner[i] === own) { if (qq === undefined) { qq = new Uint8Array(pp.owner.length); this.qsel.set(pp, qq) } qq[i] = 1; n++ } })
+      this.refresh_colors(); this.q_hint(); return
+    }
+    for (let i = 0; i < comp.length; i++) if (comp[i] === id) { q[i] = 1; n++ }
     this.refresh_colors(); this.q_hint()
     if (n > p.owner.length * 0.6 && this.parts.length === 1) this.status(M('That piece is the whole welded model: cut a part out with ⬚ 4 points or ◯ circle instead.', 'Mảnh này là cả model dính liền: hãy cắt bằng ⬚ 4 điểm hoặc ◯ khoanh tròn.', '모델 전체입니다: 4점 / 원으로 자르세요.'), true)
   }
@@ -2009,7 +2131,9 @@ class VehicleApp {
     this.q_menu_hide()
     this.clear_rig(); this.q_cut()
     let code: number
-    if (as === 'wheel' || preset?.kind === 'wheel') { this.wheels.push({ name: 'wheel_new', center: new THREE.Vector3(), radius: 0.1, front: false, guessed: false }); code = this.wheels.length - 1 }
+    let was = -2; let same = true; this.qsel.forEach((q, p) => { for (let i = 0; i < q.length; i++) if (q[i] === 1) { if (was === -2) was = p.owner[i]; else if (p.owner[i] !== was) same = false } })
+    if ((as === 'wheel' || preset?.kind === 'wheel') && same && was >= 0 && was < DOOR0) code = was // it is that wheel already
+    else if (as === 'wheel' || preset?.kind === 'wheel') { this.wheels.push({ name: 'wheel_new', center: new THREE.Vector3(), radius: 0.1, front: false, guessed: false }); code = this.wheels.length - 1 }
     else {
       const kind = (preset?.kind as MechKind | undefined) ?? ((($('vh-part-kind') as HTMLSelectElement).value as MechKind) || 'bone')
       this.mechs.push({ kind, name: preset?.label === 'Drill' ? 'drill' : kind, hinge: preset?.hinge ?? 'auto', angle: preset?.angle ?? default_angle(kind), flip: false, axis: preset?.axis ?? 'auto' }); code = DOOR0 + this.mechs.length - 1
@@ -2017,7 +2141,8 @@ class VehicleApp {
     }
     this.qsel.forEach((q, p) => { for (let i = 0; i < q.length; i++) if (q[i] === 1) p.owner[i] = code })
     this.qsel.clear(); this.active = code
-    this.after_paint(); this.refresh_colors()
+    if (code < DOOR0) { const w = this.wheels[code]; const b = this.part_box(code); if (w !== undefined && !b.isEmpty()) { const sz = b.getSize(new THREE.Vector3()); w.center.copy(b.getCenter(new THREE.Vector3())); w.radius = Math.max(sz.y, sz.z) / 2; w.guessed = false; w.axle = this.wheel_axle(code); w.front = w.center.z > 0.05 * this.size.z; this.name_wheels() } }
+    this.after_paint(); this.refresh_colors(); this.draw_markers()
     this.status(M(`Detached as ${this.part_name(code)} (its own mesh, holes filled). Change its kind / pivot below, or press G to drag it.`, `Đã tách thành ${this.part_name(code)} (mesh riêng, đã fill lỗ). Đổi loại / trục bên dưới, hoặc bấm G để kéo.`, `${this.part_name(code)}(으)로 분리.`))
   }
   /** Delete: the selected triangles leave the model (a lamp post, a house, the floor, a sign…) */
@@ -2063,6 +2188,20 @@ class VehicleApp {
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(this.camera.getWorldDirection(new THREE.Vector3()).negate(), c)
     this.grab = { start: c, plane, orig }; this.refresh_colors()
     this.status(M('Move the mouse to drag the piece · click / Enter = OK · Esc / right-click = cancel', 'Rê chuột để kéo mảnh · bấm / Enter = xong · Esc / chuột phải = huỷ', '마우스로 끌기 · 클릭 확인 · Esc 취소'))
+  }
+  /** is the mouse on a selected (pink) bit of the model? */
+  private on_selection (e: PointerEvent): boolean {
+    const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
+    const h = ray.intersectObjects(this.parts.map(p => p.mesh), false)[0]; if (h === undefined || h.face == null) return false
+    const p = this.parts.find(x => x.mesh === h.object); const q = p !== undefined ? this.qsel.get(p) : undefined
+    return q !== undefined && (q[h.face.a] === 1 || q[h.face.b] === 1 || q[h.face.c] === 1)
+  }
+  /** the drag starts where the mouse is (the piece does not jump to it) */
+  private grab_from (e: PointerEvent): void {
+    const g = this.grab; if (g === null) return
+    const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
+    const hit = ray.ray.intersectPlane(g.plane, new THREE.Vector3()); if (hit !== null) g.start.copy(hit)
+    this.status(M('Pulling it off: release the mouse to drop it · Ctrl/Cmd+Z puts it back', 'Đang kéo ra: thả chuột để đặt · Ctrl/Cmd+Z để gắn lại chỗ cũ', '떼어내는 중: 놓으면 배치 · Ctrl/Cmd+Z 복구'))
   }
   private q_grab_move (e: PointerEvent): void {
     const g = this.grab; if (g === null) return
@@ -2344,6 +2483,35 @@ class VehicleApp {
     if (this.bone_helper !== null) { this.scene.remove(this.bone_helper); this.bone_helper = null }
     $('vh-anims').innerHTML = ''
     $('vh-anim-box').classList.add('disabled')
+  }
+
+  /** (once, when the wheels are found) every wheel of a vehicle turns on the same axle direction: level and square to the line the wheels run along
+   *  (from all the wheel centres), so a model placed a few degrees off still rolls straight along its tracks */
+  /** a vehicle set a few degrees off the forward arrow (its wheel rows not along Z) drives off to one side:
+   *  turn the whole model so the rows run straight along the arrow (only small turns: a big one is left to the person) */
+  private square_up (): boolean {
+    const W = this.wheels.filter(w => !w.guessed); if (W.length < 3) return false
+    const c = new THREE.Vector3(); W.forEach(w => c.add(w.center)); c.divideScalar(W.length)
+    let xx = 0; let zz = 0; let xz = 0; W.forEach(w => { const dx = w.center.x - c.x; const dz = w.center.z - c.z; xx += dx * dx; zz += dz * dz; xz += dx * dz })
+    const a0 = 0.5 * Math.atan2(2 * xz, xx - zz); let f = new THREE.Vector3(Math.cos(a0), 0, Math.sin(a0))
+    if (Math.abs(f.z) < Math.abs(f.x)) f = new THREE.Vector3(-f.z, 0, f.x)
+    if (f.z < 0) f.negate()
+    const a = Math.atan2(f.x, f.z); const deg = Math.abs(THREE.MathUtils.radToDeg(a))
+    if (deg < 0.5 || deg > 20) return false
+    this.rotate_model(-a)
+    this.status(M(`Turned ${deg.toFixed(1)}° so the wheels run straight along the arrow (it was drifting to one side).`, `Đã xoay ${deg.toFixed(1)}° cho hàng bánh chạy thẳng theo mũi tên (trước đó xe bị quẹo lệch).`, `${deg.toFixed(1)}° 정렬`))
+    return true
+  }
+
+  private unify_axles (): void {
+    const W = this.wheels; if (W.length < 3) return
+    const c = new THREE.Vector3(); W.forEach(w => c.add(w.center)); c.divideScalar(W.length)
+    let xx = 0; let zz = 0; let xz = 0; W.forEach(w => { const dx = w.center.x - c.x; const dz = w.center.z - c.z; xx += dx * dx; zz += dz * dz; xz += dx * dz })
+    const a = 0.5 * Math.atan2(2 * xz, xx - zz); let f = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)) // the long way of the wheel layout
+    // a vehicle's wheels spread front-to-back more than side-to-side; if not (a wide 4-wheel layout), take the axis nearer Z
+    if (Math.abs(f.z) < Math.abs(f.x)) f = new THREE.Vector3(-f.z, 0, f.x)
+    const ax = new THREE.Vector3(f.z, 0, -f.x).normalize(); if (ax.x < 0) ax.negate()
+    for (const w of W) { if (w.locked === true) continue; const own = w.axle; if (own === undefined || Math.abs(own.dot(ax)) > Math.cos(THREE.MathUtils.degToRad(35))) w.axle = ax.clone() } // a wheel turned on purpose (steered, sideways) keeps its own
   }
 
   public build_rig (): void {

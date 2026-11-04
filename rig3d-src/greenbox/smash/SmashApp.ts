@@ -13,8 +13,8 @@ import { M, on_lang_change } from '../common/lang.ts'
 type Shape = 'box' | 'can'
 /** a piece placed by hand in the 3D view: grid cell (x column, y row, z layer), colour 1..4, shape */
 interface Piece { x: number, y: number, z: number, c: number, s: Shape }
-interface Layout { cols: number, rows: number, depth: number, cells: number[], shape: Shape, size: number, power: number, ammo: number, look: string, hand: boolean, style: string, extra: Piece[], showAmmo: boolean, showScore: boolean, newShape: Shape, base: string, baseSpeed: number, baseColor: string }
-interface Block { mesh: THREE.Mesh, body: CANNON.Body, home: number, cell: [number, number, number], src: number } // src: -1 = drawn grid, k = extra[k]
+interface Layout { cols: number, rows: number, depth: number, cells: number[], shape: Shape, size: number, power: number, ammo: number, look: string, hand: boolean, style: string, extra: Piece[], showAmmo: boolean, showScore: boolean, newShape: Shape, base: string, baseSpeed: number, baseColor: string, hit: string, bShape: string, bThick: number, bW: number, bD: number, bLegs: string }
+interface Block { mesh: THREE.Mesh, body: CANNON.Body, home: number, cell: [number, number, number], src: number, broken?: boolean } // src: -1 = drawn grid, k = extra[k]
 const COLORS = [0, 0xe53935, 0x2457d6, 0x2fbf4f, 0xffc21a]
 const KEY = 'gb.smash.v1'
 const RW = 720, RH = 1280 // recorded size (9:16)
@@ -42,7 +42,7 @@ function preset (name: string, cols: number, rows: number): number[] {
   }
   return c
 }
-function defaults (): Layout { const cols = 8, rows = 9; return { cols, rows, depth: 1, cells: preset('wall', cols, rows), shape: 'can', size: 0.42, power: 16, ammo: 30, look: 'grey', hand: true, style: 'candy', extra: [], showAmmo: true, showScore: true, newShape: 'box', base: 'table', baseSpeed: 0.6, baseColor: '#ffffff' } }
+function defaults (): Layout { const cols = 8, rows = 9; return { cols, rows, depth: 1, cells: preset('wall', cols, rows), shape: 'can', size: 0.42, power: 16, ammo: 30, look: 'grey', hand: true, style: 'candy', extra: [], showAmmo: true, showScore: true, newShape: 'box', base: 'table', baseSpeed: 0.6, baseColor: '#ffffff', hit: 'knock', bShape: 'box', bThick: 0.12, bW: 1, bD: 1, bLegs: 'two' } }
 
 class SmashApp {
   L: Layout
@@ -68,6 +68,8 @@ class SmashApp {
   edit = false // ✏️ place / remove pieces in the 3D view (physics paused)
   ghost: THREE.Mesh | null = null
   supT = 0
+  shards: Array<{ mesh: THREE.Mesh, body: CANNON.Body, t: number }> = [] // pieces of blocks that broke
+  to_break = new Map<Block, CANNON.Vec3>() // block -> the ball's velocity, broken after the physics step
   plat: CANNON.Body | null = null // the moving base (turntable / slider), kinematic
   platMesh: THREE.Object3D | null = null
   platT = 0
@@ -124,8 +126,8 @@ class SmashApp {
 
   /* ---------------- the wall on the table ---------------- */
   reset (): void {
-    for (const b of [...this.blocks, ...this.balls]) { this.scene.remove(b.mesh); this.world.removeBody(b.body) }
-    this.blocks = []; this.balls = []
+    for (const b of [...this.blocks, ...this.balls, ...this.shards]) { this.scene.remove(b.mesh); this.world.removeBody(b.body) }
+    this.blocks = []; this.balls = []; this.shards = []; this.to_break.clear()
     for (const o of this.scene.children.filter(o => o.userData.table === true)) this.scene.remove(o)
     for (const b of this.world.bodies.filter(b => (b as any).table === true)) this.world.removeBody(b)
     const L = this.L, s = L.size
@@ -164,7 +166,19 @@ class SmashApp {
     const Z = this.tableZ, r = Math.max(w, d) / 2 + 0.12
     this.plat = null; this.platMesh = null; this.platT = 0
     this.foot = { w, d, r, round: kind === 'pedestal' || kind === 'spin' }
-    if (kind === 'pedestal') {
+    if (kind === 'custom') {
+      // 🛠 your own base: top slab (box / round, thick or thin, wide / deep) on 1 pole, 2 thin pillars, 4 legs, a solid block or nothing
+      const ww = w * L.bW, dd = d * L.bD, t = Math.max(0.02, L.bThick), round = L.bShape === 'round', rr = Math.max(ww, dd) / 2, H = top - t
+      this.foot = { w: ww, d: dd, r: rr, round }
+      if (round) { mesh(new THREE.CylinderGeometry(rr, rr, t, 48), main, 0, top - t / 2, Z); body(new CANNON.Cylinder(rr, rr, t, 24), 0, top - t / 2, Z) }
+      else { mesh(new THREE.BoxGeometry(ww, t, dd), main, 0, top - t / 2, Z); mesh(new THREE.BoxGeometry(ww + 0.04, Math.min(0.04, t * 0.5), 0.06), red, 0, top - t * 0.75, Z + dd / 2); body(new CANNON.Box(new CANNON.Vec3(ww / 2, t / 2, dd / 2)), 0, top - t / 2, Z) }
+      const leg = (x: number, z: number, sx: number, sz: number): void => { if (H <= 0.02) return; mesh(new THREE.BoxGeometry(sx, H, sz), dark, x, H / 2, Z + z); body(new CANNON.Box(new CANNON.Vec3(sx / 2, H / 2, sz / 2)), x, H / 2, Z + z) }
+      const ex = round ? rr * 0.62 : ww / 2 - 0.12, ez = round ? rr * 0.62 : dd / 2 - 0.1
+      if (L.bLegs === 'pole') { leg(0, 0, 0.14, 0.14); mesh(new THREE.BoxGeometry(0.7, 0.08, 0.5), red, 0, 0.04, Z) }
+      else if (L.bLegs === 'two') { leg(-ex, 0, 0.09, 0.09); leg(ex, 0, 0.09, 0.09); for (const x of [-ex, ex]) mesh(new THREE.BoxGeometry(0.28, 0.05, 0.28), red, x, 0.025, Z) }
+      else if (L.bLegs === 'four') { for (const x of [-ex, ex]) for (const z of [-ez, ez]) leg(x, z, 0.09, 0.09) }
+      else if (L.bLegs === 'solid') { if (round) { if (H > 0.02) { mesh(new THREE.CylinderGeometry(rr * 0.92, rr * 0.92, H, 40), dark, 0, H / 2, Z); body(new CANNON.Cylinder(rr * 0.92, rr * 0.92, H, 20), 0, H / 2, Z) } } else leg(0, 0, ww * 0.92, dd * 0.92) }
+    } else if (kind === 'pedestal') {
       mesh(new THREE.CylinderGeometry(r, r, 0.14, 48), main, 0, top - 0.07, Z)
       mesh(new THREE.CylinderGeometry(r + 0.03, r + 0.03, 0.05, 48), red, 0, top - 0.16, Z)
       mesh(new THREE.CylinderGeometry(r * 0.5, r * 0.62, top - 0.3, 32), dark, 0, (top - 0.3) / 2 + 0.12, Z)
@@ -231,6 +245,24 @@ class SmashApp {
     if (this.platMesh !== null) { this.platMesh.position.set(b.position.x, b.position.y, b.position.z); this.platMesh.quaternion.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w) }
   }
   cell_pos (x: number, y: number, z: number): THREE.Vector3 { const L = this.L, s = L.size; return new THREE.Vector3((x - (L.cols - 1) / 2) * s, this.top + s * 0.48 + y * s * 0.985, this.tableZ - (z - (L.depth - 1) / 2) * s) }
+  /** 💥 the block shatters: ~22 shards of different sizes (some flat, like broken pieces) burst out with the hit; it counts as knocked */
+  shatter (b: Block, hit: CANNON.Vec3): void {
+    b.broken = true; this.world.removeBody(b.body); b.mesh.visible = false
+    const s = this.L.size, mat = b.mesh.material as THREE.Material; const q = b.body.quaternion; const p = b.body.position
+    const n = 22
+    for (let k = 0; k < n; k++) {
+      const sx = s * (0.1 + Math.random() * 0.28), sy = s * (0.05 + Math.random() * 0.22), sz = s * (0.1 + Math.random() * 0.28) // uneven, often flat
+      const off = q.vmult(new CANNON.Vec3((Math.random() - 0.5) * s * 0.8, (Math.random() - 0.5) * s * 0.8, (Math.random() - 0.5) * s * 0.8))
+      const rq = new CANNON.Quaternion().setFromEuler(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28)
+      const body = new CANNON.Body({ mass: 0.02 + sx * sy * sz * 4, shape: new CANNON.Box(new CANNON.Vec3(sx / 2, sy / 2, sz / 2)), position: p.vadd(off), quaternion: rq })
+      const out = off.length() > 1e-6 ? off.unit() : new CANNON.Vec3(0, 1, 0); const f = 2.5 + Math.random() * 3
+      body.velocity.set(hit.x * 0.3 + out.x * f, hit.y * 0.2 + out.y * f + 1.8, hit.z * 0.3 + out.z * f)
+      body.angularVelocity.set((Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20)
+      body.linearDamping = 0.08
+      const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat); m.castShadow = true; m.position.copy(body.position as any); m.quaternion.copy(body.quaternion as any)
+      this.world.addBody(body); this.scene.add(m); this.shards.push({ mesh: m, body, t: 0 })
+    }
+  }
   /** a sleeping block whose support is gone (shot away) must fall: wake it */
   support_check (): void {
     const s = this.L.size
@@ -283,7 +315,7 @@ class SmashApp {
     this.save(); this.reset(); this.edit_hover(x, y); this.grid()
   }
 
-  knocked (): number { return this.blocks.filter(b => b.body.position.y < this.top - 0.15 || !this.on_base(b.body.position, 0.4)).length }
+  knocked (): number { return this.blocks.filter(b => b.broken === true || b.body.position.y < this.top - 0.15 || !this.on_base(b.body.position, 0.4)).length }
 
   /* ---------------- shooting ---------------- */
   ray (x: number, y: number): THREE.Vector3 {
@@ -302,6 +334,12 @@ class SmashApp {
     const v = to.sub(muzzle).divideScalar(t); v.y += 0.5 * 9.82 * t // aim so gravity brings it onto the point
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 16), new THREE.MeshStandardMaterial({ color: 0xb8f24a, roughness: 0.5 })); mesh.castShadow = true
     const body = new CANNON.Body({ mass: 2.2, shape: new CANNON.Sphere(0.16), position: new CANNON.Vec3(muzzle.x, muzzle.y, muzzle.z), velocity: new CANNON.Vec3(v.x, v.y, v.z) })
+    // 💥 break mode: a block hit hard by the ball shatters (done after the physics step)
+    body.addEventListener('collide', (ev: any) => {
+      if (this.L.hit !== 'break') return
+      const b = this.blocks.find(q => q.body === ev.body); if (b === undefined || b.broken === true) return
+      const sp = Math.abs(ev.contact?.getImpactVelocityAlongNormal?.() ?? 0); if (sp > 2.2) this.to_break.set(b, body.velocity.clone())
+    })
     this.world.addBody(body); this.scene.add(mesh); this.balls.push({ mesh, body, t: 0 })
     this.ammo--; this.recoil = 1
   }
@@ -309,7 +347,7 @@ class SmashApp {
   auto_step (dt: number): void {
     this.autoT -= dt; if (this.autoT > 0 || this.ammo <= 0) return
     this.autoT = 0.55 + Math.random() * 0.35
-    const up = this.blocks.filter(b => b.body.position.y > this.top && b.body.position.y < this.top + this.L.rows * this.L.size * 0.7)
+    const up = this.blocks.filter(b => b.broken !== true && b.body.position.y > this.top && b.body.position.y < this.top + this.L.rows * this.L.size * 0.7)
     const b = up[Math.floor(Math.random() * up.length)]; if (b === undefined) return
     const p = b.mesh.position.clone().project(this.camera)
     this.shoot_at((p.x + 1) / 2 * RW, (1 - p.y) / 2 * RH)
@@ -320,7 +358,11 @@ class SmashApp {
     const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now
     if (this.auto) this.auto_step(dt)
     if (!this.edit) { const was = this.base_pre(dt); this.world.fixedStep(1 / 60, dt); this.base_post(was); this.supT -= dt; if (this.supT <= 0) { this.supT = 0.2; this.support_check() } }
-    for (const b of this.blocks) { b.mesh.position.copy(b.body.position as any); b.mesh.quaternion.copy(b.body.quaternion as any) }
+    if (this.to_break.size > 0) { this.to_break.forEach((v, b) => this.shatter(b, v)); this.to_break.clear() }
+    for (const b of this.blocks) { if (b.broken === true) continue; b.mesh.position.copy(b.body.position as any); b.mesh.quaternion.copy(b.body.quaternion as any) }
+    for (const q of this.shards) { q.t += dt; q.mesh.position.copy(q.body.position as any); q.mesh.quaternion.copy(q.body.quaternion as any) }
+    for (const q of this.shards.filter(x => x.t > 7)) { this.scene.remove(q.mesh); this.world.removeBody(q.body) }
+    this.shards = this.shards.filter(x => x.t <= 7)
     for (const b of this.balls) { b.t += dt; b.mesh.position.copy(b.body.position as any); b.mesh.quaternion.copy(b.body.quaternion as any) }
     for (const b of this.balls.filter(q => q.t > 6)) { this.scene.remove(b.mesh); this.world.removeBody(b.body) }
     this.balls = this.balls.filter(q => q.t <= 6)
@@ -407,12 +449,18 @@ class SmashApp {
           <label class="sm">${M('Shape', 'Hình', '모양')} <select id="sm-shape"><option value="can"${L.shape === 'can' ? ' selected' : ''}>${M('Cans', 'Lon', '캔')}</option><option value="box"${L.shape === 'box' ? ' selected' : ''}>${M('Boxes', 'Hộp', '상자')}</option></select></label></div>
       </section>
       <section><h3><b>⬓</b>${M('Base', 'Đế', '받침')}</h3>
-        <div class="row" style="flex-wrap:wrap">${([['table', M('Table', 'Bàn', '테이블')], ['pedestal', M('Round pedestal', 'Bệ tròn', '원형 받침')], ['steps', M('Podium steps', 'Bục bậc thang', '계단 단상')], ['float', M('Floating island', 'Đảo nổi', '떠 있는 섬')], ['spin', M('⟳ Turntable', '⟳ Đế xoay', '⟳ 회전판')], ['slide', M('⇆ Slider', '⇆ Đế trượt', '⇆ 슬라이더')]] as Array<[string, string]>).map(([k, t]) => `<button data-base="${k}" class="${L.base === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+        <div class="row" style="flex-wrap:wrap">${([['table', M('Table', 'Bàn', '테이블')], ['pedestal', M('Round pedestal', 'Bệ tròn', '원형 받침')], ['steps', M('Podium steps', 'Bục bậc thang', '계단 단상')], ['float', M('Floating island', 'Đảo nổi', '떠 있는 섬')], ['spin', M('⟳ Turntable', '⟳ Đế xoay', '⟳ 회전판')], ['slide', M('⇆ Slider', '⇆ Đế trượt', '⇆ 슬라이더')], ['custom', M('🛠 Build your own', '🛠 Tự build đế', '🛠 직접 만들기')]] as Array<[string, string]>).map(([k, t]) => `<button data-base="${k}" class="${L.base === k ? 'on' : ''}">${t}</button>`).join('')}</div>
         ${L.base === 'spin' || L.base === 'slide' ? `<label class="sm">${M('Speed', 'Tốc độ', '속도')} <input type="range" id="sm-bspeed" min="0" max="30" value="${Math.round(L.baseSpeed * 10)}"> <span id="sm-bspeedv">${L.baseSpeed.toFixed(1)}</span></label><div class="sm">${M('The untouched stack rides on it; pieces you hit fall off by themselves.', 'Khối chưa bị bắn đi theo đế; khối bị bắn trúng tự rơi theo vật lý.', '맞지 않은 블록은 함께 움직입니다')}</div>` : ''}
+        ${L.base === 'custom' ? `<div class="row"><button data-bshape="box" class="${L.bShape === 'box' ? 'on' : ''}">▭ ${M('Square top', 'Mặt vuông', '사각')}</button><button data-bshape="round" class="${L.bShape === 'round' ? 'on' : ''}">◯ ${M('Round top', 'Mặt tròn', '원형')}</button></div>
+          <label class="sm">${M('Thickness', 'Độ dày', '두께')} <input type="range" data-bk="bThick" min="2" max="80" value="${Math.round(L.bThick * 100)}"> <span>${Math.round(L.bThick * 100)} cm</span></label>
+          <label class="sm">${M('Width', 'Rộng', '폭')} <input type="range" data-bk="bW" min="50" max="220" value="${Math.round(L.bW * 100)}"> <span>${Math.round(L.bW * 100)}%</span></label>
+          <label class="sm">${M('Depth', 'Sâu', '깊이')} <input type="range" data-bk="bD" min="50" max="400" value="${Math.round(L.bD * 100)}"> <span>${Math.round(L.bD * 100)}%</span></label>
+          <label class="sm">${M('Legs', 'Chân đế', '다리')} <select data-bk="bLegs">${([['pole', M('1 pole', '1 cột giữa', '1기둥')], ['two', M('2 thin pillars', '2 cột mỏng', '2기둥')], ['four', M('4 legs', '4 chân', '4다리')], ['solid', M('Solid block', 'Khối đặc', '통짜')], ['none', M('None (floating)', 'Không chân (lơ lửng)', '없음')]] as Array<[string, string]>).map(([k, t]) => `<option value="${k}"${L.bLegs === k ? ' selected' : ''}>${t}</option>`).join('')}</select></label>` : ''}
         <div class="row">${['#ffffff', '#e53935', '#2457d6', '#c08a52', '#3a4258', '#4fed89'].map(c => `<button data-bcol="${c}" title="${c}" style="width:30px;height:24px;background:${c};${L.baseColor === c ? 'outline:2px solid #fff;' : ''}"></button>`).join('')}</div>
       </section>
       <section><h3><b>2</b>${M('Play it', 'Chơi thử', '플레이')}</h3>
         <div class="row"><button id="sm-reset">↺ ${M('Rebuild the stack', 'Dựng lại khối', '다시')}</button><button id="sm-auto" class="${this.auto ? 'on' : ''}">⚡ ${M('Auto shoot', 'Bắn tự động', '자동 사격')}</button></div>
+        <div class="row"><span class="sm">${M('A hit', 'Khi trúng đạn', '맞으면')}</span><button data-hit="knock" class="${L.hit !== 'break' ? 'on' : ''}">🎳 ${M('Knock over', 'Bắn đổ', '쓰러뜨리기')}</button><button data-hit="break" class="${L.hit === 'break' ? 'on' : ''}">💥 ${M('Break', 'Bắn vỡ', '부수기')}</button></div>
         <label class="sm">${M('Shot power', 'Lực bắn', '파워')} <input type="range" id="sm-power" min="8" max="30" value="${L.power}"></label>
         <label class="sm">${M('Balls', 'Số đạn', '탄')} <input type="range" id="sm-ammo" min="5" max="60" value="${L.ammo}"> ${L.ammo}</label>
         <div class="row"><label class="sm">${M('Look', 'Nền', '배경')} <select id="sm-look"><option value="grey"${L.look === 'grey' ? ' selected' : ''}>${M('Grey blockout', 'Xám blockout', '회색')}</option><option value="pastel"${L.look === 'pastel' ? ' selected' : ''}>${M('Pastel', 'Pastel', '파스텔')}</option><option value="night"${L.look === 'night' ? ' selected' : ''}>${M('Night', 'Tối', '밤')}</option></select></label>
@@ -450,6 +498,16 @@ class SmashApp {
     $('sm-edit').onclick = () => { this.edit = !this.edit; this.auto = false; this.reset(); if (!this.edit && this.ghost !== null) this.ghost.visible = false; this.panel() }
     document.getElementById('sm-clear-extra')?.addEventListener('click', () => { L.extra = []; ch() })
     side.querySelectorAll<HTMLButtonElement>('[data-base]').forEach(b => { b.onclick = () => { L.base = b.dataset.base as string; ch() } })
+    side.querySelectorAll<HTMLButtonElement>('[data-bshape]').forEach(b => { b.onclick = () => { L.bShape = b.dataset.bshape as string; ch() } })
+    side.querySelectorAll<HTMLButtonElement>('[data-hit]').forEach(b => { b.onclick = () => { L.hit = b.dataset.hit as string; this.save(); this.panel() } })
+    side.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-bk]').forEach(el => {
+      const k = el.dataset.bk as 'bThick' | 'bW' | 'bD' | 'bLegs'
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
+        if (k === 'bLegs') { L.bLegs = el.value; ch(); return }
+        ;(L as any)[k] = Number(el.value) / 100; const o = el.nextElementSibling; if (o !== null) o.textContent = k === 'bThick' ? `${el.value} cm` : `${el.value}%`
+        this.save(); this.reset()
+      })
+    })
     side.querySelectorAll<HTMLButtonElement>('[data-bcol]').forEach(b => { b.onclick = () => { L.baseColor = b.dataset.bcol as string; ch() } })
     document.getElementById('sm-bspeed')?.addEventListener('input', e => { L.baseSpeed = Number((e.target as HTMLInputElement).value) / 10; const v = document.getElementById('sm-bspeedv'); if (v !== null) v.textContent = L.baseSpeed.toFixed(1); this.save() })
     $('sm-reset').onclick = () => { this.reset() }
@@ -483,5 +541,5 @@ class SmashApp {
 const app = new SmashApp()
 ;(window as any).__smash = {
   shoot: (x: number, y: number) => app.shoot_at(x * RW, y * RH), auto: (on: boolean) => { app.auto = on; app.panel() }, reset: () => app.reset(),
-  preset: (p: string) => { app.L.cells = preset(p, app.L.cols, app.L.rows); app.save(); app.reset(); app.panel() }, base: (kind: string, speed?: number, color?: string) => { app.L.base = kind; if (speed !== undefined) app.L.baseSpeed = speed; if (color !== undefined) app.L.baseColor = color; app.save(); app.reset(); app.panel() }, record: () => app.record(), stop: () => app.stop_record(), state: () => ({ ammo: app.ammo, knocked: app.knocked(), blocks: app.blocks.length }), layout: () => app.L
+  preset: (p: string) => { app.L.cells = preset(p, app.L.cols, app.L.rows); app.save(); app.reset(); app.panel() }, hit: (mode: 'knock' | 'break') => { app.L.hit = mode; app.save(); app.panel() }, build_base: (o: { shape?: string, thick?: number, width?: number, depth?: number, legs?: string }) => { const L = app.L; L.base = 'custom'; if (o.shape !== undefined) L.bShape = o.shape; if (o.thick !== undefined) L.bThick = o.thick; if (o.width !== undefined) L.bW = o.width; if (o.depth !== undefined) L.bD = o.depth; if (o.legs !== undefined) L.bLegs = o.legs; app.save(); app.reset(); app.panel() }, base: (kind: string, speed?: number, color?: string) => { app.L.base = kind; if (speed !== undefined) app.L.baseSpeed = speed; if (color !== undefined) app.L.baseColor = color; app.save(); app.reset(); app.panel() }, record: () => app.record(), stop: () => app.stop_record(), state: () => ({ ammo: app.ammo, knocked: app.knocked(), blocks: app.blocks.length }), layout: () => app.L
 }

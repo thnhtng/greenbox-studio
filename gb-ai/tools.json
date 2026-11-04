@@ -235,7 +235,7 @@
  },
  {
   "name": "gb_smash",
-  "description": "SMASH DOWN blockout (a shooting ad: a wall of cans / boxes on a table, a gun in the middle). Actions: status (ammo, knocked, blocks, layout), preset {name: wall | pyramid | towers | checker | random}, reset (rebuild the stack), shoot {x, y} (0..1 of the 9:16 view), auto {on} (auto shoot), record (start recording the 9:16 view), stop (stop and save the blockout video), prompt (the Seedance video-to-video prompt for the chosen theme). base {name: table | pedestal | steps | float | spin (turntable) | slide (moves side to side), speed? 0–3, color? \"#rrggbb\"} (what the stack stands on).",
+  "description": "SMASH DOWN blockout (a shooting ad: a wall of cans / boxes on a table, a gun in the middle). Actions: status (ammo, knocked, blocks, layout), preset {name: wall | pyramid | towers | checker | random}, reset (rebuild the stack), shoot {x, y} (0..1 of the 9:16 view), auto {on} (auto shoot), record (start recording the 9:16 view), stop (stop and save the blockout video), prompt (the Seedance video-to-video prompt for the chosen theme). base {name: table | pedestal | steps | float | spin (turntable) | slide (moves side to side), speed? 0–3, color? \"#rrggbb\"} (what the stack stands on). hit {mode: knock | break} (a hit knocks pieces over, or breaks them into bits), build_base {shape?: box | round, thick? m (0.02–0.8), width? ×(0.5–2.2), depth? ×(0.5–4), legs?: pole | two | four | solid | none} (your own base).",
   "input_schema": {
    "type": "object",
    "properties": {
@@ -250,7 +250,9 @@
       "record",
       "stop",
       "prompt",
-      "base"
+      "base",
+      "hit",
+      "build_base"
      ]
     },
     "name": {
@@ -270,6 +272,39 @@
     },
     "color": {
      "type": "string"
+    },
+    "mode": {
+     "type": "string",
+     "enum": [
+      "knock",
+      "break"
+     ]
+    },
+    "shape": {
+     "type": "string",
+     "enum": [
+      "box",
+      "round"
+     ]
+    },
+    "thick": {
+     "type": "number"
+    },
+    "width": {
+     "type": "number"
+    },
+    "depth": {
+     "type": "number"
+    },
+    "legs": {
+     "type": "string",
+     "enum": [
+      "pole",
+      "two",
+      "four",
+      "solid",
+      "none"
+     ]
     }
    },
    "required": [
@@ -501,7 +536,7 @@
  },
  {
   "name": "gb_drive",
-  "description": "Driving overlay (Lái xe → Vô lăng & bàn đạp): a steering wheel + 2 pedals that follow a driving video, no hands. Actions: status, load {video_b64, name} (MCP: {path}), auto (the AI reads the video: the scenery sliding sideways = steering, how fast the picture changes = gas / brake; makes the take), export {mode: \"video\" = the gameplay video with the wheel + pedals on it (finished MP4), \"green\" = green screen, \"black\"}.",
+  "description": "Driving overlay (Lái xe → Vô lăng & bàn đạp): a steering wheel + 2 pedals that follow a driving video, no hands. Actions: layout (a picture of the wheel / pedals / dash / speedo layout + their positions: SHOW IT TO THE USER and agree the changes first), set_layout {items, confirmed: true} (only after the user said OK), status, load {video_b64, name} (MCP: {path}), auto (the AI reads the video: the scenery sliding sideways = steering, how fast the picture changes = gas / brake; makes the take), export {mode: \"video\" = the gameplay video with the wheel + pedals on it (finished MP4), \"green\" = green screen, \"black\"}.",
   "input_schema": {
    "type": "object",
    "properties": {
@@ -511,7 +546,9 @@
       "status",
       "load",
       "auto",
-      "export"
+      "export",
+      "layout",
+      "set_layout"
      ]
     },
     "video_b64": {
@@ -527,6 +564,17 @@
       "green",
       "black"
      ]
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object"
+     },
+     "description": "set_layout: [{id: dash|pad|wheel|brake|gas|gear|speedo, x?, y?, size?, w?, rot?, hidden?}] in frame pixels"
+    },
+    "confirmed": {
+     "type": "boolean",
+     "description": "set_layout: true only after the user saw the layout picture and said OK to these changes"
     }
    },
    "required": [

@@ -1,3 +1,6 @@
+import { mount_tpose } from './TPose.ts'
+import { mount_auto_face } from './AutoFace.ts'
+import { mount_rig_keys } from './RigKeys.ts'
 import { mount_clone_rig } from './CloneRigWizard'
 import { TWIST } from './Twist'
 import { CUSTOM_RIG } from './CustomRig'
@@ -130,6 +133,9 @@ export class EasyRig {
     CUSTOM_RIG.final_bones = () => this.engine.weight_skin_step.skeleton()?.bones ?? []
     TWIST.skeleton = () => this.engine.weight_skin_step.skeleton() ?? null
     mount_clone_rig(this.engine) // 🧬 the guided "rig file -> my model" panel
+    mount_rig_keys(this.engine) // Ctrl/Cmd+Z: joints, the applied rig, model turns
+    mount_auto_face(this.engine) // 🧭 the model turns to the blue forward arrow by itself
+    mount_tpose() // 🧍 T-pose button beside Expand / Contract Arms
   }
 
   /* ---------------- lifecycle ---------------- */

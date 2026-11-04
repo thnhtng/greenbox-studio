@@ -273,7 +273,8 @@ function draw_bar (c, b, frac, trail, col1, col2, back, fill, label, rtl, trailC
 function paint (c, tt, bg) {
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.clearRect(0, 0, W, H);
   if (bg === 'green') { c.fillStyle = '#00ff00'; c.fillRect(0, 0, W, H); } else if (bg === 'black') { c.fillStyle = '#000'; c.fillRect(0, 0, W, H); }
-  if (S.page === 'fx') { paint_fx(c, tt, bg === 'clear' && busy); paint_trans(c, tt); paint_vig(c, tt); return; }
+  if (S.page === 'fx') { paint_fx(c, tt, bg === 'clear' && busy); paint_trans(c, tt); return; }
+  if (S.page === 'flash') { paint_vig(c, tt); return; } // 🩸 its own layer: only the red flash (MOV alpha on top of the gameplay)
   if (S.page === 'count') { paint_count(c, tt); paint_vig(c, tt); return; }
   if (S.page === 'end') { paint_end(c, tt); return; }
   if (S.boss.on) paint_boss(c, tt);
@@ -578,6 +579,7 @@ addEventListener('keydown', e => {
     if (k === 'v') { h_begin(); S.fx.vig.on = true; S.fx.vig.hits = [...(S.fx.vig.hits || []), +t.toFixed(2)].sort((p, q) => p - q); invalidate(); render(); h_soon(); }
     return;
   }
+  if (S.page === 'flash') { if (k === 'v') { h_begin(); S.fx.vig.hits = [...(S.fx.vig.hits || []), +t.toFixed(2)].sort((p, q) => p - q); invalidate(); render(); h_soon(); } return; }
   if (S.page === 'count' || S.page === 'end') return;
   const add = { h: ['dmg', S.lastDmg || 200, 'hero'], j: ['heal', 200, 'hero'], m: ['mana-', 60, 'hero'], b: ['dmg', S.lastBoss || 1500, 'boss'] }[k];
   if (add) { const ev = { t: +t.toFixed(2), kind: add[0], v: add[1] }; if (add[2] === 'boss') ev.who = 'boss'; S.events.push(ev); invalidate(); render(); }
@@ -661,9 +663,9 @@ async function export_mp4 () {
   } catch (e) { msg(String(e.message || e), true); } finally { busy = false; }
 }
 async function export_png () { const c = document.createElement('canvas'); c.width = W; c.height = H; busy = true; try { paint(c.getContext('2d'), t, 'clear'); } finally { busy = false; } download(await toPng(c), fname() + 'frame_' + t.toFixed(2) + 's.png'); }
-const fname = () => S.page === 'end' ? 'endcard_' : S.page === 'fx' ? 'video-fx_' : S.page === 'count' ? 'countdown_' : S.boss.on && !S.hud.on ? 'boss-hp_' : 'hp-bar_';
+const fname = () => S.page === 'flash' ? 'red-flash_' : S.page === 'end' ? 'endcard_' : S.page === 'fx' ? 'video-fx_' : S.page === 'count' ? 'countdown_' : S.boss.on && !S.hud.on ? 'boss-hp_' : 'hp-bar_';
 const cd_len = () => +(S.cd.start + Math.abs(S.cd.from - S.cd.to) + (S.cd.end ? S.cd.endHold : 0.3) + 0.2).toFixed(2);
-function set_page (p) { if (p !== 'hp' && p !== 'count' && p !== 'fx' && p !== 'end') return; S.page = p; if (p === 'count') S.dur = Math.max(S.dur, cd_len()); if (p === 'end') S.dur = Math.max(S.dur, ec_len()); last_drag = null; invalidate(); render(); }
+function set_page (p) { if (p !== 'hp' && p !== 'count' && p !== 'fx' && p !== 'end' && p !== 'flash') return; S.page = p; if (p === 'flash') S.fx.vig.on = true; if (p === 'count') S.dur = Math.max(S.dur, cd_len()); if (p === 'end') S.dur = Math.max(S.dur, ec_len()); last_drag = null; invalidate(); render(); }
 
 /* image size guide: exact pixel size of every slot at this canvas + HUD scale, and a template to generate into */
 function slot_px (s) { const u = W / 1080 * S.hud.scale; if (s[0] === 'bossFill' || s[0] === 'bossFrame') { const b = boss_rect(); return s[0] === 'bossFill' ? [Math.round(b.w), Math.round(b.h)] : [Math.round(b.w * 1.08), Math.round(b.h * 2.4)]; } const k = s[0] === 'logo' ? S.logo.w * W / 400 : u; return [Math.round(s[3] * k), Math.round(s[4] * k)]; }
@@ -729,25 +731,41 @@ function blur_vid (c, radius) {
   g.clearRect(0, 0, w, h); g.drawImage(fx_tmp2, 0, 0, w, h);
   c.save(); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; if (FILTER_OK) c.filter = `blur(${Math.round(radius / 3)}px)`; c.drawImage(fx_tmp, 0, 0, W, H); c.restore();
 }
+/** what a mask shows (media / pixelate / blur), drawn on g (clipped by the caller, or on a feather layer) */
+const fx_fa = document.createElement('canvas'), fx_fb = document.createElement('canvas');
+function fx_content (g, m, X, Y, w, h, layer_only) {
+  const k = W / 1080;
+    if (m.type === 'media') {
+      const md = FXV[m.id];
+      if (md) { const sw = md.videoWidth || md.naturalWidth || md.width, sh = md.videoHeight || md.naturalHeight || md.height; if (sw > 0) { const f = m.fit === 'contain' ? Math.min(w / sw, h / sh) : Math.max(w / sw, h / sh); g.globalAlpha = m.opacity ?? 1; g.drawImage(md, X - sw * f / 2, Y - sh * f / 2, sw * f, sh * f); } }
+      else if (!layer_only) { g.fillStyle = 'rgba(26,163,255,.25)'; g.fillRect(X - w / 2, Y - h / 2, w, h); g.fillStyle = '#cfe9ff'; g.font = `600 ${Math.max(14, Math.min(w, h) * 0.09)}px system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(T('Thả ảnh / video vào đây', 'Drop a picture / video here', '이미지/영상 놓기'), X, Y); }
+    } else if (!layer_only && vid_ok()) {
+      if (m.type === 'pixel') {
+        const n = Math.max(2, Math.round(W / Math.max(4, m.amount * k))); fx_tmp.width = n; fx_tmp.height = Math.max(2, Math.round(n * H / W));
+        const g2 = fx_tmp.getContext('2d'); const [dx, dy, dw, dh] = cover(vid, vid.videoWidth, vid.videoHeight); const s2 = n / W; g2.drawImage(vid, dx * s2, dy * s2, dw * s2, dh * s2);
+        g.imageSmoothingEnabled = false; g.drawImage(fx_tmp, 0, 0, W, H); g.imageSmoothingEnabled = true;
+      } else { blur_vid(g, Math.max(2, m.amount * k)); if (m.dark) { g.fillStyle = `rgba(0,0,0,${m.dark})`; g.fillRect(0, 0, W, H); } }
+    }
+}
 function paint_fx (c, tt, layer_only) {
   const k = W / 1080;
   if (!layer_only) { if (!draw_vid(c)) { c.fillStyle = '#10161f'; c.fillRect(0, 0, W, H); c.fillStyle = '#7f8ea3'; c.font = `600 ${40 * k}px system-ui`; c.textAlign = 'center'; c.fillText(T('🎞 Nạp video để làm mờ / ghép khung', '🎞 Load a video to blur / frame', '🎞 영상을 불러오세요'), W / 2, H / 2); } }
   for (const m of S.fx.masks) {
     if (tt < (m.t0 || 0) || (m.t1 != null && m.t1 !== '' && tt > m.t1)) continue;
     const p = fx_pos(m, tt), X = p.x * W, Y = p.y * H, w = m.w * W, h = m.h * H;
-    c.save(); fx_trace(c, m, X, Y, w, h); c.clip();
-    if (m.type === 'media') {
-      const md = FXV[m.id];
-      if (md) { const sw = md.videoWidth || md.naturalWidth || md.width, sh = md.videoHeight || md.naturalHeight || md.height; if (sw > 0) { const f = m.fit === 'contain' ? Math.min(w / sw, h / sh) : Math.max(w / sw, h / sh); c.globalAlpha = m.opacity ?? 1; c.drawImage(md, X - sw * f / 2, Y - sh * f / 2, sw * f, sh * f); } }
-      else if (!layer_only) { c.fillStyle = 'rgba(26,163,255,.25)'; c.fillRect(X - w / 2, Y - h / 2, w, h); c.fillStyle = '#cfe9ff'; c.font = `600 ${Math.max(14, Math.min(w, h) * 0.09)}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(T('Thả ảnh / video vào đây', 'Drop a picture / video here', '이미지/영상 놓기'), X, Y); }
-    } else if (!layer_only && vid_ok()) {
-      if (m.type === 'pixel') {
-        const n = Math.max(2, Math.round(W / Math.max(4, m.amount * k))); fx_tmp.width = n; fx_tmp.height = Math.max(2, Math.round(n * H / W));
-        const g = fx_tmp.getContext('2d'); const [dx, dy, dw, dh] = cover(vid, vid.videoWidth, vid.videoHeight); const s2 = n / W; g.drawImage(vid, dx * s2, dy * s2, dw * s2, dh * s2);
-        c.imageSmoothingEnabled = false; c.drawImage(fx_tmp, 0, 0, W, H); c.imageSmoothingEnabled = true;
-      } else { blur_vid(c, Math.max(2, m.amount * k)); if (m.dark) { c.fillStyle = `rgba(0,0,0,${m.dark})`; c.fillRect(0, 0, W, H); } }
-    }
-    c.restore();
+    const fe = Math.max(0, (m.feather || 0) * k);
+    if (fe > 0.5) {
+      // 🪶 feather: the effect is drawn on a layer, then kept only inside the shape with blurred (soft) edges
+      fx_fa.width = W; fx_fa.height = H; fx_fb.width = W; fx_fb.height = H;
+      const g = fx_fa.getContext('2d'), gb = fx_fb.getContext('2d');
+      fx_content(g, m, X, Y, w, h, layer_only);
+      /* feather = width of the soft ramp: blur ≈ a third of it, never so wide it greys out a small frame; without canvas filters (Safari) the shape is drawn small and stretched back up */
+      const sg = Math.min(fe / 3, Math.min(Math.abs(w), Math.abs(h)) / 6);
+      if (FILTER_OK) { gb.filter = `blur(${sg}px)`; fx_trace(gb, m, X, Y, w, h); gb.fillStyle = '#fff'; gb.fill(); gb.filter = 'none'; }
+      else { const q = Math.max(1, sg * 1.5), sw = Math.max(2, Math.round(W / q)), sh = Math.max(2, Math.round(H / q)); fx_tmp2.width = sw; fx_tmp2.height = sh; const gs = fx_tmp2.getContext('2d'); gs.scale(sw / W, sh / H); fx_trace(gs, m, X, Y, w, h); gs.fillStyle = '#fff'; gs.fill(); gb.imageSmoothingEnabled = true; gb.imageSmoothingQuality = 'high'; gb.drawImage(fx_tmp2, 0, 0, W, H); }
+      g.globalCompositeOperation = 'destination-in'; g.drawImage(fx_fb, 0, 0); g.globalCompositeOperation = 'source-over';
+      c.drawImage(fx_fa, 0, 0);
+    } else { c.save(); fx_trace(c, m, X, Y, w, h); c.clip(); fx_content(c, m, X, Y, w, h, layer_only); c.restore(); }
     if (m.type === 'media' && m.bw > 0) { c.save(); fx_trace(c, m, X, Y, w, h); c.lineWidth = m.bw * k; c.strokeStyle = m.bc || '#ffffff'; c.stroke(); c.restore(); }
   }
   // editing: outline + handles of the selected mask (never in the exported frames)
@@ -929,7 +947,7 @@ function render_panel () {
   const side = $('side'); const sy = side.scrollTop;
   const ev = S.events.map((e, i) => `<tr><td><input type="number" step="0.05" min="0" data-ev="${i}" data-f="t" value="${e.t}"></td>${S.boss.on ? `<td><select data-ev="${i}" data-f="who"><option value="hero">Hero</option><option value="boss"${e.who === 'boss' ? ' selected' : ''}>Boss</option></select></td>` : ''}<td><select data-ev="${i}" data-f="kind">${[['dmg', T('Bị đánh', 'Hit', '피격')], ['heal', T('Hồi máu', 'Heal', '회복')], ['set', T('Đặt HP', 'Set HP', 'HP 설정')], ['mana-', T('Mất mana', 'Use mana', '마나 사용')], ['mana+', T('Hồi mana', 'Mana +', '마나 회복')]].map(([v, l]) => `<option value="${v}"${e.kind === v ? ' selected' : ''}>${l}</option>`).join('')}</select></td><td><input type="number" step="10" data-ev="${i}" data-f="v" value="${e.v}"></td><td><button data-del="${i}" title="${T('Xoá', 'Delete', '삭제')}">✕</button></td></tr>`).join('');
   const imgrow = s => `<div class="img"><span>${T(s[1], s[2], s[2])}</span><img ${IMG[s[0]] ? `src="${IMG[s[0]].src}"` : ''} alt=""><button data-up="${s[0]}">⬆</button>${IMG[s[0]] ? `<button data-rm="${s[0]}">✕</button>` : ''}</div>`;
-  const tabs = `<div class="row" style="margin:0 0 4px"><button data-page="hp"${S.page === 'hp' ? ' class="pri"' : ''}>❤️ ${T('Thanh máu', 'Health bar', '체력 바')}</button><button data-page="count"${S.page === 'count' ? ' class="pri"' : ''}>⏱ ${T('Đếm ngược', 'Countdown', '카운트다운')}</button><button data-page="fx"${S.page === 'fx' ? ' class="pri"' : ''}>🎬 ${T('Video FX', 'Video FX', '비디오 FX')}</button><button data-page="end"${S.page === 'end' ? ' class="pri"' : ''}>🏁 End card</button></div>`;
+  const tabs = `<div class="row" style="margin:0 0 4px"><button data-page="hp"${S.page === 'hp' ? ' class="pri"' : ''}>❤️ ${T('Thanh máu', 'Health bar', '체력 바')}</button><button data-page="count"${S.page === 'count' ? ' class="pri"' : ''}>⏱ ${T('Đếm ngược', 'Countdown', '카운트다운')}</button><button data-page="fx"${S.page === 'fx' ? ' class="pri"' : ''}>🎬 ${T('Video FX', 'Video FX', '비디오 FX')}</button><button data-page="flash"${S.page === 'flash' ? ' class="pri"' : ''}>🩸 ${T('Nháy đỏ', 'Red flash', '붉은 플래시')}</button><button data-page="end"${S.page === 'end' ? ' class="pri"' : ''}>🏁 End card</button></div>`;
   const pos = `<div class="sm" style="margin-top:4px">${T('Căn nhanh', 'Snap to', '빠른 정렬')} (${S.page === 'count' ? T('số đếm', 'number', '숫자') : T('phần vừa kéo: ', 'last dragged: ', '마지막: ') + (({ hud: 'HUD hero', boss: 'Boss', logo: 'Logo' })[drag_last()] || (S.page === 'end' ? T('khối end card', 'end card', '엔드카드') : '–'))})</div>
     <div class="grid9">${['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].map(k => `<button data-place="${k}">${{ tl: '↖', tc: '↑', tr: '↗', ml: '←', mc: '•', mr: '→', bl: '↙', bc: '↓', br: '↘' }[k]}</button>`).join('')}</div>
     <div class="sm">${T('Kéo trên khung hình để đặt · phím mũi tên dịch 1 px (Shift = 10 px) · tự hít vào giữa (giữ Alt để kéo tự do)', 'Drag on the preview to place · arrow keys move 1 px (Shift = 10 px) · snaps to the centre (hold Alt to move freely)', '드래그 배치 · 방향키 1px (Shift 10px) · 가운데 스냅 (Alt 자유)')}</div>`;
@@ -1003,6 +1021,7 @@ function render_panel () {
         : `<div class="row"><button data-fxx="media">⬆ ${T('Ảnh / video vào khung', 'Picture / video into the frame', '이미지/영상')}</button>${FXV[m.id] ? `<button data-fxx="mediaoff" style="flex:0 0 auto">✕</button>` : ''}</div>
         <label><span>${T('Vừa khung', 'Fit', '맞춤')}</span><select data-fxk="fit"><option value="cover"${m.fit !== 'contain' ? ' selected' : ''}>${T('Lấp đầy (cắt mép)', 'Fill (crop)', '채우기')}</option><option value="contain"${m.fit === 'contain' ? ' selected' : ''}>${T('Hiện đủ', 'Show all', '전체')}</option></select></label>
         <label><span>${T('Viền', 'Border', '테두리')}</span><input type="color" data-fxk="bc" value="${m.bc || '#ffffff'}"><input type="range" data-fxk="bw" min="0" max="40" value="${m.bw || 0}"></label>`}
+      <label><span>${T('Làm mềm mép', 'Feather edges', '가장자리 부드럽게')}</span><input type="range" data-fxk="feather" min="0" max="120" value="${m.feather || 0}"></label>
       <label><span>${T('Hiện từ → đến (s)', 'Shown from → to (s)', '표시 구간')}</span><input type="number" data-fxk="t0" step="0.1" min="0" value="${m.t0 || 0}"><input type="number" data-fxk="t1" step="0.1" min="0" value="${m.t1 ?? ''}" placeholder="${T('hết', 'end', '끝')}"></label>
       <div class="sm" style="margin-top:6px"><b>${T('Bám theo vật (tracking)', 'Follow an object (tracking)', '추적')}</b> · ${m.keys && m.keys.length ? T(`${m.keys.length} mốc`, `${m.keys.length} keys`, `키 ${m.keys.length}`) : T('đang đứng yên', 'not moving', '고정')}</div>
       <div class="row"><button data-fxx="track"${fx_tracking ? ' class="on"' : ''}>${fx_tracking ? '⏹ ' + T('Dừng', 'Stop', '정지') : '🎯 ' + T('Tự bám vật từ giây này', 'Auto track from here', '여기서 자동 추적')}</button><button data-fxx="rec" class="${F.rec ? 'on' : ''}" title="${T('Bật rồi phát video và kéo mask theo vật: mỗi lần kéo ghi một mốc ở giây đó', 'Turn on, play the video and drag the mask along: every drag writes a key at that second', '켜고 재생하며 드래그')}">⏺ ${T('Kéo tay ghi mốc', 'Drag to record keys', '드래그로 키')}</button></div>
@@ -1026,15 +1045,6 @@ function render_panel () {
         <div class="sm">${T('Bấm một kiểu để thêm ở giây đang xem (kiểu Motion Bro). Mạnh nhất ở giữa độ dài.', 'Click a style to add it at this second (Motion Bro style). Strongest in the middle of its length.', '현재 초에 추가')}</div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px">${TRANS.map(x => `<button data-tradd="${x[0]}" style="text-align:left;font-size:12px">${x[1]} ${T(x[3], x[2], x[2])}</button>`).join('')}</div>
         ${trList ? `<div class="sm" style="margin-top:6px">${T('Kiểu · giây · dài', 'Style · second · length', '종류 · 초 · 길이')}</div>${trList}` : ''}`)
-      + card('vig', `🩸 ${T('Viền đỏ khi trúng đòn', 'Red damage corners', '피격 붉은 테두리')}`, `
-        <label><input type="checkbox" data-k="fx.vig.on"${V.on ? ' checked' : ''}> ${T('Bật', 'On', '켜기')}</label>
-        ${V.on ? `<label><span>${T('Màu · độ đậm', 'Colour · strength', '색 · 강도')}</span><input type="color" data-k="fx.vig.color" value="${V.color}"><input type="range" data-k="fx.vig.strength" data-pct="1" min="10" max="100" value="${Math.round(V.strength * 100)}"></label>
-        <label><span>${T('Độ lấn vào', 'How far in', '범위')}</span><input type="range" data-k="fx.vig.size" data-pct="1" min="10" max="90" value="${Math.round(V.size * 100)}"></label>
-        <label><span>${T('Mỗi cú kéo dài', 'Each hit lasts', '지속')}</span><input type="number" data-k="fx.vig.dur" step="0.1" min="0.1" value="${V.dur}"> s</label>
-        <label><span>${T('Các giây trúng đòn', 'Hit times (s)', '피격 시각')}</span><input type="text" data-vig="hits" value="${(V.hits || []).join(', ')}"></label>
-        <div class="row"><button data-fxx="vighere">＋ ${T('Trúng đòn tại giây này (V)', 'Hit at this second (V)', '현재 피격 (V)')}</button></div>
-        <label><input type="checkbox" data-k="fx.vig.fromHp"${V.fromHp ? ' checked' : ''}> ${T('Cùng lúc hero bị đánh ở trang Thanh máu', 'Also when the hero is hit on the Health bar page', 'HP 페이지 피격 시에도')}</label>
-        <label><input type="checkbox" data-k="fx.vig.low"${V.low ? ' checked' : ''}> ${T('Nhấp nháy liên tục (sắp chết)', 'Keep pulsing (low HP)', '계속 깜빡임')}</label>` : ''}`)
       + exportSec(6)
       + `<div class="sm">${T('MP4 ở trang này = video gốc + mask + khung + chuyển cảnh + viền đỏ (không có tiếng). .MOV alpha = chỉ khung ảnh và viền đỏ.', 'The MP4 here = the source video + masks + frames + transitions + red corners (no sound). Alpha .MOV = frames and red corners only.', 'MP4 = 원본+효과')}</div>
       <input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden><input type="file" id="fFx" accept="image/*,video/*" hidden>`;
@@ -1044,6 +1054,22 @@ function render_panel () {
     side.querySelectorAll('[data-trdel]').forEach(b => { b.onclick = () => { h_begin(); F.trans.splice(Number(b.dataset.trdel), 1); invalidate(); render(); h_soon(); }; });
     side.querySelectorAll('[data-trgo]').forEach(b => { b.onclick = () => { const tr = F.trans[Number(b.dataset.trgo)]; if (!tr) return; set_play(false); t = Math.max(0, tr.t - tr.dur / 2); goto(t); dirty = true; setTimeout(() => set_play(true), 50); }; });
     side.scrollTop = sy; $('hint').textContent = T('Bấm mask để chọn · kéo dời · Delete xoá · V thêm cú trúng đòn · Space phát / dừng', 'Click a mask to pick it · drag to move · Delete removes · V adds a hit · Space play / pause', '클릭 선택 · 드래그 · Delete · V · Space');
+    wire(); wire_fx(); return;
+  }
+  if (S.page === 'flash') {
+    const V = S.fx.vig;
+    side.innerHTML = tabs + frameSec + `<section><h3><b>2</b>🩸 ${T('Nháy đỏ khi trúng đòn', 'Red flash when hit', '피격 붉은 플래시')}</h3>
+      <div class="sm">${T('Viền đỏ nháy ở 4 góc mỗi lần nhân vật trúng đòn. Lớp riêng: xuất .MOV alpha rồi đặt lên trên video gameplay.', 'Red corners flash each time the hero is hit. Its own layer: export the alpha .MOV and lay it over the gameplay.', '피격 시 붉은 테두리. 알파 .MOV로 내보내 게임 영상 위에.')}</div>
+      <label><input type="checkbox" data-k="fx.vig.on"${V.on ? ' checked' : ''}> ${T('Bật', 'On', '켜기')}</label>
+        ${V.on ? `<label><span>${T('Màu · độ đậm', 'Colour · strength', '색 · 강도')}</span><input type="color" data-k="fx.vig.color" value="${V.color}"><input type="range" data-k="fx.vig.strength" data-pct="1" min="10" max="100" value="${Math.round(V.strength * 100)}"></label>
+        <label><span>${T('Độ lấn vào', 'How far in', '범위')}</span><input type="range" data-k="fx.vig.size" data-pct="1" min="10" max="90" value="${Math.round(V.size * 100)}"></label>
+        <label><span>${T('Mỗi cú kéo dài', 'Each hit lasts', '지속')}</span><input type="number" data-k="fx.vig.dur" step="0.1" min="0.1" value="${V.dur}"> s</label>
+        <label><span>${T('Các giây trúng đòn', 'Hit times (s)', '피격 시각')}</span><input type="text" data-vig="hits" value="${(V.hits || []).join(', ')}"></label>
+        <div class="row"><button data-fxx="vighere">＋ ${T('Trúng đòn tại giây này (V)', 'Hit at this second (V)', '현재 피격 (V)')}</button></div>
+        <label><input type="checkbox" data-k="fx.vig.fromHp"${V.fromHp ? ' checked' : ''}> ${T('Cùng lúc hero bị đánh ở trang Thanh máu', 'Also when the hero is hit on the Health bar page', 'HP 페이지 피격 시에도')}</label>
+        <label><input type="checkbox" data-k="fx.vig.low"${V.low ? ' checked' : ''}> ${T('Nhấp nháy liên tục (sắp chết)', 'Keep pulsing (low HP)', '계속 깜빡임')}</label>` : ''}
+    </section>` + exportSec(3) + `<div class="sm">${T('Phím V = thêm cú trúng đòn ở giây đang xem.', 'V = a hit at this second.', 'V = 현재 피격')}</div><input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden>`;
+    side.scrollTop = sy; $('hint').textContent = T('V thêm cú trúng đòn · Space phát / dừng', 'V adds a hit · Space play / pause', 'V 피격 추가');
     wire(); wire_fx(); return;
   }
   if (S.page === 'end') {

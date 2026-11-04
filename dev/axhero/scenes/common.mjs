@@ -13,6 +13,8 @@ export async function english (nav, ev) {
 export const CHAR = process.env.CHAR ? JSON.parse(process.env.CHAR) : [['/_tmp_shot/hero.fbx', 'Hero1.fbx'], ['/_tmp_shot/Hero1.png', 'Hero1.png']]
 // after loading: turn the model to face the front (ROTY = how many 90° turns around Y) and stand it on the floor
 export async function face_front (ev, wait) {
+  // the rig page turns the model to the forward arrow by itself now (🧭): ROTY only for pages without it
+  if (await ev(`return !!document.getElementById('gb-face-btn')`)) { await wait(1500); return }
   const n = Number(process.env.ROTY ?? 0)
   for (let i = 0; i < n; i++) { await ev(`document.querySelector('#rotate-model-y-button').click(); return 1`); await wait(700) }
   if (n > 0) { await ev(`document.querySelector('#auto-align-model-button').click(); return 1`); await wait(900) }
