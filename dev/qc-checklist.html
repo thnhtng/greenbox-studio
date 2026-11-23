@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QC Checklist</title>
+<!-- Greenbox QC: every feature + every shortcut to test, page by page. Tick ✓ / ✗ + a note; saved in localStorage gb.qc.check.v1
+     (Claude reads it back). "Mở" opens the page in a new tab. Conflicts found by reading every key handler are listed at the top. -->
+<style>
+:root{--bg:#0e1311;--panel:#151c19;--line:#26332d;--text:#e8efe9;--mute:#93a39a;--acc:#3ddc84;--warn:#ffb020;--bad:#ff5d5d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Be Vietnam Pro",sans-serif}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 32px 60px}
+h1{font-size:26px;margin:4px 0 2px}h2{font-size:19px;margin:28px 0 8px;display:flex;gap:10px;align-items:center}
+.sub{color:var(--mute);margin:0 0 14px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font-size:12px;color:var(--mute);font-weight:600;background:#121915}
+td.k{white-space:nowrap;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#cfe9da}
+kbd{display:inline-block;padding:0 6px;border:1px solid #3a4a42;border-bottom-width:2px;border-radius:5px;background:#1b2420;font:12px ui-monospace,Menlo,monospace;margin:1px}
+.st{white-space:nowrap}.st button{font:inherit;background:#1d2723;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer}
+.st button.ok{background:var(--acc);color:#04120a;border-color:var(--acc)}.st button.no{background:var(--bad);color:#fff;border-color:var(--bad)}
+td input{width:100%;background:transparent;border:1px solid transparent;color:var(--text);border-radius:6px;padding:2px 6px;font:inherit}td input:focus{border-color:var(--line);outline:none}
+a{color:var(--acc)}.bar{display:flex;gap:10px;align-items:center;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:2;border-bottom:1px solid var(--line)}
+.pill{padding:3px 10px;border-radius:999px;background:#1d2723;border:1px solid var(--line)}
+.fix{background:#1a2a20;border:1px solid #2c5a45;border-radius:12px;padding:10px 14px}
+.fix li{margin:3px 0}
+</style></head><body><div class="wrap">
+<h1>QC Greenbox Studio</h1>
+<p class="sub">Từng trang: tính năng và phím tắt cần test.<br>Bấm ✓ khi đạt, ✗ khi lỗi và ghi chú lỗi.<br>Kết quả lưu trong trình duyệt này.</p>
+<div class="bar"><span class="pill" id="sum"></span><button id="dl" style="font:inherit;background:#1d2723;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:5px 10px">⬇ JSON</button><a href="./rig-qc.html">🧪 Chấm điểm rig (xe / nhân vật)</a></div>
+<h2>⚠ Xung đột phím đã tìm thấy và đã sửa</h2>
+<div class="fix"><ul>
+<li><b>Xe cộ</b>: nút 🦴 Bones ghi “(B)” nhưng phím B không làm gì → đã thêm phím <kbd>B</kbd> bật / tắt xương.</li>
+<li><b>Gắn xương</b>: <kbd>T</kbd> trước là hộp kéo xương → nay <kbd>T</kbd> = ⟲ Free transform (đưa mọi chỉ số về 0, như Apply All Transforms của Blender); hộp kéo xương chuyển sang <kbd>B</kbd> (bước gắn xương; ở bước tô weight thì <kbd>B</kbd> vẫn là cọ của tô weight vì hai bước không chạy cùng lúc).</li>
+<li><b>Layout</b>: trang 🗺 Mini map dùng <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / mũi tên để đi → trên 3 trang ⬆ 🗺 🎒 mũi tên không còn dịch HUD (HUD không có ở các trang đó).</li>
+<li>Đã kiểm: <kbd>Ctrl</kbd>+<kbd>Z</kbd> không đụng <kbd>Z</kbd> xoay (mọi chỗ đều kiểm Ctrl / ⌘); phím chỉ chạy khi không gõ trong ô nhập; phím trong iframe không lọt ra Cockpit.</li>
+</ul></div>
+<div id="out"></div>
+</div>
+<script>
+const P = (name, url, rows) => ({ name, url, rows });
+// [what to test, keys / mouse, how to check]
+const PAGES = [
+P('🏠 Cockpit (khung chính)', '../Greenbox-Cockpit.html', [
+ ['Danh sách tính năng bên trái: bấm từng mục mở đúng trang', 'chuột', 'Mỗi mục mở đúng layout, breadcrumb đổi theo'],
+ ['Gập / mở nhóm tính năng', 'bấm tiêu đề nhóm', 'Nhóm gập lại, nhớ khi tải lại'],
+ ['Đổi ngôn ngữ VI / EN / KO', 'nút ngôn ngữ', 'Mọi trang con (iframe) đổi theo'],
+ ['Đổi giao diện (theme)', 'nút theme', 'Kính / sáng / tối áp cho cả trang con'],
+ ['Hướng dẫn (tour)', '<kbd>←</kbd> <kbd>→</kbd> <kbd>Esc</kbd>, nút ?', '12 bước, Esc thoát, không chặn phím khi đã đóng'],
+ ['Khung AI: chỉ có chat, lỗi hiện trong khung chat', '<kbd>Enter</kbd> gửi · <kbd>Shift</kbd>+<kbd>Enter</kbd> xuống dòng · <kbd>Esc</kbd> đóng ⚙', 'Không key: hiện thẻ hướng dẫn; ⚙ có nút ← Quay lại chat'],
+ ['Hyper Jump / chuyển panel', 'chuột', 'Không mất dữ liệu trang đang làm'],
+]),
+P('🧍 Gắn xương nhân vật (Create)', '../rig3d/create.html', [
+ ['Tải model GLB / FBX / OBJ / ZIP', 'kéo thả / nút tải', 'Model hiện, xoay X/Y/Z ở bước tải'],
+ ['Chọn xương: human, fox, horse, dragon, bird, snake, kaiju, spider, fish, XP hero', 'dropdown', 'Bộ xương đúng loại hiện lên'],
+ ['Kiểu bàn tay: đủ ngón / 1 ngón chính + 1 phụ (hyper casual) / gọn / 1 xương', 'dropdown', 'Số ngón đúng loại chọn'],
+ ['🔍 Quét model & đặt khớp', 'nút', 'Khớp nằm trong thân, tay, chân, đầu'],
+ ['⟲ Free transform: đưa về 0', '<kbd>T</kbd>', 'Xoay 0 0 0 · scale 1 · đứng trên mặt đất ở giữa; báo hướng so với mũi tên'],
+ ['↻ 90° / ↻ 180° / ⇅ Dựng đứng (model + xương cùng xoay)', 'nút', 'Model quay lưng: báo ⚠ và ↻ 180° sửa được'],
+ ['⬚ Hộp kéo / co giãn / xoay xương', '<kbd>B</kbd> · <kbd>Enter</kbd> áp · <kbd>Esc</kbd> huỷ · <kbd>Shift</kbd> giữ tỉ lệ · <kbd>Alt</kbd> từ tâm', 'Đối xứng: bên kia theo'],
+ ['Chọn khớp: kéo khung, chọn hết / bỏ chọn', '<kbd>A</kbd> · <kbd>Alt</kbd>+<kbd>A</kbd> · <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>A</kbd> · <kbd>Esc</kbd>', 'Khớp chọn đổi màu cam'],
+ ['Dời khớp bằng phím (như Blender)', '<kbd>G</kbd> rồi <kbd>X</kbd>/<kbd>Y</kbd>/<kbd>Z</kbd> khoá trục · <kbd>Enter</kbd> · <kbd>Esc</kbd>', 'Esc trả về chỗ cũ'],
+ ['Nhìn vào khớp đang chọn', '<kbd>F</kbd> · <kbd>Numpad .</kbd>', 'Camera dí vào khớp'],
+ ['Hiện lưới (wireframe)', '<kbd>W</kbd>', 'Bật / tắt lưới'],
+ ['Hoàn tác / làm lại', '<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd> · <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> · <kbd>Ctrl</kbd>+<kbd>Y</kbd>', 'Không xoay model khi bấm Ctrl+Z'],
+ ['Clone xương từ model khác (thú / reptile) + bước kiểm tra & sửa', 'Clone rig wizard', 'Sau clone còn chỉnh được từng khớp'],
+ ['Tô weight', '<kbd>[</kbd> <kbd>]</kbd> cỡ cọ · <kbd>B</kbd> <kbd>E</kbd> <kbd>Q</kbd> <kbd>S</kbd> <kbd>I</kbd> · <kbd>Enter</kbd>', 'Vùng tô đổi màu, animation không rách'],
+ ['Xuất GLB / FBX', 'nút', 'Mở trong Blender đứng thẳng, xoay 0 0 0, scale 1'],
+]),
+P('🚗 Xe cộ', '../rig3d/vehicle.html', [
+ ['Thả xe GLB / FBX; 15 xe mẫu', 'kéo thả', 'Xe hiện, bánh được quét'],
+ ['⚡ Tự rig (bánh, cửa, xích, lưỡi ủi…) — 1 lần bấm', 'nút', 'Không rách lưới khi chạy (trang 🧪 chấm điểm có số đo)'],
+ ['Xe đã có rig: dùng xương của chính nó', 'thả file có xương', 'Báo “đã có rig”, hiện xương'],
+ ['Chọn bộ phận / nhiều bộ phận', 'bấm · <kbd>1</kbd>…<kbd>9</kbd> chọn loại · <kbd>X</kbd> tách bộ phận · <kbd>Shift</kbd>+<kbd>X</kbd> tách bánh · <kbd>G</kbd> kéo · <kbd>Del</kbd>', 'Bộ phận đổi màu, tách đúng'],
+ ['Trục bánh', '<kbd>Z</kbd> trục kế · <kbd>Shift</kbd>+<kbd>Z</kbd> đảo', 'Bánh quay đúng hướng'],
+ ['Vòng bánh to / nhỏ', '<kbd>[</kbd> <kbd>]</kbd>', 'Vòng đổi cỡ'],
+ ['Ẩn / hiện vòng đánh dấu · xương · lưới', '<kbd>O</kbd> · <kbd>B</kbd> · <kbd>W</kbd>', 'Bật / tắt đúng thứ'],
+ ['Kéo chấm trắng mắt xích (chế độ Xương)', 'kéo chuột · bấm đúp = trả về', 'Chỉ chấm di chuyển, model đứng yên; khi chạy xích đi theo chấm mới'],
+ ['Phát / dừng animation, tốc độ', '<kbd>Space</kbd>', '16–46 animation chạy, không rách'],
+ ['Cắt 4 điểm', 'bấm 4 điểm · <kbd>Enter</kbd> · <kbd>Esc</kbd>', 'Tách đúng mảnh'],
+ ['★ chấm điểm rig → tự rig lần sau học theo', 'nút ★', '4–5★ được dùng cho xe cùng hình'],
+ ['Hoàn tác giữ nguyên rig', '<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd>', 'Xương vẫn còn sau hoàn tác'],
+ ['Xuất GLB / FBX', 'nút', 'Mở trong Blender đứng thẳng'],
+]),
+P('🗺 Playtest / Edit map', '../rig3d/playtest.html', [
+ ['Đi / chạy nhân vật', '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / mũi tên · <kbd>Space</kbd>', 'Nhân vật đi đúng hướng camera'],
+ ['Xoay vật / người chơi', '<kbd>Z</kbd> / <kbd>X</kbd> (<kbd>Alt</kbd> = 90°, <kbd>Shift</kbd> = ngược)', 'Không đụng Ctrl+Z'],
+ ['To / nhỏ', '<kbd>[</kbd> <kbd>]</kbd>', 'Vật chọn hoặc người chơi'],
+ ['Edit map: dời / xoay / co giãn', '<kbd>G</kbd>/<kbd>W</kbd> · <kbd>R</kbd>/<kbd>E</kbd> · <kbd>S</kbd> · <kbd>Shift</kbd>+<kbd>D</kbd> nhân bản · <kbd>Del</kbd> · <kbd>Esc</kbd>', 'W ở chế độ edit là dời, không đi bộ'],
+ ['Nhìn vào vật', '<kbd>F</kbd>', 'Camera dí vào vật'],
+ ['Sculpt ở Edit map', 'cọ', 'Đất nhô / lõm theo cọ'],
+ ['MonoBehaviour cho vật + xuất .unitypackage (hỏi thư mục)', 'dropdown hành vi · nút xuất', 'Cây thư mục đúng như đã chọn'],
+ ['Plan 2D: công cụ', '<kbd>V</kbd> chọn · <kbd>R</kbd> chữ nhật · <kbd>E</kbd> elip · <kbd>W</kbd> tường · <kbd>T</kbd> chữ · <kbd>C</kbd> camera · <kbd>Ctrl</kbd>+<kbd>D</kbd> · <kbd>Z</kbd>/<kbd>X</kbd> · <kbd>Space</kbd> kéo nền', 'Phím không lọt ra playtest phía sau'],
+]),
+P('❤️ Layout: HUD / video phủ', '../hpbar.html', [
+ ['Thanh máu hero / boss / mana: hit theo giây', '<kbd>H</kbd> bị đánh · <kbd>J</kbd> hồi máu · <kbd>M</kbd> mana · <kbd>B</kbd> đánh boss', 'Vạch hit hiện trên timeline'],
+ ['Dời HUD / căn nhanh', 'kéo · mũi tên 1 px · <kbd>Shift</kbd> 10 px · <kbd>Alt</kbd> = không hít giữa', 'Căn đúng 9 vị trí'],
+ ['Đếm ngược · End card · Video FX · Nháy đỏ', '<kbd>V</kbd> = cú trúng đòn · <kbd>Del</kbd> xoá mask', 'Xuất đúng lớp'],
+ ['⬆ Nâng cấp: khung 3 thẻ, con trỏ chọn 1 thẻ, 2 thẻ kia biến mất, khung scale biến mất', '<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> chọn · bấm thẻ · kéo khung', 'Thẻ chọn sáng; 🎲 gen thẻ mới; ảnh khung riêng'],
+ ['🗺 Mini map: vẽ / quét từ video → OK → vòng tròn góc trái', 'vẽ chuột · 📍 · OK · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · ⏺ Ghi + ▶', 'Chấm đỏ phát sáng, map trượt theo chấm'],
+ ['🎒 Kho đồ: gộp 2 vật giống nhau → cấp sau, nhiều ô hơn; kéo ra ngoài = vứt; +hàng / +cột', 'kéo thả chuột', 'Kiếm Lv2 = 2 ô, Lv3 = 3 ô; khiên Lv2 = 4 ô, Lv3 = 6 ô'],
+ ['Xuất .MOV alpha / MP4 phông xanh / PNG khung', 'nút', 'MOV trong suốt mở được trong AE / CapCut'],
+ ['Phát / dừng · hoàn tác', '<kbd>Space</kbd> · <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd> · <kbd>Ctrl</kbd>+<kbd>Y</kbd>', ''],
+]),
+P('🔊 SFX', '../sfx-bench.html', [
+ ['Phát / dừng, chọn đoạn', '<kbd>Space</kbd> · <kbd>←</kbd> <kbd>→</kbd> · <kbd>[</kbd> <kbd>]</kbd>', ''],
+ ['Phím thao tác âm thanh', '<kbd>A</kbd> <kbd>C</kbd> <kbd>D</kbd> <kbd>J</kbd> <kbd>L</kbd> <kbd>M</kbd> <kbd>V</kbd> <kbd>X</kbd> · <kbd>Del</kbd> · <kbd>+</kbd> <kbd>-</kbd> zoom', 'Mỗi phím làm đúng như chú thích trong trang'],
+ ['Hoàn tác', '<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd>', 'Không trùng phím Z / Y khác'],
+]),
+P('🎯 Target smash · 🕺 Mocap · 🕹 Joystick / Drive / Gacha', '../Greenbox-Cockpit.html', [
+ ['Smash: bắn, auto bắn, đổi preset, quay 9:16', 'chuột · nút', 'Vật đổ đúng vật lý'],
+ ['Mocap: video → chuyển động', 'nút', 'Xương theo người trong video'],
+ ['Joystick / Drive / Gacha: ghi, xuất lớp', '<kbd>P</kbd> · <kbd>Space</kbd> · <kbd>Enter</kbd>', 'Xuất đúng lớp MOV / MP4'],
+]),
+P('🤖 AI (MCP)', '../Greenbox-Cockpit.html', [
+ ['Claude Desktop / Code nối Greenbox (không cần API key)', 'Cmd+Q mở lại Claude → “kết nối Greenbox”', 'Bản trên máy không cần mã 6 số'],
+ ['Nói “sài greenbox” trong Claude Code → trang Greenbox tự mở trong khung Browser', '', 'Mở localhost:8080 ngay trong app'],
+]),
+];
+const LS = 'gb.qc.check.v1'; let R = (() => { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch (e) { return {}; } })();
+const save = () => { try { localStorage.setItem(LS, JSON.stringify(R)); } catch (e) {} sum(); };
+function sum () { let n = 0, ok = 0, no = 0; PAGES.forEach((p, i) => p.rows.forEach((r, j) => { n++; const v = R[i + ':' + j]; if (v && v.s === 'ok') ok++; if (v && v.s === 'no') no++; })); document.getElementById('sum').textContent = `${ok} ✓ · ${no} ✗ · ${n - ok - no} chưa test / ${n}`; }
+document.getElementById('out').innerHTML = PAGES.map((p, i) => `<h2>${p.name} <a href="${p.url}" target="_blank" style="font-size:13px">Mở ↗</a></h2>
+<table><thead><tr><th style="width:32%">Tính năng</th><th style="width:26%">Phím / chuột</th><th style="width:22%">Đạt khi</th><th>Kết quả</th></tr></thead><tbody>
+${p.rows.map((r, j) => { const v = R[i + ':' + j] || {}; return `<tr><td>${r[0]}</td><td class="k">${r[1]}</td><td>${r[2]}</td><td><div class="st" data-id="${i}:${j}"><button data-s="ok"${v.s === 'ok' ? ' class="ok"' : ''}>✓</button> <button data-s="no"${v.s === 'no' ? ' class="no"' : ''}>✗</button></div><input data-n="${i}:${j}" value="${(v.n || '').replace(/"/g, '&quot;')}" placeholder="ghi chú"></td></tr>`; }).join('')}</tbody></table>`).join('');
+document.querySelectorAll('.st button').forEach(b => { b.onclick = () => { const id = b.parentElement.dataset.id; R[id] = R[id] || {}; R[id].s = R[id].s === b.dataset.s ? '' : b.dataset.s; b.parentElement.querySelectorAll('button').forEach(x => x.className = x.dataset.s === R[id].s ? x.dataset.s : ''); save(); }; });
+document.querySelectorAll('input[data-n]').forEach(el => { el.onchange = () => { const id = el.dataset.n; R[id] = R[id] || {}; R[id].n = el.value; save(); }; });
+document.getElementById('dl').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ pages: PAGES.map(p => p.name), results: R }, null, 1)], { type: 'application/json' })); a.download = 'qc-checklist.json'; a.click(); };
+sum();
+</script></body></html>

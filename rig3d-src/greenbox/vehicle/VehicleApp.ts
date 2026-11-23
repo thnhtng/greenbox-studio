@@ -9,7 +9,7 @@ import { WeightPaint } from '../skin/WeightPaint.ts'
  * pitch never lift the wheels off the ground.
  */
 import { load_any_files } from '../common/AnyLoader.ts'
-import { Loop, belt_loop, wheel_band, on_belt, tangent_quat, type P2 } from './Tracks.ts'
+import { Loop, belt_loop, wrap_loop, wheel_band, on_belt, tangent_quat, type P2 } from './Tracks.ts'
 import { split_by_vertices, subset } from '../common/MeshSplit.ts'
 import { analyze, draw_analysis, type Analysis } from '../rig/ModelAnalyzer.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -20,6 +20,7 @@ import { IS_MAC } from '../common/MacTrackpad.ts'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import { FBXExporter } from '@comfyorg/fbx-exporter-three'
 import { M } from '../common/lang.ts'
 import { History } from '../common/UndoKeys.ts'
@@ -27,14 +28,55 @@ import { type Mech, type MechKind, type MechPose, type Hinge, type MechAxis, MEC
 import { SAMPLES, make_sample, role_of } from './Samples.ts'
 import { read_source, nearest_drivers, retarget_clips, type CloneSource } from './VehicleClone.ts'
 import { get_rig_file } from '../rig/CustomRig.ts'
+import { TEMPLATES, TemplateView, make_joints, guess_template, in_wheel, in_blade, type TemplateId } from './VehicleTemplate.ts'
 import { signature, nbox, box_of, iou, remember, recall, load_mem, export_mem, import_mem, MIN_SCORE, type PartRec, type RecType } from './RigMemory.ts'
 
 interface Part { mesh: THREE.Mesh, owner: Int16Array } // owner per vertex: -1 = body, k = wheel k, DOOR0 + j = door j
 interface Wheel { name: string, center: THREE.Vector3, radius: number, front: boolean, guessed: boolean, axle?: THREE.Vector3, locked?: boolean } // locked: 🔒 the axle was set by hand // axle: the wheel's own spin axis
 const DOOR0 = 100 // owner codes from here on are mechanical parts (doors, turret, boom, hook…)
-interface TrackRig { links: THREE.Bone[], s0: number[], loop: Loop, x: number, pivot: THREE.Vector3, side: number }
+interface TrackRig { links: THREE.Bone[], s0: number[], loop: Loop, x: number, pivot: THREE.Vector3, side: number, base: Loop, s0_base: number[], j: number }
 type VehicleType = 'car' | 'truck' | 'tracked' | 'roller'
 /** one undo step: which mesh pieces there are and who owns each vertex, the wheels, the parts / bones, the type */
+/**
+ * 🦴 the Bones view: a line from each bone to its parent, EXCEPT caterpillar links (track_L_00…): those are drawn as
+ * one chain round the track with a dot per link (a line from every link to the track bone made a fan of hundreds of rays).
+ * Follows the animation every frame like THREE.SkeletonHelper.
+ */
+class BonesView extends THREE.Group {
+  private readonly segs: THREE.LineSegments
+  private readonly dots: THREE.Points
+  private readonly pairs: Array<[THREE.Object3D, THREE.Object3D]> = []
+  private readonly links: THREE.Object3D[] = []
+  constructor (root: THREE.Object3D) {
+    super()
+    const is_link = (b: THREE.Object3D): boolean => /_\d{2,}$/.test(b.name) && /^track/i.test(b.parent?.name ?? '')
+    const chains = new Map<THREE.Object3D, THREE.Object3D[]>()
+    root.traverse(b => {
+      if ((b as THREE.Bone).isBone !== true) return
+      if (is_link(b)) { const c = chains.get(b.parent!) ?? []; c.push(b); chains.set(b.parent!, c); return }
+      if (b.parent !== null && (b.parent as THREE.Bone).isBone === true) this.pairs.push([b, b.parent])
+    })
+    chains.forEach(c => { c.sort((a, b) => a.name.localeCompare(b.name)); for (let i = 0; i < c.length; i++) this.pairs.push([c[i], c[(i + 1) % c.length]]); this.links.push(...c) })
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(this.pairs.length * 6), 3))
+    const col = new Float32Array(this.pairs.length * 6); for (let i = 0; i < this.pairs.length; i++) { col.set([0, 0.35, 1, 0.25, 1, 0.45], i * 6) }
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
+    this.segs = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, depthTest: false, transparent: true }))
+    const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(this.links.length * 3), 3))
+    this.dots = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xffffff, size: 5, sizeAttenuation: false, depthTest: false }))
+    this.segs.renderOrder = 15; this.dots.renderOrder = 16; this.add(this.segs, this.dots)
+    this.segs.frustumCulled = false; this.dots.frustumCulled = false
+    this.segs.onBeforeRender = () => { this.update() }
+  }
+  private update (): void {
+    const v = new THREE.Vector3(); const p = this.segs.geometry.getAttribute('position') as THREE.BufferAttribute
+    this.pairs.forEach(([a, b], i) => { a.getWorldPosition(v); p.setXYZ(i * 2, v.x, v.y, v.z); b.getWorldPosition(v); p.setXYZ(i * 2 + 1, v.x, v.y, v.z) })
+    p.needsUpdate = true
+    const d = this.dots.geometry.getAttribute('position') as THREE.BufferAttribute
+    this.links.forEach((l, i) => { l.getWorldPosition(v); d.setXYZ(i, v.x, v.y, v.z) }); d.needsUpdate = true
+  }
+  public dispose (): void { this.segs.geometry.dispose(); (this.segs.material as THREE.Material).dispose(); this.dots.geometry.dispose(); (this.dots.material as THREE.Material).dispose() }
+}
+
 interface VState { parts: Part[], owners: Int16Array[], json: string }
 type Tool = 'add' | 'remove' | 'box_add' | 'box_remove' | 'piece_add' | 'piece_remove' | 'lasso_add' | 'lasso_remove' | 'pen_add' | 'pen_remove' | 'quad' | 'circle' | null
 const TOOL_BUTTONS: Array<[Exclude<Tool, null>, string]> = [['quad', 'vh-quad'], ['circle', 'vh-circle'], ['add', 'vh-add'], ['remove', 'vh-remove'], ['box_add', 'vh-box-add'], ['box_remove', 'vh-box-remove'], ['piece_add', 'vh-piece-add'], ['piece_remove', 'vh-piece-remove'], ['lasso_add', 'vh-lasso-add'], ['lasso_remove', 'vh-lasso-remove'], ['pen_add', 'vh-pen-add'], ['pen_remove', 'vh-pen-remove']]
@@ -177,13 +219,19 @@ class VehicleApp {
   private rig: { root: THREE.Bone, body: THREE.Bone, wheels: THREE.Bone[], steers: Array<THREE.Bone | null>, mechs: Array<{ bone: THREE.Bone, pose: MechPose, kind: MechKind, rest: THREE.Vector3, parent: number }>, skinned: THREE.SkinnedMesh[], tracks: TrackRig[] } | null = null
   private bone_helper: THREE.SkeletonHelper | null = null
   private show_bones_on = false
+  /** 🦴 ready-made skeleton being fitted (its joints dragged onto the model), see VehicleTemplate */
+  private readonly tpl = new TemplateView(() => this.size.length() || 1)
+  private tpl_kind: TemplateId = 'car'
+  private tpl_drag = -1
+  /** 🔩 waiting for the click that puts the selected part's anchor (bolt) */
+  private anchoring = false
   private placing = false
   private last_bone = ''
   private readonly bone_marks = new THREE.Group()
   private mixer: THREE.AnimationMixer | null = null
   private clips: THREE.AnimationClip[] = []
   private current: THREE.AnimationAction | null = null
-  private readonly timer = new THREE.Timer()
+  private readonly clock = new THREE.Timer()
   private markers = new THREE.Group()
   private front_arrow: THREE.ArrowHelper | null = null
   private readonly hinge_marker = new THREE.Group()
@@ -196,20 +244,20 @@ class VehicleApp {
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.6))
     const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(3, 6, 4); this.scene.add(sun)
     const grid = new THREE.GridHelper(40, 80, 0x5a5a5a, 0x474747); this.scene.add(grid)
-    this.scene.add(this.holder); this.scene.add(this.markers); this.scene.add(this.hinge_marker); this.scene.add(this.bone_marks)
+    this.scene.add(this.holder); this.scene.add(this.markers); this.scene.add(this.hinge_marker); this.scene.add(this.bone_marks); this.scene.add(this.tpl.group)
     this.camera.position.set(4, 3, 6)
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.mouseButtons = { LEFT: null as any, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE }
     addEventListener('resize', () => this.resize()); this.resize()
     if (getComputedStyle(view).position === 'static') view.style.position = 'relative'
     if (IS_MAC) $('vh-hint').textContent = M('Trackpad: two-finger swipe = rotate · Shift + swipe = pan · pinch = zoom · click: select part · ⬚ 4 points: cut', 'Trackpad: vuốt 2 ngón = xoay · Shift + vuốt = dời · chụm = zoom · bấm: chọn bộ phận · ⬚ 4 điểm: cắt', 'Trackpad')
-    mount_view_buttons(view, { camera: () => this.camera, controls: () => this.controls, model: () => this.holder, extra: [{ label: '🦴 Bones', title: 'Show the bones (B)', toggle: (on) => this.show_bones(on) }] })
+    mount_view_buttons(view, { camera: () => this.camera, controls: () => this.controls, model: () => this.holder, extra: [{ label: '🦴 Bones', title: 'Show the bones (B)', toggle: (on) => this.show_bones(on) }, { label: '✥ Edit bones', title: 'Move any joint with arrows: wheels, doors, blade, boom, turret… (J). The rig is rebuilt where you leave it.', toggle: (on) => this.set_bone_edit(on) }] })
     this.bind_ui()
     this.make_history()
     this.renderer.setAnimationLoop(() => {
       this.markers.children.forEach(r => { const f = r.userData.face as THREE.Vector3 | undefined; if (f === undefined) return; const m = (r as THREE.Mesh).material as THREE.MeshBasicMaterial; const near = this.camera.position.clone().sub(r.position).dot(f) > 0; m.depthTest = !near /* the far side (even the picked wheel) never shows through the body */ })
-      this.timer.update()
-      const dt = this.timer.getDelta()
+      this.clock.update()
+      const dt = this.clock.getDelta()
       this.mixer?.update(dt * Number(($('vh-speed') as HTMLInputElement).value) / 100)
       this.renderer.render(this.scene, this.camera)
     })
@@ -222,6 +270,7 @@ class VehicleApp {
     const take = (): VState => ({ parts: [...this.parts], owners: this.parts.map(p => Int16Array.from(p.owner)), json: JSON.stringify({ w: this.wheels, m: this.mechs, t: this.vtype, a: this.active, b: this.last_bone }) })
     const same = (a: VState, b: VState): boolean => a.json === b.json && a.parts.length === b.parts.length && a.parts.every((p, i) => p === b.parts[i] && a.owners[i].length === b.owners[i].length && a.owners[i].every((o, k) => o === b.owners[i][k]))
     const apply = (st: VState): void => {
+      const had_rig = this.rig !== null // a rigged model stays rigged through undo (a dragged track link goes back, the belt with it)
       this.clear_rig()
       // mesh pieces (a separation or a new model can be undone too)
       for (const p of this.parts) if (!st.parts.includes(p)) this.holder.remove(p.mesh)
@@ -233,6 +282,7 @@ class VehicleApp {
       this.mechs = d.m; this.vtype = d.t; this.active = d.a; this.last_bone = d.b
       ;($('vh-type') as HTMLSelectElement).value = this.vtype
       this.qsel.clear(); this.name_parts(); this.refresh_part_select(); this.refresh_colors(); this.draw_markers(); this.refresh_objects()
+      if (had_rig && this.wheels.length + this.mechs.length > 0) { try { this.build_rig() } catch (er) { console.warn('re-rig after undo', er) } }
     }
     const h = new History<VState>(take, apply, same, 40)
     this.history = h
@@ -345,6 +395,8 @@ class VehicleApp {
       if (t !== null && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) && t.closest('#vh-qmenu, #vh-axle') === null) return
       if (this.grab !== null) { if (e.key === 'Escape') this.q_grab_end(false); if (e.key === 'Enter') this.q_grab_end(true); return }
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); if (this.q_count() > 0) this.q_delete(); else this.delete_selected() }
+      if (e.key === 'Escape' && this.bsel !== null) { this.bone_pick(null); return }
+      if (e.key === 'Escape' && this.anchoring) { this.anchoring = false; $('vh-anchor').classList.remove('on'); return }
       if (e.key === 'Escape') { if (this.q_count() > 0) this.q_clear(); this.set_brush(null); if (this.placing) this.set_placing(false) }
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         const dig = /^Digit([1-9])$/.exec(e.code)
@@ -353,8 +405,11 @@ class VehicleApp {
         if (e.code === 'KeyZ' && this.active >= 0 && this.active < DOOR0 && this.q_count() === 0) { e.preventDefault(); this.set_axle(e.shiftKey ? 'flip' : 'next') }
         if (e.code === 'KeyG' && this.q_count() === 0 && this.active >= 0) { this.parts.forEach(p => { let q: Uint8Array | undefined; for (let i = 0; i < p.owner.length; i++) if (p.owner[i] === this.active) { if (q === undefined) { q = this.qsel.get(p) ?? new Uint8Array(p.owner.length); this.qsel.set(p, q) } q[i] = 1 } }) } // G on a picked part: take all of it
         if (e.code === 'KeyG' && this.q_count() > 0) { e.preventDefault(); (document.activeElement as HTMLElement | null)?.blur?.(); this.history.begin(); if (this.rig !== null) this.clear_rig(); this.q_grab_start() }
+        if ((e.code === 'BracketLeft' || e.code === 'BracketRight') && this.tpl.joints.length > 0) { this.tpl.resize(this.tpl.sel, e.code === 'BracketLeft' ? 1 / 1.1 : 1.1); return }
         if (e.code === 'BracketLeft' || e.code === 'BracketRight') { this.ring_scale = Math.min(2, Math.max(0.15, this.ring_scale * (e.code === 'BracketLeft' ? 0.8 : 1.25))); this.draw_markers() }
         if (e.code === 'KeyO') this.markers.visible = !this.markers.visible
+        if (e.code === 'KeyJ') { e.preventDefault(); Array.from(document.querySelectorAll('button')).find(x => (x.textContent ?? '').startsWith('✥') && x.closest('#vh-view') !== null)?.click() }
+        if (e.code === 'KeyB') { e.preventDefault(); Array.from(document.querySelectorAll('button')).find(x => (x.textContent ?? '').startsWith('🦴') && x.closest('#vh-view') !== null)?.click() } // 🦴 the view button's own key (its tooltip says B)
       }
       if (e.key === ' ' && this.mixer !== null) { e.preventDefault(); this.pause_toggle() }
       if (e.key === 'Enter' && this.poly.length >= 3) this.finish_poly()
@@ -363,13 +418,67 @@ class VehicleApp {
     ;($('vh-regions') as HTMLInputElement).onchange = (e) => { this.show_regions = (e.target as HTMLInputElement).checked; this.refresh_colors() }
     ;($('vh-wheel-select') as HTMLSelectElement).onchange = (e) => { this.select(Number((e.target as HTMLSelectElement).value)) }
     $('vh-build').onclick = () => this.build_rig()
+    const tk = $('vh-tpl-kind') as HTMLSelectElement
+    tk.innerHTML = TEMPLATES.map(t => `<option value="${t.id}">${t.icon} ${M(t.en, t.vi, t.en)}</option>`).join('')
+    tk.onchange = () => { this.tpl_kind = tk.value as TemplateId; if (this.tpl.joints.length > 0) this.place_template(this.tpl_kind) }
+    $('vh-anchor').onclick = () => {
+      if (this.mechs[this.active - DOOR0] === undefined) { this.status(M('Select a moving part first.', 'Chọn một bộ phận chuyển động trước.', '먼저 부품을 선택하세요.'), true); return }
+      this.anchoring = !this.anchoring; $('vh-anchor').classList.toggle('on', this.anchoring)
+      if (this.anchoring) this.status(M('🔩 Click the model where the bolt / pin is (Esc cancels). Click it on the part it is bolted to, or on the part itself.', '🔩 Bấm lên model ở chỗ ốc vít / chốt (Esc để huỷ). Bấm lên phần nó được bắt vít vào (thân xe, cần…) hoặc lên chính nó.', '🔩 볼트 위치를 클릭하세요'))
+    }
+    $('vh-anchor-clear').onclick = () => { this.unscrew(this.active - DOOR0) }
+    $('vh-tpl-place').onclick = () => this.place_template(tk.value as TemplateId)
+    $('vh-tpl-apply').onclick = () => { this.apply_template() }
+    $('vh-tpl-cancel').onclick = () => { this.tpl.clear(); this.status(M('Template hidden.', 'Đã ẩn khung mẫu.', '템플릿 숨김')) }
+    $('vh-tpl-smaller').onclick = () => this.tpl.resize(this.tpl.sel, 1 / 1.1)
+    $('vh-tpl-bigger').onclick = () => this.tpl.resize(this.tpl.sel, 1.1)
+    ;($('vh-tpl-mirror') as HTMLInputElement).onchange = (e) => { this.tpl.mirror = (e.target as HTMLInputElement).checked }
     $('vh-export-glb').onclick = () => { void this.export('glb') }
     $('vh-export-fbx').onclick = () => { void this.export('fbx') }
     const el = this.renderer.domElement
+    el.addEventListener('dblclick', (e) => { const li = this.link_at(e); if (li !== null) this.link_reset(li[0], li[1]) })
     el.addEventListener('pointerdown', (e) => {
       const ae = document.activeElement as HTMLElement | null; if (ae !== null && ae !== document.body && ae !== el) ae.blur() // keys (G, X, Z…) go to the view again
       if (e.button !== 0) return
       this.down_at = { x: e.clientX, y: e.clientY }; this.q_menu_at = { x: e.clientX, y: e.clientY }
+      if (this.anchoring) { this.place_anchor(e); this.down_at = null; return }
+      // 🔩 a bolt under the mouse: its menu (unscrew / move)
+      if (this.brush_mode === null && this.grab === null && !e.shiftKey) {
+        const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
+        const h = ray.intersectObjects(this.bone_marks.children.filter(o => o.userData.nut !== undefined), false)[0]
+        if (h !== undefined) { this.nut_menu(h.object.userData.nut as number, e.clientX, e.clientY); this.down_at = null; return }
+      }
+      this.nut_menu_hide()
+      // 🦴 a template joint under the mouse: drag it onto the real wheel / blade
+      if (this.tpl.joints.length > 0 && this.brush_mode === null && this.grab === null && !e.shiftKey) {
+        const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
+        const i = this.tpl.hit(ray); if (i >= 0) { this.tpl.sel = i; this.tpl_drag = i; this.tpl.draw(); this.down_at = null; return }
+      }
+      // ✥ edit bones: a click on a joint puts the move arrows on it (a click on the arrows themselves is theirs)
+      if (this.bone_edit_on && this.brush_mode === null && this.grab === null && !this.placing) {
+        if (this.bgiz !== null && (this.bgiz as any).axis !== null) { this.down_at = null; return }
+        const j = this.joint_at(e); if (j !== null) { this.bone_pick(j); this.down_at = null; return }
+      }
+      // ⛓ a white track-link dot (Bones view): drag it like a joint, the belt bends round it
+      if (this.brush_mode === null && this.grab === null && !this.placing && !e.shiftKey) {
+        const li = this.link_at(e); if (li !== null) { this.link_drag_start(li[0], li[1], e); return }
+      }
+      // 🛞 a wheel ring under the mouse: drag = move the wheel's centre (in its own plane), Alt + drag = its radius; bones are rebuilt on release
+      if (this.brush_mode === null && this.grab === null && !this.placing && !e.shiftKey && this.markers.visible && this.wheels.length > 0) {
+        this.markers.updateMatrixWorld(true) // rings / handles may have been redrawn since the last frame
+        const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
+        const hits = ray.intersectObjects(this.markers.children, true)
+        // the knob / dot drawn on top win over the invisible ring grip at the same spot
+        const h = hits.find(x => x.object.userData.resize === true) ?? hits.find(x => x.object.userData.wheel !== undefined && (x.object as THREE.Mesh).geometry?.type === 'SphereGeometry') ?? hits.find(x => x.object.userData.wheel !== undefined)
+        if (h !== undefined) {
+          const k = h.object.userData.wheel as number; const w = this.wheels[k]; const ax = w.axle ?? new THREE.Vector3(1, 0, 0)
+          this.history.begin(); this.active = k
+          this.wdrag = { k, resize: e.altKey || h.object.userData.resize === true, plane: new THREE.Plane().setFromNormalAndCoplanarPoint(ax.clone().normalize(), w.center.clone()), off: (ray.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(ax.clone().normalize(), w.center.clone()), new THREE.Vector3()) ?? w.center.clone()).sub(w.center) }
+          this.controls.enabled = false; this.down_at = null; this.draw_markers()
+          this.status(this.wdrag.resize ? M('Resizing the wheel: drag away / towards its centre.', 'Đổi cỡ bánh: kéo ra xa / vào gần tâm.', '바퀴 크기 조절') : M('Moving the wheel centre (Alt + drag = its size).', 'Dời tâm bánh (Alt + kéo = đổi cỡ).', '바퀴 중심 이동'))
+          return
+        }
+      }
       // a pink (selected) piece under the mouse: left-drag pulls it off the body, release = drop it there
       if (this.brush_mode === null && this.grab === null && !this.placing && this.q_count() > 0 && this.on_selection(e)) { this.history.begin(); this.q_grab_start(); this.grab_from(e); this.drag_grab = true; return }
       // ⇧ Shift + left, no tool needed: drag = a free selection shape, click = the whole separate piece
@@ -388,6 +497,22 @@ class VehicleApp {
       }
     })
     el.addEventListener('pointermove', (e) => {
+      if (this.ldrag !== null) { this.link_drag_move(e); return }
+      if (this.show_bones_on && this.brush_mode === null && this.grab === null && !this.placing && e.buttons === 0) el.style.cursor = this.link_at(e) !== null ? 'grab' : ''
+      if (this.wdrag !== null) {
+        const d = this.wdrag; const w = this.wheels[d.k]; const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
+        const hit = ray.ray.intersectPlane(d.plane, new THREE.Vector3()); if (hit === null) return
+        if (d.resize) w.radius = Math.max(this.size.y * 0.02, hit.distanceTo(w.center) / (1.08 * this.ring_scale))
+        else w.center.copy(hit.sub(d.off))
+        this.draw_markers(); return
+      }
+      if (this.tpl_drag >= 0) {
+        // on the plane through the joint that faces the camera
+        const j = this.tpl.joints[this.tpl_drag]; const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
+        const n = this.camera.getWorldDirection(new THREE.Vector3()); const hit = ray.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(n, j.p), new THREE.Vector3())
+        if (hit !== null) this.tpl.move(this.tpl_drag, hit)
+        return
+      }
       if (this.grab !== null) { this.q_grab_move(e); return }
       if (this.painting) this.paint(e)
       else if (this.box_start !== null && this.brush_mode === 'circle') this.draw_circle(e)
@@ -396,6 +521,14 @@ class VehicleApp {
       else if ((this.brush_mode === 'pen_add' || this.brush_mode === 'pen_remove' || this.brush_mode === 'quad') && this.poly.length > 0) this.draw_poly({ x: e.clientX, y: e.clientY })
     })
     addEventListener('pointerup', (e) => {
+      if (this.ldrag !== null) { this.link_drag_end(); return }
+      if (this.wdrag !== null) {
+        const w = this.wheels[this.wdrag.k]; w.guessed = false; this.wdrag = null; this.controls.enabled = true
+        this.wheel_changed()
+        this.status(M(`${w.name}: centre (${w.center.y.toFixed(2)}, ${w.center.z.toFixed(2)}), radius ${w.radius.toFixed(2)}. The bones and the track links follow it.`, `${w.name}: tâm (${w.center.y.toFixed(2)}, ${w.center.z.toFixed(2)}), bán kính ${w.radius.toFixed(2)}. Xương và mắt xích chạy theo.`, w.name))
+        return
+      }
+      if (this.tpl_drag >= 0) { this.tpl_drag = -1; return }
       if (this.drag_grab) { this.drag_grab = false; this.q_grab_end(true); this.q_menu_at = { x: e.clientX, y: e.clientY }; this.q_hint(); this.down_at = null; return }
       if (this.painting) { this.painting = false; this.after_paint() }
       else if (this.box_start !== null && this.brush_mode === 'circle') { this.q_menu_at = { x: e.clientX, y: e.clientY }; this.finish_circle(e) }
@@ -420,9 +553,26 @@ class VehicleApp {
   public async load_file (f: ArrayLike<File>): Promise<void> {
     try {
       const r = await load_any_files(f)
+      let bones = 0; r.scene.traverse(o => { if ((o as THREE.Bone).isBone === true) bones++ })
+      const rigged = bones > 0 || (r.clips ?? []).length > 0
+      this.tpl.clear()
       this.plain_type(); this.set_model(r.scene, r.name); this.own_model = true; this.model_name = r.name; this.clone_state()
-      // a clone source is waiting: the rig goes straight onto this vehicle
-      if (($('vh-clone-auto') as HTMLInputElement | null)?.checked !== false && (this.clone_pending !== null || ($('vh-clone-sample') as HTMLSelectElement).value !== '')) this.apply_clone()
+      if (rigged) {
+        // it has its own skeleton / animations: use them on itself (the parts follow its own bones)
+        const keep = { pend: this.clone_pending, sid: ($('vh-clone-sample') as HTMLSelectElement).value }
+        this.clone_pending = { root: r.scene, clips: r.clips ?? [], name: r.name }; ($('vh-clone-sample') as HTMLSelectElement).value = ''
+        const ok = this.apply_clone()
+        this.clone_pending = keep.pend; ($('vh-clone-sample') as HTMLSelectElement).value = keep.sid; this.clone_state()
+        if (ok) this.status(M(`🦴 ${r.name} already has a rig: ${bones} bones, ${(r.clips ?? []).length} animation(s). Its own skeleton is shown; fix any part, ★ rate, then export.`,
+          `🦴 ${r.name} đã có rig: ${bones} xương, ${(r.clips ?? []).length} animation. Đang hiện bộ xương của chính nó; sửa phần nào sai, ★ chấm điểm rồi xuất file.`, `🦴 ${r.name}: 리그 있음`))
+      } else if (($('vh-clone-auto') as HTMLInputElement | null)?.checked !== false && (this.clone_pending !== null || ($('vh-clone-sample') as HTMLSelectElement).value !== '')) {
+        // a clone source is waiting: the rig goes straight onto this vehicle
+        this.apply_clone()
+      } else if (this.wheels.length === 0 && !this.mechs.some(m => m.kind !== 'door')) {
+        // no rig, nothing to copy, the scan found nothing (one welded block): a ready-made skeleton to fit by hand
+        this.place_template(guess_template(this.parts.map(p => p.mesh.geometry), this.size))
+      }
+      this.bones_on()
       if (r.warnings.length > 0) { const st = $('vh-status'); st.textContent = (st.textContent ?? '') + ' ' + r.warnings.join(' ') }
     } catch (err) {
       this.status((err as Error).message ?? String(err), true)
@@ -484,7 +634,11 @@ class VehicleApp {
   public use_vehicle (k: number): void { if (this.last_model === null) return; this.pick_group = k; this.set_model(this.last_model.root, this.last_model.name, true) }
   /** a new file of the user starts as a plain vehicle: tracks found on it make it 'tracked' (not the last file's type) */
   private plain_type (): void { this.vtype = 'car'; ($('vh-type') as HTMLSelectElement).value = 'car' }
+  /** the vehicle before the first rig copy (picking another sample starts from it again) */
+  private pre_clone: { parts: Part[], owners: Int16Array[], wheels: Wheel[] } | null = null
+  private cloned = false
   private set_model (root: THREE.Object3D, name: string, again = false): void {
+    this.pre_clone = null; this.cloned = false
     if (!again) { this.pick_group = 0; this.last_model = { root, name } }
     this.vehicle_groups = []
     this.comp_cache.clear()
@@ -512,8 +666,9 @@ class VehicleApp {
     this.recenter()
     const extra = dropped.length > 0 ? M(` Ignored ${dropped.length} object(s) that are not the vehicle: ${dropped.join(', ')}.`, ` Đã bỏ ${dropped.length} vật không phải xe: ${dropped.join(', ')}.`, ` 차량이 아닌 오브젝트 ${dropped.length}개 제외: ${dropped.join(', ')}.`) : ''
     this.status(M(`Loaded ${name}: ${this.parts.length} mesh(es). Check that the arrow points to the FRONT.`, `Đã nạp ${name}: ${this.parts.length} mesh. Kiểm tra mũi tên xanh chỉ về ĐẦU xe.`, `${name} 불러옴: 메시 ${this.parts.length}개. 초록 화살표가 차량 앞쪽을 가리키는지 확인하세요.`) + extra)
-    this.frame()
     this.scan_wheels()
+    this.stand_up()
+    this.frame()
     this.doors_from_names()
     this.refresh_objects()
     // the scan writes its own status line: keep the "ignored ground / lamp" note visible after it
@@ -770,7 +925,12 @@ class VehicleApp {
   public clone_from_sample (id: string): void {
     (document.getElementById('vh-clone-box') as HTMLDetailsElement | null)?.setAttribute('open', '')
     if (!this.own_model) this.load_sample(id)
-    else { this.apply_clone(); return }
+    else {
+      // another sample after a copy: reload the vehicle first, so nothing of the last sample (its wheels, parts, the
+      // pieces cut for them) stays under the new one
+      if (this.cloned && this.last_model !== null) this.set_model(this.last_model.root, this.last_model.name, true)
+      this.cloned = this.apply_clone(); return
+    }
     this.clone_ready_note()
   }
   /** ① source / ② new vehicle lines of the clone box */
@@ -802,7 +962,13 @@ class VehicleApp {
     const src = read_source(pend!.root, pend!.clips, ($('vh-clone-flip') as HTMLInputElement).checked)
     if (src === null) { this.status(M('The source has no mesh.', 'Nguồn không có mesh.', '소스에 메시가 없습니다.'), true); return false }
     this.history.begin()
-    this.clear_rig()
+    this.clear_rig(); this.tpl.clear()
+    // 🔁 a second sample picked: start again from the vehicle as it was before the first copy (the last sample's
+    // wheels / parts must not stay under the new one)
+    if (this.pre_clone !== null && this.pre_clone.parts.length === this.parts.length && this.pre_clone.parts.every((p, i) => p === this.parts[i])) {
+      this.wheels = this.pre_clone.wheels.map(w => ({ ...w, center: w.center.clone(), axle: w.axle?.clone() }))
+      this.parts.forEach((p, i) => { p.owner = Int16Array.from(this.pre_clone!.owners[i]) })
+    } else this.pre_clone = { parts: [...this.parts], owners: this.parts.map(p => Int16Array.from(p.owner)), wheels: this.wheels.map(w => ({ ...w, center: w.center.clone(), axle: w.axle?.clone() })) }
     // target points in the unit box
     const box = this.box(); const S = box.getSize(new THREE.Vector3()).max(new THREE.Vector3(1e-6, 1e-6, 1e-6))
     const offs: number[] = []; let n = 0; this.parts.forEach(p => { offs.push(n); n += p.owner.length })
@@ -956,6 +1122,7 @@ class VehicleApp {
       `🧬 Đã clone từ ${pend!.name}: ${src.note}. Xe này: ${this.wheels.length} bánh, ${this.mechs.length} bộ phận${this.clone_src !== null ? ', animation gốc = SRC_…' : ''}. Sửa vùng nào sai bằng công cụ, rồi xuất file.`,
       `🧬 ${pend!.name}에서 복제: 바퀴 ${this.wheels.length}개, 부품 ${this.mechs.length}개.`)
     this.status(msg); $('vh-clone-note').textContent = '✓ ' + src.note; this.clone_state()
+    this.bones_on()
     return true
   }
 
@@ -995,17 +1162,62 @@ class VehicleApp {
 
   private bake_rotation (angle: number): void {
     const m = new THREE.Matrix4().makeRotationY(angle)
-    this.parts.forEach(p => { p.mesh.geometry.applyMatrix4(m) })
+    new Set(this.parts.map(p => p.mesh.geometry)).forEach(g => g.applyMatrix4(m)) // shared geometry: once
     this.wheels.forEach(w => { w.center.applyMatrix4(m); w.axle?.applyMatrix4(m) })
   }
 
   private recenter (): void {
     const b = this.box(); const c = b.getCenter(new THREE.Vector3())
     const t = new THREE.Matrix4().makeTranslation(-c.x, -b.min.y, -c.z)
-    this.parts.forEach(p => { p.mesh.geometry.applyMatrix4(t); p.mesh.geometry.computeBoundingBox(); p.mesh.geometry.computeBoundingSphere() })
+    new Set(this.parts.map(p => p.mesh.geometry)).forEach(g => { g.applyMatrix4(t); g.computeBoundingBox(); g.computeBoundingSphere() }) // shared geometry: moved once
     this.wheels.forEach(w => w.center.applyMatrix4(t))
     this.size = this.box().getSize(new THREE.Vector3())
     this.draw_arrow()
+  }
+
+  /**
+   * 🚗↻ a vehicle lying on its side / upside down / nose up (often an FBX made Z-up): when the scan finds no real
+   * wheel, try it turned (roll ±90°, flip 180°, pitch ±90°) and keep the way that shows real round wheels low on the
+   * ground. The long axis then goes front-back again.
+   */
+  private stand_up (): void {
+    const real = (): number => { if (this.wheels.length === 0) return 0; const low = this.wheels.filter(w => !w.guessed && w.center.y < this.size.y * 0.45).length; return low * 10 + this.wheels.filter(w => !w.guessed).length }
+    const s0 = real(); if (s0 >= 20) return
+    const turn = (m: THREE.Matrix4): void => { new Set(this.parts.map(p => p.mesh.geometry)).forEach(g => g.applyMatrix4(m)); this.recenter() } // a geometry shared by 2 parts turns once
+    const C = [new THREE.Matrix4().makeRotationZ(Math.PI / 2), new THREE.Matrix4().makeRotationZ(-Math.PI / 2), new THREE.Matrix4().makeRotationZ(Math.PI), new THREE.Matrix4().makeRotationX(Math.PI / 2), new THREE.Matrix4().makeRotationX(-Math.PI / 2)]
+    const keep = this.wheels; const own0 = this.parts.map(p => Int16Array.from(p.owner)); const parts0 = [...this.parts]
+    // every try starts from the exact points of the file (turning back with the inverse drifted once the scan had moved things)
+    const geos = [...new Set(parts0.map(p => p.mesh.geometry))]; const snap = geos.map(g => ({ g, pos: (g.getAttribute('position').array as Float32Array).slice(), nor: g.getAttribute('normal') !== undefined ? (g.getAttribute('normal').array as Float32Array).slice() : null }))
+    const back = (): void => {
+      this.parts = [...parts0]; this.parts.forEach((p, i) => { p.owner = Int16Array.from(own0[i]) }); this.comp_cache.clear()
+      snap.forEach(({ g, pos, nor }) => { const a = g.getAttribute('position'); (a.array as Float32Array).set(pos); a.needsUpdate = true; if (nor !== null) { const n = g.getAttribute('normal'); (n.array as Float32Array).set(nor); n.needsUpdate = true } g.computeBoundingBox(); g.computeBoundingSphere() })
+      this.size = this.box().getSize(new THREE.Vector3())
+    }
+    let best = -1; let bs = s0
+    C.forEach((m, i) => {
+      back(); this.wheels = []; turn(m); this.scan_wheels(); const s = real(); back(); this.wheels = []
+      if (s > bs + 9) { bs = s; best = i }
+    })
+    if (best < 0) {
+      back(); this.wheels = []
+      // no round wheel in any way (one welded mesh): a vehicle is mirror-symmetric left / right. If it is more
+      // symmetric up / down than sideways, it lies on its side; the heavy side (chassis, wheels) goes down.
+      const pts: THREE.Vector3[] = []; this.parts.forEach(p => { const pos = p.mesh.geometry.getAttribute('position'); const st = Math.max(1, Math.floor(pos.count / 4000)); for (let i = 0; i < pos.count; i += st) pts.push(new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i))) })
+      const b = this.box()
+      const sym = (ax: 'x' | 'y'): number => { const h = new Array(20).fill(0); const lo = b.min[ax]; const L = Math.max(1e-6, b.max[ax] - lo); pts.forEach(v => { h[Math.min(19, Math.floor((v[ax] - lo) / L * 20))]++ }); let d = 0; for (let i = 0; i < 10; i++) d += Math.abs(h[i] - h[19 - i]); return d / Math.max(1, pts.length) }
+      const low = (): number => { const bb = this.box(); let c = 0; pts.forEach(() => {}); let sy = 0; this.parts.forEach(p => { const pos = p.mesh.geometry.getAttribute('position'); const st = Math.max(1, Math.floor(pos.count / 4000)); for (let i = 0; i < pos.count; i += st) { sy += (pos.getY(i) - bb.min.y) / Math.max(1e-6, bb.max.y - bb.min.y); c++ } }); return sy / Math.max(1, c) }
+      let pick: THREE.Matrix4 | null = null
+      if (sym('y') + 0.06 < sym('x')) {
+        const a = C[0]; const z = C[1]; turn(a); const la = low(); back(); turn(z); const lz = low(); back()
+        pick = la <= lz ? a : z
+      } else if (low() > 0.56) pick = C[2] // heavier on top: upside down
+      if (pick === null) { this.wheels = keep; return }
+      turn(pick); this.align_long_axis(); this.recenter(); this.wheels = []; this.scan_wheels()
+      this.status(M('🚗↻ The vehicle was lying down: stood it up (check the arrow points to the front).', '🚗↻ Xe đang nằm nghiêng / lật: đã tự dựng đứng (kiểm tra mũi tên chỉ về đầu xe).', '🚗↻ 누운 차량을 세웠습니다.'))
+      return
+    }
+    back(); turn(C[best]); this.align_long_axis(); this.recenter(); this.wheels = []; this.scan_wheels()
+    this.status(M('🚗↻ The vehicle was lying down: stood it up on its wheels.', '🚗↻ Xe đang nằm nghiêng / lật: đã tự dựng đứng trên bánh.', '🚗↻ 누운 차량을 세웠습니다.'))
   }
 
   private rotate_model (angle: number): void {
@@ -1327,6 +1539,9 @@ class VehicleApp {
       ;($('vh-hinge') as HTMLSelectElement).value = door.hinge
       ;($('vh-door-angle') as HTMLInputElement).value = String(door.angle)
       $('vh-door-angle-val').textContent = this.amount_label(door)
+      const bolted = door.anchor !== undefined
+      $('vh-anchor').textContent = bolted ? '🔩 ' + M('Move the bolt', 'Dời vít', '볼트 이동') : '🔩 ' + M('Set anchor (bolt)', 'Đặt điểm neo (ốc vít)', '앵커 (볼트)')
+      const un = $('vh-anchor-clear'); un.textContent = '🪛 ' + M('Unscrew', 'Tháo vít', '볼트 풀기'); un.style.display = bolted ? '' : 'none'
     }
     this.draw_hinge()
     this.draw_bone_marks()
@@ -1336,6 +1551,16 @@ class VehicleApp {
   private draw_bone_marks (): void {
     this.bone_marks.clear()
     const S = this.size.length() || 1
+    // 🔩 anchors: a nut on the pin, along the axis, and a line to the part it moves
+    this.mechs.forEach((m, j) => {
+      if (m.anchor === undefined) return
+      const on = DOOR0 + j === this.active; const a = new THREE.Vector3(...m.anchor)
+      const nut = new THREE.Mesh(new THREE.CylinderGeometry(S * 0.014, S * 0.014, S * 0.03, 6), new THREE.MeshBasicMaterial({ color: on ? 0xffb020 : 0xc98a2a, depthTest: false }))
+      nut.position.copy(a); nut.rotation.z = Math.PI / 2; nut.renderOrder = 16; nut.userData.nut = j; this.bone_marks.add(nut)
+      const pin = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a.clone().add(new THREE.Vector3(-S * 0.04, 0, 0)), a.clone().add(new THREE.Vector3(S * 0.04, 0, 0))]), new THREE.LineBasicMaterial({ color: 0xffe08a, depthTest: false }))
+      pin.renderOrder = 16; this.bone_marks.add(pin)
+      const b = this.part_box(DOOR0 + j); if (!b.isEmpty()) { const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b.getCenter(new THREE.Vector3())]), new THREE.LineDashedMaterial({ color: 0xffb020, dashSize: S * 0.01, gapSize: S * 0.008, depthTest: false })); l.computeLineDistances(); l.renderOrder = 15; this.bone_marks.add(l) }
+    })
     const pv = (m: Mech): THREE.Vector3 | null => m.pivot !== undefined ? new THREE.Vector3(...m.pivot) : null
     this.mechs.forEach((m, j) => {
       const p = pv(m); if (p === null) return
@@ -1357,9 +1582,8 @@ class VehicleApp {
     if (this.bone_helper !== null) { this.scene.remove(this.bone_helper); this.bone_helper.dispose(); this.bone_helper = null }
     if (on && this.rig === null && this.parts.length > 0) this.build_rig()
     if (on && this.rig !== null) {
-      const h = new THREE.SkeletonHelper(this.rig.root)
-      ;(h.material as THREE.LineBasicMaterial).depthTest = false; (h.material as THREE.LineBasicMaterial).linewidth = 2
-      h.renderOrder = 15; this.scene.add(h); this.bone_helper = h
+      const h = new BonesView(this.rig.root)
+      h.renderOrder = 15; this.scene.add(h); this.bone_helper = h as unknown as THREE.SkeletonHelper
     }
     this.bone_marks.visible = true
   }
@@ -1443,20 +1667,41 @@ class VehicleApp {
       const band = wheel_band(ws); if (band === null) continue
       const code = DOOR0 + this.mechs.length
       let n = 0; const v = new THREE.Vector3()
+      // 🔩 small pieces inside a wheel's disc (bolts, hub caps, rims) belong to that wheel: they spin with it, never slide with the belt
+      for (const p of this.parts) {
+        const pos = p.mesh.geometry.getAttribute('position'); const comp = this.components(p)
+        const tot = new Map<number, number>(); const inw = new Map<number, Map<number, number>>()
+        for (let i = 0; i < pos.count; i++) {
+          if (p.owner[i] !== -1) continue
+          tot.set(comp[i], (tot.get(comp[i]) ?? 0) + 1); v.fromBufferAttribute(pos, i)
+          for (const w of ws) {
+            if (Math.hypot(v.z - w.center.z, v.y - w.center.y) < w.radius * 1.02 && Math.abs(v.x - w.center.x) < band.thick * 1.5) {
+              const k = this.wheels.indexOf(w); let m = inw.get(comp[i]); if (m === undefined) { m = new Map(); inw.set(comp[i], m) } m.set(k, (m.get(k) ?? 0) + 1); break
+            }
+          }
+        }
+        const to = new Map<number, number>()
+        inw.forEach((m, c) => { const t = tot.get(c) ?? 1; if (t > pos.count * 0.2) return; m.forEach((cnt, k) => { if (cnt / t > 0.85) to.set(c, k) }) })
+        if (to.size > 0) for (let i = 0; i < pos.count; i++) { const k = to.get(comp[i]); if (k !== undefined && p.owner[i] === -1) p.owner[i] = k }
+      }
       for (const p of this.parts) {
         const pos = p.mesh.geometry.getAttribute('position')
         const comp = this.components(p)
-        const tot = new Map<number, number>(); const hit = new Map<number, number>()
+        const tot = new Map<number, number>(); const hit = new Map<number, number>(); const far = new Map<number, number>()
         const ok = new Uint8Array(pos.count)
         for (let i = 0; i < pos.count; i++) {
           tot.set(comp[i], (tot.get(comp[i]) ?? 0) + 1)
           if (p.owner[i] !== -1) continue
           v.fromBufferAttribute(pos, i)
-          if (on_belt(v, ws, band)) { ok[i] = 1; hit.set(comp[i], (hit.get(comp[i]) ?? 0) + 1) }
+          // on the belt, and not more than 0.45 wheel radius outside the wheels' hull (a bar / fender above the track is)
+          if (on_belt(v, ws, band) && band.loop.sdist([v.z, v.y]) <= band.thick / 0.62 * 0.45) { ok[i] = 1; hit.set(comp[i], (hit.get(comp[i]) ?? 0) + 1) }
+          // a point well outside the band round the wheels (a push arm running on to the blade, the cab…)
+          else if (band.loop.sdist([v.z, v.y]) > band.thick * 1.6 || v.x < band.x0 - band.thick || v.x > band.x1 + band.thick) far.set(comp[i], (far.get(comp[i]) ?? 0) + 1)
         }
         for (let i = 0; i < pos.count; i++) {
           if (p.owner[i] !== -1) continue
-          const c = comp[i]; const whole = (hit.get(c) ?? 0) / (tot.get(c) ?? 1) > 0.6 && (tot.get(c) ?? 0) < pos.count * 0.4
+          // a whole piece: mostly on the belt AND nothing of it sticks out of the wheels' band (2 %)
+          const c = comp[i]; const whole = (hit.get(c) ?? 0) / (tot.get(c) ?? 1) > 0.6 && (far.get(c) ?? 0) <= (tot.get(c) ?? 1) * 0.02 && (tot.get(c) ?? 0) < pos.count * 0.4
           if (whole || ok[i] === 1) { p.owner[i] = code; n++ }
         }
       }
@@ -1519,6 +1764,7 @@ class VehicleApp {
           this.mechs.splice(j, 1)
         }
       }
+      this.tracks_from_shoes()
       const n = this.mechs.length - m0
       if (n > 0) found.push(M(`${n} tracks`, `${n} dải xích`, `트랙 ${n}`))
       else if (!this.mechs.some(m => m.kind === 'track')) { this.vtype = 'car'; ($('vh-type') as HTMLSelectElement).value = 'car' }
@@ -1612,11 +1858,15 @@ class VehicleApp {
   }
 
   /** ⚡ Auto rig: what was learned for this shape + the shape scan → bones and all the animations in one click */
-  public auto_rig (): string[] {
+  public auto_rig (again = true): string[] {
     if (this.parts.length === 0) return []
     const hit = recall(this.sig())
     if (hit !== null) { this.vtype = hit.rec.type as VehicleType; ($('vh-type') as HTMLSelectElement).value = this.vtype }
+    const n_parts = this.parts.length
     const found = this.auto_cut()
+    // 🔁 the wheels were only GUESSED (one welded mesh: no round piece to see) but the cut split the model into pieces:
+    // look again, now the real wheels / idlers are pieces of their own (else the guessed discs tear the hull when driving)
+    if (again && this.wheels.length > 0 && this.wheels.every(w => w.guessed) && this.parts.length > n_parts) return this.auto_rig(false)
     if (hit === null) { this.status(M(`⚡ Auto rig: ${found.join(', ') || 'nothing found by shape'} + ${this.clips.length} animations. Rate it below (★) — rigs rated 4–5 ★ teach the next auto rig.`, `⚡ Tự rig: ${found.join(', ') || 'không tìm được theo hình dạng'} + ${this.clips.length} animation. Chấm điểm bên dưới (★) — rig được 4–5 ★ sẽ dạy cho lần tự rig sau.`, `⚡ 자동 리그 + 애니메이션 ${this.clips.length}개`), found.length === 0); return found }
     // what the scan missed, and the settings people tuned on that shape
     this.history.begin()
@@ -1669,7 +1919,9 @@ class VehicleApp {
 
   private after_auto (found: string[]): void {
     this.clear_rig(); this.name_parts(); this.refresh_part_select(); this.refresh_colors(); this.draw_markers()
-    const cut = this.cut_torn_parts(true)
+    // every wheel is cut out of the mesh it is welded into, a guessed one too: at rest the cut does not show, turning it does
+    // not tear the body into spikes (it used to wait for a check by hand, and the first drive looked broken)
+    const cut = this.cut_torn_parts(false)
     this.history.commit_soon()
     if (this.wheels.length > 0 || this.mechs.length > 0) { this.build_rig(); const k = this.clips.findIndex(c => /drive|forward|cruise/i.test(c.name)); if (this.clips.length > 0) this.play(k >= 0 ? k : 0) }
     this.status(found.length > 0
@@ -1757,7 +2009,9 @@ class VehicleApp {
         return { mesh: m, owner: o }
       }
       this.holder.remove(p.mesh)
-      out.push(mk(r.outside, p.mesh.name), mk(r.inside, this.part_name(k)))
+      // the cut-out mesh is all this part (its border triangles bring a few points of the neighbours along)
+      const ins = mk(r.inside, this.part_name(k)); ins.owner.fill(k)
+      out.push(mk(r.outside, p.mesh.name), ins)
     }
     this.parts = out; this.comp_cache.clear()
     this.refresh_colors()
@@ -1795,7 +2049,8 @@ class VehicleApp {
       el.style.cssText = 'position:absolute;left:8px;top:48px;z-index:15;display:flex;flex-direction:column;gap:5px;padding:8px 10px;border-radius:10px;background:rgba(20,22,26,.92);border:1px solid #ff2bd6;font-size:12px;max-width:300px'
       $('vh-view').appendChild(el)
       el.addEventListener('click', e => {
-        const b = (e.target as HTMLElement).closest<HTMLElement>('[data-ax],[data-axr],[data-axa]'); if (b === null) return
+        const b = (e.target as HTMLElement).closest<HTMLElement>('[data-ax],[data-axr],[data-axa],[data-wmove]'); if (b === null) return
+        if (b.dataset.wmove !== undefined) { this.nudge_wheel(b.dataset.wmove); return }
         if (b.dataset.ax !== undefined) this.set_axle(b.dataset.ax)
         if (b.dataset.axr !== undefined) this.turn_wheel(b.dataset.axr as 'x' | 'y' | 'z')
         if (b.dataset.axa === 'lock') this.lock_axle()
@@ -1806,9 +2061,38 @@ class VehicleApp {
     el.innerHTML = `<b style="color:#ff7be6">🛞 ${this.part_name(k)} — ${M('spin axle (pink ring)', 'trục quay (khung hồng)', '회전축')}</b>
       <div style="display:flex;gap:4px;flex-wrap:wrap">${B('data-ax="x"', 'X', M('Axle along X', 'Trục theo X', 'X'), on('x'))}${B('data-ax="y"', 'Y', M('Axle along Y', 'Trục theo Y', 'Y'), on('y'))}${B('data-ax="z"', 'Z', M('Axle along Z', 'Trục theo Z', 'Z'), on('z'))}${B('data-ax="next"', '⟲ (Z)', M('Turn the ring to the next axis (key Z)', 'Xoay khung sang trục kế (phím Z)', '다음 축 (Z)'))}${B('data-ax="flip"', '⇄', M('Spin the other way', 'Quay chiều ngược lại', '반대'))}</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center"><span>${M('Turn wheel + ring 90°', 'Xoay bánh + khung 90°', '바퀴+링 90°')}</span>${B('data-axr="x"', '↻X', 'X')}${B('data-axr="y"', '↻Y', 'Y')}${B('data-axr="z"', '↻Z', 'Z')}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center"><span>${M('Centre', 'Tâm', '중심')}</span>${B('data-wmove="up"', '↑', M('Move the wheel up', 'Dời bánh lên', '위'))}${B('data-wmove="down"', '↓', M('Move the wheel down', 'Dời bánh xuống', '아래'))}${B('data-wmove="back"', '←', M('Move the wheel back', 'Dời bánh ra sau', '뒤'))}${B('data-wmove="fwd"', '→', M('Move the wheel forward', 'Dời bánh ra trước', '앞'))}<span style="margin-left:6px">${M('Size', 'Cỡ', '크기')}</span>${B('data-wmove="small"', '−', M('Smaller wheel', 'Bánh nhỏ lại', '작게'))}${B('data-wmove="big"', '+', M('Bigger wheel', 'Bánh to lên', '크게'))}<span style="opacity:.75">r ${w.radius.toFixed(2)}</span></div>
+      <div style="opacity:.7;font-size:11px">${M('Or drag on the view: the dot in the middle = move, the knob on the rim = size. The bones and the track links follow.', 'Hoặc kéo trên khung 3D: chấm giữa = dời tâm, núm trên vành = đổi cỡ. Xương và mắt xích chạy theo.', '가운데 점 = 이동, 테두리 손잡이 = 크기')}</div>
       ${B('data-axa="lock"', w.locked === true ? '🔒 ' + M('Grouped (click to unlock)', 'Đã gom (bấm để mở)', '고정됨') : '🔗 ' + M('Group wheel + ring (lock the axle)', 'Gom bánh + khung (khoá trục)', '바퀴+링 고정'), M('The axle stays as you set it: auto scans and fixes leave it alone', 'Trục giữ đúng như bạn chỉnh: tự quét / tự sửa không đụng vào', '자동으로 바뀌지 않음'), w.locked === true ? 'background:#2a6f3a;color:#fff' : 'border-color:#ff2bd6')}`
     el.style.display = 'flex'
   }
+  /** 🛞 the picked wheel's centre / size by buttons: up, down, back, fwd (in the wheel's own plane), small, big */
+  public nudge_wheel (how: string): void {
+    const k = this.active; const w = this.wheels[k]; if (w === undefined || k >= DOOR0) return
+    this.history.begin()
+    const step = Math.max(this.size.y * 0.01, w.radius * 0.06)
+    const ax = (w.axle ?? new THREE.Vector3(1, 0, 0)).clone().normalize()
+    // "forward" = the vehicle's +Z pushed into the wheel's plane (falls back to the plane's other direction)
+    let fwd = new THREE.Vector3(0, 0, 1).addScaledVector(ax, -ax.z); if (fwd.lengthSq() < 1e-4) fwd = new THREE.Vector3(1, 0, 0).addScaledVector(ax, -ax.x); fwd.normalize()
+    const up = new THREE.Vector3().crossVectors(ax, fwd).normalize(); if (up.y < 0) up.negate()
+    if (how === 'up') w.center.addScaledVector(up, step)
+    if (how === 'down') w.center.addScaledVector(up, -step)
+    if (how === 'fwd') w.center.addScaledVector(fwd, step)
+    if (how === 'back') w.center.addScaledVector(fwd, -step)
+    if (how === 'big') w.radius *= 1.06
+    if (how === 'small') w.radius = Math.max(this.size.y * 0.02, w.radius / 1.06)
+    w.guessed = false
+    this.wheel_changed()
+  }
+
+  /** after a wheel moved / resized: rebuild the bones if they were built (the track links follow the wheels) */
+  private wheel_changed (): void {
+    const had = this.rig !== null
+    this.clear_rig(); if (had || this.show_bones_on) this.show_bones(this.show_bones_on || had)
+    if (had && !this.show_bones_on) this.show_bones(false)
+    this.draw_markers(); this.history.commit_soon()
+  }
+
   /** the picked wheel's axle: 'x' | 'y' | 'z', 'next' (the next axis round, also key Z) or 'flip' */
   public set_axle (how: string): void {
     const k = this.active; const w = this.wheels[k]; if (w === undefined || k >= DOOR0) return
@@ -1877,6 +2161,247 @@ class VehicleApp {
 
   /** wheel rings: [ smaller, ] bigger, O hide / show */
   private ring_scale = 1
+  /** 🛞 a wheel ring being dragged (move the centre / Alt: the radius) */
+  private wdrag: { k: number, resize: boolean, plane: THREE.Plane, off: THREE.Vector3 } | null = null
+
+  /* ---------------- ⛓ drag a track link (the white dots of the Bones view), like a joint ---------------- */
+  private ldrag: { k: number, e: number, z0: number, y0: number, dz0: number, dy0: number, plane: THREE.Plane } | null = null
+
+  /** the base loop with smooth bumps where links were dragged (each bump fades out over a few links) */
+  private shape_loop (tr: TrackRig): Loop { return this.shape_of(tr.base, tr.links.length, this.mechs[tr.j]?.loop_edit ?? []) }
+  /** a loop with smooth bumps where links were dragged ([where 0..1, dz, dy]) */
+  private shape_of (B: Loop, n_links: number, edits: Array<[number, number, number]>): Loop {
+    if (edits.length === 0) return B
+    const M = Math.max(200, B.pts.length); const L = B.len
+    const r = Math.max(2.5 * L / Math.max(1, n_links), L * 0.035)
+    const pts: P2[] = []
+    for (let i = 0; i < M; i++) {
+      const s = i * L / M; const p = B.at(s).p; let z = p[0]; let y = p[1]
+      for (const [f, dz, dy] of edits) {
+        let ds = Math.abs(s - f * L); ds = Math.min(ds, L - ds); if (ds >= r) continue
+        const w = 0.5 - 0.5 * Math.cos(Math.PI * (1 - ds / r)); z += dz * w; y += dy * w
+      }
+      pts.push([z, y])
+    }
+    return new Loop(pts)
+  }
+
+  /** put every link on its (reshaped) loop: the pose the belt shows and the drive clips start from */
+  private apply_loop_edits (only?: number): void {
+    if (this.rig === null) return
+    this.rig.tracks.forEach((tr, k) => {
+      if (only !== undefined && k !== only) return
+      const loop = this.shape_loop(tr)
+      if (loop === tr.base && tr.loop === tr.base) return
+      tr.loop = loop; tr.s0 = tr.s0_base.map(s => s / tr.base.len * loop.len)
+      tr.links.forEach((b, i) => { const at = loop.at(tr.s0[i]); b.position.set(tr.x - tr.pivot.x, at.p[1] - tr.pivot.y, at.p[0] - tr.pivot.z); b.quaternion.copy(tangent_quat(at.t)); b.updateMatrixWorld(true) })
+    })
+  }
+
+  /** the link dot under the mouse (screen distance ≤ 12 px): [track, link] */
+  private link_at (e: { clientX: number, clientY: number }): [number, number] | null {
+    if (this.rig === null || !this.show_bones_on) return null
+    const r = this.renderer.domElement.getBoundingClientRect(); const v = new THREE.Vector3(); let best: [number, number] | null = null; let bd = 12
+    this.rig.tracks.forEach((tr, k) => tr.links.forEach((b, i) => {
+      b.getWorldPosition(v).project(this.camera); if (v.z > 1) return
+      const d = Math.hypot(r.left + (v.x + 1) / 2 * r.width - e.clientX, r.top + (1 - v.y) / 2 * r.height - e.clientY)
+      if (d < bd) { bd = d; best = [k, i] }
+    }))
+    return best
+  }
+
+  /** vehicle-space (z, y) of a world point, through the track bone (it sits at the pivot, unturned at rest) */
+  private track_local (tr: TrackRig, w: THREE.Vector3): P2 {
+    const l = tr.links[0].parent!.worldToLocal(w.clone()).add(tr.pivot); return [l.z, l.y]
+  }
+
+  private link_drag_start (k: number, i: number, e: PointerEvent): void {
+    const tr = this.rig!.tracks[k]; const m = this.mechs[tr.j]
+    const f = tr.s0_base[i] / tr.base.len
+    this.history.begin()
+    m.loop_edit = m.loop_edit ?? []
+    // a bump already near this link (within half a link) is reused, else a new one
+    const half = 0.5 / tr.links.length
+    let e_i = m.loop_edit.findIndex(([g]) => { const d = Math.abs(g - f); return Math.min(d, 1 - d) < half })
+    if (e_i < 0) { m.loop_edit.push([f, 0, 0]); e_i = m.loop_edit.length - 1 }
+    const wp = tr.links[i].getWorldPosition(new THREE.Vector3())
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(this.camera.getWorldDirection(new THREE.Vector3()), wp)
+    const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
+    const hit = ray.ray.intersectPlane(plane, new THREE.Vector3()) ?? wp
+    const [z0, y0] = this.track_local(tr, hit)
+    this.ldrag = { k, e: e_i, z0, y0, dz0: m.loop_edit[e_i][1], dy0: m.loop_edit[e_i][2], plane }
+    if (this.mixer !== null) this.stop_anim()
+    this.rig!.skinned[0]?.skeleton.pose() // back to the rest (bind) pose first: re-binding mid-animation would bake that frame
+    this.controls.enabled = false; this.down_at = null
+    this.renderer.domElement.style.cursor = 'grabbing'
+  }
+
+  private link_drag_move (e: PointerEvent): void {
+    const d = this.ldrag; if (d === null || this.rig === null) return
+    const tr = this.rig.tracks[d.k]; const m = this.mechs[tr.j]
+    const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
+    const hit = ray.ray.intersectPlane(d.plane, new THREE.Vector3()); if (hit === null) return
+    const [z, y] = this.track_local(tr, hit)
+    m.loop_edit![d.e] = [m.loop_edit![d.e][0], d.dz0 + (z - d.z0), d.dy0 + (y - d.y0)]
+    this.apply_loop_edits(d.k)
+    this.keep_mesh_still()
+  }
+  /** only the dots move, not the model: re-bind the skeleton where the bones are now (Blender: edit mode, then bind) */
+  private keep_mesh_still (): void {
+    if (this.rig === null) return
+    this.holder.updateMatrixWorld(true)
+    const done = new Set<THREE.Skeleton>()
+    this.rig.skinned.forEach(sm => { if (!done.has(sm.skeleton)) { sm.skeleton.calculateInverses(); done.add(sm.skeleton) } })
+  }
+
+  private link_drag_end (): void {
+    if (this.ldrag === null || this.rig === null) return
+    const tr = this.rig.tracks[this.ldrag.k]; const m = this.mechs[tr.j]
+    // a bump moved back to ~nothing is dropped
+    m.loop_edit = (m.loop_edit ?? []).filter(([, dz, dy]) => Math.hypot(dz, dy) > this.size.y * 0.002)
+    if (m.loop_edit.length === 0) delete m.loop_edit
+    this.ldrag = null; this.controls.enabled = true; this.renderer.domElement.style.cursor = ''
+    this.rebind_tracks() // bound again on the new loop: the model stays, the drive clips run round the new shape
+    this.history.commit_soon()
+    this.status(M('Track link moved (the model does not move): driving, the belt runs along the new dots. Double-click a dot = put it back. Ctrl+Z = undo.', 'Đã dời mắt xích (model đứng yên): khi chạy, xích đi theo các chấm mới. Bấm đúp vào chấm = trả về chỗ cũ. Ctrl+Z = hoàn tác.', '링크 이동됨 (모델은 그대로)'))
+  }
+
+  /** double-click a link: its bump goes away (the belt goes back to the wheels there) */
+  private link_reset (k: number, i: number): void {
+    const tr = this.rig!.tracks[k]; const m = this.mechs[tr.j]; if (m.loop_edit === undefined) return
+    const f = tr.s0_base[i] / tr.base.len; const r = 3 / tr.links.length
+    this.history.begin()
+    m.loop_edit = m.loop_edit.filter(([g]) => { const d = Math.abs(g - f); return Math.min(d, 1 - d) > r })
+    if (m.loop_edit.length === 0) delete m.loop_edit
+    this.rebind_tracks()
+    this.history.commit_soon()
+  }
+  /* ---------------- ✥ edit bones: move any joint (wheel centre, part pivot) with arrows, the rig is rebuilt there ---------------- */
+  private bone_edit_on = false
+  private bgiz: TransformControls | null = null
+  private bproxy = new THREE.Object3D()
+  private bsel: { kind: 'wheel' | 'mech', i: number } | null = null
+  private set_bone_edit (on: boolean): void {
+    this.bone_edit_on = on
+    if (on) {
+      if (this.rig === null && (this.wheels.length > 0 || this.mechs.length > 0)) this.build_rig()
+      if (!this.show_bones_on) Array.from(document.querySelectorAll('button')).find(x => (x.textContent ?? '').startsWith('🦴') && x.closest('#vh-view') !== null)?.click()
+      this.stop_anim(); this.rig?.skinned[0]?.skeleton.pose()
+      this.status(M('✥ Edit bones: click a joint (wheel, door, blade, boom…), drag the arrows. The rig is rebuilt where you leave it. Esc = deselect, Ctrl+Z = undo.', '✥ Chỉnh xương: bấm vào một khớp (bánh, cửa, lưỡi ủi, cần…), kéo các mũi tên. Thả ra là rig dựng lại theo chỗ mới. Esc = bỏ chọn, Ctrl+Z = hoàn tác.', '✥ 뼈 편집: 관절 클릭 후 화살표 드래그'))
+    } else this.bone_pick(null)
+  }
+  /** the joint under the mouse (≤ 14 px): a wheel or a part's pivot */
+  private joint_at (e: { clientX: number, clientY: number }): { kind: 'wheel' | 'mech', i: number } | null {
+    if (this.rig === null) return null
+    const r = this.renderer.domElement.getBoundingClientRect(); const v = new THREE.Vector3(); let best: { kind: 'wheel' | 'mech', i: number } | null = null; let bd = 14
+    const test = (b: THREE.Object3D, hit: { kind: 'wheel' | 'mech', i: number }): void => { b.getWorldPosition(v).project(this.camera); if (v.z > 1) return; const d = Math.hypot(r.left + (v.x + 1) / 2 * r.width - e.clientX, r.top + (1 - v.y) / 2 * r.height - e.clientY); if (d < bd) { bd = d; best = hit } }
+    this.rig.wheels.forEach((b, i) => test(b, { kind: 'wheel', i }))
+    this.rig.mechs.forEach(m => { const i = this.mechs.findIndex(q => q.name === m.bone.name); if (i >= 0 && this.mechs[i].kind !== 'track') test(m.bone, { kind: 'mech', i }) })
+    return best
+  }
+  private bone_pick (j: { kind: 'wheel' | 'mech', i: number } | null): void {
+    this.bsel = j
+    if (j === null || this.rig === null) { if (this.bgiz !== null) this.bgiz.detach(); return }
+    if (this.bgiz === null) {
+      const g = new TransformControls(this.camera, this.renderer.domElement); g.setSize(0.8); this.bgiz = g
+      this.scene.add((g as any).getHelper?.() ?? g)
+      if (this.bproxy.parent === null) this.scene.add(this.bproxy)
+      g.addEventListener('dragging-changed', (ev: any) => { this.controls.enabled = ev.value !== true; if (ev.value === true) this.history.begin(); else this.bone_drop() })
+    }
+    const b = j.kind === 'wheel' ? this.rig.wheels[j.i] : this.rig.mechs.find(m => m.bone.name === this.mechs[j.i].name)?.bone
+    if (b === undefined) return
+    b.getWorldPosition(this.bproxy.position); this.bgiz.attach(this.bproxy)
+    const nm = j.kind === 'wheel' ? this.wheels[j.i].name : this.mechs[j.i].name
+    this.status(M(`✥ ${nm}: drag the arrows to move this joint.`, `✥ ${nm}: kéo mũi tên để dời khớp này.`, `✥ ${nm}`))
+  }
+  /** the joint was let go: write it into the vehicle (wheel centre / the part's pivot) and rebuild the rig there */
+  private bone_drop (): void {
+    const j = this.bsel; if (j === null) return
+    const p = this.holder.worldToLocal(this.bproxy.position.clone())
+    if (j.kind === 'wheel') { const w = this.wheels[j.i]; if (w !== undefined) { w.center.copy(p); w.locked = true } }
+    else { const m = this.mechs[j.i]; if (m !== undefined) { const v: [number, number, number] = [+p.x.toFixed(4), +p.y.toFixed(4), +p.z.toFixed(4)]; if (m.kind === 'bone') m.pivot = v; else m.anchor = v } }
+    const keep = j; this.build_rig(); this.stop_anim(); this.rig?.skinned[0]?.skeleton.pose(); this.draw_markers(); this.history.commit_soon()
+    this.bone_pick(keep)
+  }
+
+  /**
+   * ⛓ a belt is made of many small IDENTICAL pieces (shoes / links) in a loop on each side, low on the vehicle. Those
+   * pieces become the track (the whole loop, the top run too), and the track's other points that lie outside the
+   * shoes' outline (a bar, the cab side…) go back to the body. Without a clear row of shoes nothing changes.
+   */
+  private tracks_from_shoes (): void {
+    const S = this.size
+    for (let j = 0; j < this.mechs.length; j++) {
+      const m = this.mechs[j]; if (m.kind !== 'track') continue
+      const code = DOOR0 + j; const sd = m.name.endsWith('_L') ? 1 : -1
+      interface Pc { p: Part, c: number, n: number, b: THREE.Box3 }
+      const pcs: Pc[] = []
+      this.parts.forEach(p => {
+        let comp = this.comp_cache.get(p); const pos = p.mesh.geometry.getAttribute('position'); if (comp === undefined || comp.length !== pos.count) { comp = this.components(p); this.comp_cache.set(p, comp) }
+        const map = new Map<number, Pc>(); const v = new THREE.Vector3()
+        for (let i = 0; i < pos.count; i++) { if (p.owner[i] >= 0 && p.owner[i] < DOOR0) continue; let e = map.get(comp[i]); if (e === undefined) { e = { p, c: comp[i], n: 0, b: new THREE.Box3() }; map.set(comp[i], e) } e.n++; e.b.expandByPoint(v.fromBufferAttribute(pos, i)) }
+        map.forEach(e => pcs.push(e))
+      })
+      // small pieces on this side, in the lower half
+      const small = pcs.filter(e => { const z = e.b.getSize(new THREE.Vector3()); const c = e.b.getCenter(new THREE.Vector3()); return z.length() < S.z * 0.12 && Math.sign(c.x) === sd && Math.abs(c.x) > S.x * 0.2 && c.y < S.y * 0.5 })
+      if (small.length < 12) { this.track_by_band(j); continue }
+      // the shoes: the biggest group of pieces of the same size (± 35 %)
+      const key = (e: Pc): number => e.b.getSize(new THREE.Vector3()).length()
+      let best: Pc[] = []
+      for (const a of small) { const k = key(a); const grp = small.filter(e => Math.abs(key(e) - k) < k * 0.35 && Math.abs(e.n - a.n) <= Math.max(4, a.n * 0.35)); if (grp.length > best.length) best = grp }
+      if (best.length < 12) { this.track_by_band(j); continue }
+      // their side-view outline (z, y), widened by one shoe
+      const pts: P2[] = best.map(e => { const c = e.b.getCenter(new THREE.Vector3()); return [c.z, c.y] as P2 })
+      const hull = belt_loop(pts); if (hull === null) continue
+      const shoe = best.reduce((a, e) => a + key(e), 0) / best.length
+      const xs = best.map(e => e.b.getCenter(new THREE.Vector3()).x); const x0 = Math.min(...xs) - shoe; const x1 = Math.max(...xs) + shoe
+      const set = new Set(best.map(e => `${this.parts.indexOf(e.p)}:${e.c}`))
+      this.parts.forEach((p, pi) => {
+        const comp = this.comp_cache.get(p)!; const pos = p.mesh.geometry.getAttribute('position')
+        for (let i = 0; i < pos.count; i++) {
+          if (set.has(`${pi}:${comp[i]}`)) { p.owner[i] = code; continue }
+          if (p.owner[i] === code) { const x = pos.getX(i); const d = hull.sdist([pos.getZ(i), pos.getY(i)]); if (d > shoe * 0.8 || x < x0 || x > x1) p.owner[i] = -1 } // track points far outside the shoes: body
+        }
+      })
+      ;(m as any).shoes = best.length
+    }
+  }
+
+  /**
+   * ⛓ a belt welded into the hull (no separate shoes): its outline comes from the low part of what was found (the bottom
+   * run and the two ends round the sprocket / idler), wrapped tight; every point on that band (the top run in the hull
+   * too) becomes the track, and track points far outside it (a bar, the cab side) go back to the body. The seam is
+   * cut later, so the belt slides without tearing the hull.
+   */
+  private track_by_band (j: number): void {
+    const S = this.size; const code = DOOR0 + j; const sd = this.mechs[j].name.endsWith('_L') ? 1 : -1
+    const low: P2[] = []; let xa = Infinity; let xb = -Infinity
+    this.parts.forEach(p => { const pos = p.mesh.geometry.getAttribute('position'); for (let i = 0; i < pos.count; i++) if (p.owner[i] === code && pos.getY(i) < S.y * 0.4) { low.push([pos.getZ(i), pos.getY(i)]); xa = Math.min(xa, pos.getX(i)); xb = Math.max(xb, pos.getX(i)) } })
+    if (low.length < 50) return
+    const hull = belt_loop(low); if (hull === null) return
+    let y0 = Infinity; let y1 = -Infinity; for (const q of low) { y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]) }
+    const loop = wrap_loop(hull, low, (y1 - y0) * 0.35)
+    // the belt's thickness: how tall the bottom run is in the middle third
+    let z0 = Infinity; let z1 = -Infinity; for (const q of low) { z0 = Math.min(z0, q[0]); z1 = Math.max(z1, q[0]) }
+    let b0 = Infinity; let b1 = -Infinity; for (const q of low) if (q[0] > z0 + (z1 - z0) / 3 && q[0] < z1 - (z1 - z0) / 3 && q[1] < y0 + (y1 - y0) * 0.5) { b0 = Math.min(b0, q[1]); b1 = Math.max(b1, q[1]) }
+    const t = Math.min(S.y * 0.15, Math.max(S.y * 0.03, isFinite(b1 - b0) ? b1 - b0 : S.y * 0.06))
+    const pad = (xb - xa) * 0.15; let took = 0; let gave = 0
+    this.parts.forEach(p => {
+      const pos = p.mesh.geometry.getAttribute('position')
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i); if (Math.sign(x) !== sd) continue
+        const d = loop.sdist([pos.getZ(i), pos.getY(i)]); const inx = x > xa - pad && x < xb + pad
+        if (p.owner[i] === -1 && inx && d < t * 0.35 && d > -t * 1.2) { p.owner[i] = code; took++ } else if (p.owner[i] === code && (d > t * 1.5 || !inx)) { p.owner[i] = -1; gave++ }
+      }
+    })
+    ;(this.mechs[j] as any).band = [took, gave]
+  }
+
+  /** rebuild the rig on the edited loops, keeping the view (no animation starts by itself) */
+  private rebind_tracks (): void {
+    const bones_on = this.show_bones_on
+    this.build_rig(); this.stop_anim(); if (bones_on) this.show_bones(true)
+  }
   private draw_markers (): void {
     this.axle_panel()
     this.markers.clear()
@@ -1891,8 +2416,18 @@ class VehicleApp {
       const half = wb.isEmpty() ? 0 : Math.abs(wb.getSize(new THREE.Vector3()).dot(ax)) / 2
       ring.position.copy(w.center).addScaledVector(ax, side * (half + this.size.x * 0.01))
       ring.userData.face = ax.clone().multiplyScalar(side) // which way this ring looks (to the outside)
-      ring.renderOrder = 10; ring.userData.on = on
+      ring.renderOrder = 10; ring.userData.on = on; ring.userData.wheel = k
+      // 🛞 an invisible, thicker ring to grab: drag = move the wheel centre, Alt + drag = its size
+      const grip = new THREE.Mesh(new THREE.TorusGeometry(w.radius * 1.08 * this.ring_scale, w.radius * 0.2, 6, 32), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, depthTest: false }))
+      grip.userData.wheel = k; ring.add(grip)
       this.markers.add(ring)
+      if (on) { // the picked wheel: a dot in the middle (drag = move) and a knob on the rim (drag = size)
+        const col = WHEEL_COLORS[k % WHEEL_COLORS.length]
+        const dot = new THREE.Mesh(new THREE.SphereGeometry(w.radius * 0.1, 16, 12), new THREE.MeshBasicMaterial({ color: col, depthTest: false })); dot.position.copy(ring.position); dot.renderOrder = 12; dot.userData.wheel = k
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(ring.quaternion); if (up.y < 0) up.negate()
+        const knob = new THREE.Mesh(new THREE.SphereGeometry(w.radius * 0.13, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false })); knob.position.copy(ring.position).addScaledVector(up, w.radius * 1.08 * this.ring_scale); knob.renderOrder = 12; knob.userData.wheel = k; knob.userData.resize = true
+        this.markers.add(dot, knob)
+      }
     })
   }
 
@@ -2423,6 +2958,14 @@ class VehicleApp {
     // cloned from a real rig: its hinge
     const cp = (m as any).clone_pivot as [number, number, number] | undefined
     if (pose !== null && cp !== undefined && m.kind !== 'track') pose.pivot.set(cp[0], cp[1], cp[2])
+    // 🔩 bolted: the part turns round its anchor (a loader arm lifts round its pin, it does not fly up)
+    if (pose !== null && m.anchor !== undefined && m.kind !== 'track' && m.kind !== 'cable') {
+      const a = new THREE.Vector3(...m.anchor); const c = this.part_box(DOOR0 + j).getCenter(new THREE.Vector3())
+      const ax = m.axis === undefined || m.axis === 'auto' || m.axis === 'long' ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(m.axis === 'x' ? 1 : 0, m.axis === 'y' ? 1 : 0, m.axis === 'z' ? 1 : 0)
+      // which way is "up" for the far end: lift it (round X the sign follows front / back of the bolt)
+      const arm = c.clone().sub(a); const lift = ax.x !== 0 ? -Math.sign(arm.z || 1) : ax.z !== 0 ? Math.sign(arm.x || 1) : 1
+      pose.pivot.copy(a); pose.axis.copy(ax); pose.open = lift * m.angle * Math.PI / 180 * (m.flip ? -1 : 1); pose.slide.set(0, 0, 0); pose.stretch = 1; pose.used = '🔩 ' + M('anchor', 'điểm neo', '앵커')
+    }
     // a hook swings from where it hangs (top of its cable, or the underside of the boom), like a pendulum
     if (pose !== null && m.kind === 'hook') {
       const ci = this.mechs.findIndex(x => x.kind === 'cable')
@@ -2470,6 +3013,163 @@ class VehicleApp {
     if (b !== null) b.textContent = ok ? '✓ ' + M('Done painting', 'Xong paint', '페인트 완료') : '🖌 ' + M('Paint skin weights', 'Paint skin weight', '스킨 웨이트 페인트')
     if (!ok) this.status(M('Build the rig first (⚙).', 'Dựng rig trước (⚙).', '먼저 리그를 만드세요.'), true)
     return ok
+  }
+
+  /** the moving part on the other side (same kind, mirrored across the middle): 2 loader arms, 2 doors… */
+  private twin_of (j: number): number {
+    const b = this.part_box(DOOR0 + j); if (b.isEmpty()) return -1
+    const c = b.getCenter(new THREE.Vector3()); if (Math.abs(c.x) < this.size.x * 0.08) return -1
+    let best = -1; let bd = Infinity
+    this.mechs.forEach((m, k) => {
+      if (k === j || m.kind !== this.mechs[j].kind) return
+      const bb = this.part_box(DOOR0 + k); if (bb.isEmpty()) return
+      const o = bb.getCenter(new THREE.Vector3()); const d = Math.abs(o.x + c.x) + Math.abs(o.y - c.y) + Math.abs(o.z - c.z)
+      if (Math.sign(o.x) !== Math.sign(c.x) && d < bd) { bd = d; best = k }
+    })
+    return bd < this.size.length() * 0.15 ? best : -1
+  }
+
+  /** 🪛 unscrew part j: back to its kind's own pivot; a link made by the bolt goes too (the twin's mirrored bolt as well) */
+  public unscrew (j: number): void {
+    const m = this.mechs[j]; if (m?.anchor === undefined) return
+    this.nut_menu_hide(); this.history.begin()
+    const drop = (k: number): void => {
+      const x = this.mechs[k]; if (x?.anchor === undefined) return
+      this.unscrew_fx(new THREE.Vector3(...x.anchor))
+      delete x.anchor; delete (x as any).anchor_twin
+      if ((x as any).anchor_parent === true) { delete x.parent; delete (x as any).anchor_parent }
+    }
+    const t = this.twin_of(j); drop(j); if (t >= 0 && (this.mechs[t] as any).anchor_twin === true) drop(t)
+    this.clear_rig(); this.refresh_part_select(); this.history.commit_soon()
+    this.status(M(`🪛 ${m.name} unscrewed: it moves on its own pivot again${m.parent !== undefined ? ` (still on ${m.parent})` : ''}. Ctrl+Z / Cmd+Z puts the bolt back.`,
+      `🪛 Đã tháo vít ${m.name}: nó quay lại điểm xoay tự động${m.parent !== undefined ? ` (vẫn gắn vào ${m.parent})` : ''}. Ctrl+Z / Cmd+Z để vặn vít lại.`, `🪛 ${m.name} 볼트 해제`))
+  }
+  /** the nut turns and rises off its pin, then is gone */
+  private unscrew_fx (at: THREE.Vector3): void {
+    const S = this.size.length() || 1
+    const nut = new THREE.Mesh(new THREE.CylinderGeometry(S * 0.014, S * 0.014, S * 0.03, 6), new THREE.MeshBasicMaterial({ color: 0xffb020, depthTest: false, transparent: true }))
+    nut.position.copy(at); nut.rotation.z = Math.PI / 2; nut.renderOrder = 17; this.scene.add(nut)
+    const t0 = performance.now()
+    const step = (): void => {
+      const k = Math.min(1, (performance.now() - t0) / 700)
+      nut.rotation.x = k * Math.PI * 6; nut.position.set(at.x + Math.sign(at.x || 1) * S * 0.06 * k, at.y + S * 0.02 * k, at.z)
+      ;(nut.material as THREE.MeshBasicMaterial).opacity = 1 - k * k
+      if (k < 1) requestAnimationFrame(step); else { this.scene.remove(nut); nut.geometry.dispose() }
+    }
+    requestAnimationFrame(step)
+  }
+  /** the small menu on a bolt clicked in the view */
+  private nut_menu (j: number, x: number, y: number): void {
+    const m = this.mechs[j]; if (m === undefined) return
+    this.select(DOOR0 + j)
+    let el = document.getElementById('vh-nutmenu')
+    if (el === null) {
+      el = document.createElement('div'); el.id = 'vh-nutmenu'
+      el.style.cssText = 'position:fixed;z-index:60;background:#1b1b1b;border:1px solid #ffb020;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:5px;font:13px system-ui,sans-serif;color:#eee;box-shadow:0 6px 20px #0008'
+      document.body.append(el)
+      el.addEventListener('pointerdown', e => e.stopPropagation())
+    }
+    el.innerHTML = `<b style="color:#ffb020">🔩 ${m.name}${m.parent !== undefined ? ` → ${m.parent}` : ''}</b>
+      <button data-n="un">🪛 ${M('Unscrew', 'Tháo vít', '볼트 풀기')}</button><button data-n="mv">↔ ${M('Move the bolt', 'Dời vít', '볼트 이동')}</button>`
+    el.style.left = Math.min(x + 12, innerWidth - 190) + 'px'; el.style.top = Math.min(y + 12, innerHeight - 110) + 'px'; el.style.display = 'flex'
+    ;(el.querySelector('[data-n="un"]') as HTMLButtonElement).onclick = () => this.unscrew(j)
+    ;(el.querySelector('[data-n="mv"]') as HTMLButtonElement).onclick = () => { this.nut_menu_hide(); $('vh-anchor').click() }
+  }
+  private nut_menu_hide (): void { const el = document.getElementById('vh-nutmenu'); if (el !== null) el.style.display = 'none' }
+
+  /** 🔩 the click that bolts the selected part: the anchor goes where the model was clicked; clicked on another part = bolted to it */
+  private place_anchor (e: PointerEvent): void {
+    const j = this.active - DOOR0; const m = this.mechs[j]
+    this.anchoring = false; $('vh-anchor').classList.remove('on'); if (m === undefined) return
+    const ray = new THREE.Raycaster(); ray.setFromCamera(this.ndc(e), this.camera)
+    const h = ray.intersectObjects(this.rig !== null ? this.rig.skinned : this.parts.map(p => p.mesh), false)[0]
+    if (h === undefined || h.face == null) { this.status(M('Missed the model: press 🔩 and click on it.', 'Bấm trượt model: bấm 🔩 rồi bấm lên xe.', '모델을 클릭하세요.'), true); return }
+    const pi = this.rig !== null ? this.rig.skinned.indexOf(h.object as THREE.SkinnedMesh) : this.parts.findIndex(p => p.mesh === h.object)
+    const own = [h.face.a, h.face.b, h.face.c].map(i => this.parts[pi]?.owner[i] ?? -1)
+    const code = own.find(o => o !== DOOR0 + j) ?? own[0]
+    this.history.begin()
+    const p = h.point
+    m.anchor = [+p.x.toFixed(4), +p.y.toFixed(4), +p.z.toFixed(4)]
+    // clicked on another moving part: bolted to it (a bucket on its arm); on the body: bolted to the body
+    let on = M('the body', 'thân xe', '차체')
+    if (code >= DOOR0 && code !== DOOR0 + j && this.mechs[code - DOOR0] !== undefined) { m.parent = this.mechs[code - DOOR0].name; on = m.parent; (m as any).anchor_parent = true } else if (code < 0 && m.parent !== undefined && own.every(o => o !== DOOR0 + j)) { delete m.parent }
+    else if (m.parent !== undefined) on = m.parent
+    // the twin on the other side gets the mirrored bolt (unless it has its own)
+    const t = this.twin_of(j); let twin = ''
+    if (t >= 0 && (this.mechs[t].anchor === undefined || (this.mechs[t] as any).anchor_twin === true)) {
+      this.mechs[t].anchor = [-m.anchor[0], m.anchor[1], m.anchor[2]]; (this.mechs[t] as any).anchor_twin = true
+      if (m.parent === undefined) delete this.mechs[t].parent; else { const pt = this.twin_of(this.mechs.findIndex(x => x.name === m.parent)); this.mechs[t].parent = pt >= 0 ? this.mechs[pt].name : m.parent }
+      twin = this.mechs[t].name
+    }
+    delete (m as any).anchor_twin
+    this.clear_rig(); this.refresh_part_select(); this.history.commit_soon()
+    this.build_rig(); this.test_door()
+    this.status(M(`🔩 ${m.name} is bolted to ${on}: it turns round the bolt${twin !== '' ? ` (${twin} got the mirrored bolt)` : ''}. Wrong way? tick "Other way". Not the right part? choose it in 🔗 Bolted to.`,
+      `🔩 ${m.name} đã bắt vít vào ${on}: giờ nó xoay quanh con ốc${twin !== '' ? ` (${twin} bên kia cũng được bắt vít đối xứng)` : ''}. Xoay ngược thì tick "Chiều ngược". Nối nhầm phần thì chọn lại ở 🔗 Bắt vít vào.`, `🔩 ${m.name} 고정됨`))
+  }
+
+  /** the 🦴 Bones view on (and its button lit) */
+  private bones_on (): void {
+    if (this.show_bones_on) { this.show_bones(true); return }
+    const b = [...document.querySelectorAll<HTMLButtonElement>('button')].find(x => (x.textContent ?? '').startsWith('🦴') && x.title.includes('(B)')); if (b !== undefined) b.click(); else this.show_bones(true)
+  }
+
+  /** 🦴 put a ready-made skeleton on the vehicle: its joints are dragged onto the model before ✅ Apply */
+  public place_template (id: TemplateId): void {
+    if (this.parts.length === 0) return
+    this.tpl_kind = id; const tk = document.getElementById('vh-tpl-kind') as HTMLSelectElement | null; if (tk !== null) tk.value = id
+    this.tpl.set(make_joints(id, this.size))
+    const t = TEMPLATES.find(x => x.id === id)!
+    this.status(M(`🦴 Ready-made skeleton: ${t.en}. Drag the balls onto the real wheels${id === 'dozer' ? ' and blade' : ''} (the other side follows), [ ] = size, then ✅ Apply skeleton.`,
+      `🦴 Khung xương mẫu: ${t.vi}. Kéo các chấm vào đúng bánh xe${id === 'dozer' ? ' và lưỡi ủi' : ''} (bên kia tự theo), phím [ ] = to / nhỏ, rồi bấm ✅ Áp khung xương.`, `🦴 템플릿: ${t.en}`))
+    ;(document.getElementById('vh-tpl') as HTMLElement | null)?.scrollIntoView({ block: 'nearest' })
+  }
+
+  /** ✅ the fitted template becomes the rig: points in a wheel's circle are that wheel, in the blade's box the blade, belts round the road wheels */
+  public apply_template (): boolean {
+    const J = this.tpl.joints; if (J.length === 0 || this.parts.length === 0) { this.status(M('Put a skeleton on first (🦴 Put on).', 'Đặt khung xương trước (🦴 Đặt khung).', '먼저 템플릿을 놓으세요.'), true); return false }
+    this.history.begin(); this.clear_rig()
+    const ws = J.filter(j => j.kind === 'wheel'); const bl = J.filter(j => j.kind === 'blade')
+    const tracked = this.tpl_kind === 'tracked' || this.tpl_kind === 'dozer'
+    this.wheels = ws.map(j => ({ name: '', center: j.p.clone(), radius: j.r, front: j.p.z > 0.05 * this.size.z, guessed: false, axle: new THREE.Vector3(1, 0, 0), locked: true }))
+    this.mechs = bl.map(j => ({ kind: 'blade' as MechKind, name: j.name, hinge: 'back' as Hinge, angle: default_angle('blade'), flip: false, axis: 'auto' as MechAxis }))
+    this.parts.forEach(p => p.owner.fill(-1)); this.comp_cache.clear()
+    const take = (wheels: boolean): void => this.parts.forEach(p => {
+      const pos = p.mesh.geometry.getAttribute('position')
+      for (let i = 0; i < pos.count; i++) {
+        if (p.owner[i] !== -1) continue
+        const x = pos.getX(i); const y = pos.getY(i); const z = pos.getZ(i)
+        const b = bl.findIndex(j => in_blade(j, x, y, z)); if (b >= 0) { p.owner[i] = DOOR0 + b; continue }
+        if (wheels) { const k = ws.findIndex(j => in_wheel(j, x, y, z)); if (k >= 0) p.owner[i] = k }
+      }
+    })
+    if (tracked) {
+      this.vtype = 'tracked'; ($('vh-type') as HTMLSelectElement).value = 'tracked'
+      take(false)
+      this.find_tracks()
+      // a boxy belt the loop test does not see: the low strip on each side round its road wheels
+      for (const side of [1, -1]) {
+        if (this.mechs.some(m => m.kind === 'track' && (m.name.endsWith('_L') ? 1 : -1) === side)) continue
+        const sw = ws.filter(j => Math.sign(j.p.x) === side); if (sw.length < 2) continue
+        const r = Math.max(...sw.map(j => j.r)); const top = Math.max(...sw.map(j => j.p.y + j.r)) * 1.2
+        const z0 = Math.min(...sw.map(j => j.p.z)) - r * 1.5; const z1 = Math.max(...sw.map(j => j.p.z)) + r * 1.5; const x0 = Math.min(...sw.map(j => Math.abs(j.p.x))) - r
+        const code = DOOR0 + this.mechs.length; let n = 0
+        this.parts.forEach(p => { const pos = p.mesh.geometry.getAttribute('position'); for (let i = 0; i < pos.count; i++) { if (p.owner[i] !== -1) continue; const x = pos.getX(i) * side; const z = pos.getZ(i); if (x > x0 && pos.getY(i) < top && z > z0 && z < z1) { p.owner[i] = code; n++ } } })
+        if (n > 0) this.mechs.push({ kind: 'track', name: side > 0 ? 'track_L' : 'track_R', hinge: 'auto', angle: 0, flip: false })
+      }
+    } else { this.vtype = ws.length > 4 ? 'truck' : 'car'; ($('vh-type') as HTMLSelectElement).value = this.vtype }
+    take(true)
+    this.cut_torn_parts()
+    this.name_parts(); this.active = this.wheels.length > 0 ? 0 : this.mechs.length > 0 ? DOOR0 : -1
+    this.refresh_part_select(); this.refresh_colors(); this.draw_markers()
+    this.history.commit_soon()
+    this.tpl.clear()
+    this.build_rig(); const k = this.clips.findIndex(c => /^03_Drive_Slow|drive|forward/i.test(c.name)); if (k >= 0) this.play(k)
+    this.bones_on()
+    const tr = this.mechs.filter(m => m.kind === 'track').length
+    this.status(M(`✅ Skeleton applied: ${this.wheels.length} wheels${tr > 0 ? `, ${tr} tracks` : ''}${bl.length > 0 ? ', blade' : ''}. Fix any area with ⇧ Shift + drag, ★ rate (4–5 ★ are learned), then export.`,
+      `✅ Đã áp khung xương: ${this.wheels.length} bánh${tr > 0 ? `, ${tr} dải xích` : ''}${bl.length > 0 ? ', lưỡi ủi' : ''}. Vùng nào sai thì ⇧ Shift + kéo để sửa, ★ chấm điểm (4–5 ★ được học), rồi xuất file.`, '✅ 적용됨'))
+    return true
   }
 
   private clear_rig (): void {
@@ -2559,8 +3259,70 @@ class VehicleApp {
       const tb = door_bone[j]; if (m.kind !== 'track' || tb === null) return
       const code = DOOR0 + j; const pts: P2[] = []; let xs = 0
       this.parts.forEach(p => { const pos = p.mesh.geometry.getAttribute('position'); for (let i = 0; i < pos.count; i++) if (p.owner[i] === code) { pts.push([pos.getZ(i), pos.getY(i)]); xs += pos.getX(i) } })
-      const loop = belt_loop(pts); if (loop === null) return
       const x = xs / pts.length
+      // 🛞 the belt runs round the wheels of its side: with 2+ wheels there, points far from those wheels (a bar or the
+      // cab taken into the track part by mistake) neither shape the loop nor get a link; they stay on the body
+      const side_ws = this.wheels.filter(w => Math.sign(w.center.x) === Math.sign(x) && Math.abs(w.center.x) > S.x * 0.12)
+      let wband = wheel_band(side_ws)
+      // the belt must go all the way round its own white pieces: when the wheels found are not the ones it runs round
+      // (most of the track part lies outside their band), the loop comes from the track part itself, not the wheels
+      if ((m as any).band !== undefined || (m as any).shoes !== undefined) wband = null // the belt was traced from its own shoes / band: the loop follows them, not the wheels
+      if (wband !== null) { const lim = wband.thick / 0.62 * 0.6; let inb = 0; for (const q of pts) { const d = wband.loop.sdist(q); if (d < lim && d > -lim) inb++ } if (inb < pts.length * 0.6) wband = null }
+      const near = (z: number, y: number, px: number): boolean => wband === null || (wband.loop.sdist([z, y]) < wband.thick / 0.62 * 0.45 && px > wband.x0 - wband.thick && px < wband.x1 + wband.thick)
+      const traced = (m as any).band !== undefined || (m as any).shoes !== undefined
+      const kept = wband === null ? (traced ? pts.filter(q => q[1] < S.y * 0.42) : pts) : (() => { const out: P2[] = []; this.parts.forEach(p => { const pos = p.mesh.geometry.getAttribute('position'); for (let i = 0; i < pos.count; i++) if (p.owner[i] === code && near(pos.getZ(i), pos.getY(i), pos.getX(i))) out.push([pos.getZ(i), pos.getY(i)]) }); return out })()
+      // the links run round the wheels themselves (the hull of the wheel circles); without 2 wheels on that side, round the belt's own points
+      const loop0 = wband !== null ? wband.loop : belt_loop(kept.length >= 8 ? kept : pts); if (loop0 === null) return
+      // 🧩 every connected piece of the track part is decided WHOLE: it rides the belt only when (nearly) all of it lies on the
+      // belt band; a piece mostly inside a wheel's disc spins with that wheel; anything else (track frame, rollers' axle,
+      // a push arm) stays still. Deciding per point tore pieces half on / half off the belt (long stretched triangles).
+      const in_disc = (z: number, y: number, px: number): Wheel | undefined => side_ws.find(q => Math.hypot(z - q.center.z, y - q.center.y) < q.radius * 0.85 && (wband === null || Math.abs(px - q.center.x) < wband.thick * 1.5))
+      const piece_kind = new Map<string, number>() // >= 0: that wheel, -1: belt, -2: still
+      const ref_loop = wband !== null ? wband.loop : loop0 // what 'on the belt' is measured against
+      const ref_lim = wband !== null ? wband.thick / 0.62 * 0.6 : (() => { let a = Infinity; let b = -Infinity; for (const q of (kept.length >= 8 ? kept : pts)) { a = Math.min(a, q[1]); b = Math.max(b, q[1]) } return Math.max(1e-6, (b - a) * 0.28) })()
+      {
+        const cnt = new Map<string, { n: number, ok: number, wh: Map<number, number>, bins: Set<number>, lo: number, hi: number, ad: number }>()
+        this.parts.forEach(p => {
+          if (!p.owner.includes(code)) return
+          const pos = p.mesh.geometry.getAttribute('position')
+          let comp = this.comp_cache.get(p); if (comp === undefined || comp.length !== pos.count) { comp = this.components(p); this.comp_cache.set(p, comp) }
+          const pi = this.parts.indexOf(p)
+          for (let i = 0; i < pos.count; i++) {
+            if (p.owner[i] !== code) continue
+            const key = `${pi}:${comp[i]}`; let c = cnt.get(key); if (c === undefined) { c = { n: 0, ok: 0, wh: new Map(), bins: new Set(), lo: 0, hi: 0, ad: 0 }; cnt.set(key, c) }
+            c.n++
+            const z = pos.getZ(i); const y = pos.getY(i); const px = pos.getX(i)
+            const w = in_disc(z, y, px)
+            { const d = ref_loop.sdist([z, y]); c.lo = Math.min(c.lo, d); c.hi = Math.max(c.hi, d); c.ad += Math.abs(d) }
+            if (w !== undefined) { const wi = this.wheels.indexOf(w); c.wh.set(wi, (c.wh.get(wi) ?? 0) + 1) } else if (near(z, y, px) && (wband === null || wband.loop.sdist([z, y]) > -wband.thick / 0.62 * 0.45)) { c.ok++; c.bins.add(Math.floor(loop0.param([z, y]) / loop0.len * 24) % 24) }
+          }
+        })
+        cnt.forEach((c, key) => {
+          let bw = -1; let bn = 0; c.wh.forEach((n, wi) => { if (n > bn) { bn = n; bw = wi } })
+          // on the belt = a small piece (a shoe: <= 3 of 24 steps round the loop) or the whole ring (>= 17 of 24); a long bar
+          // half way round (the track frame, a skid) is not the belt even when it lies in the band
+          const shoe_or_ring = c.bins.size <= 3 || c.bins.size >= 17
+          // and no end of it sticks out of the band (a rod standing up from the belt)
+          const lim = ref_lim
+          const inside_band = c.hi < lim && c.lo > -lim
+          // a long run of the belt (top / bottom run welded in one piece) lies ON the outline; a frame lies deeper inside
+          const on_outline = c.ad / Math.max(1, c.n) < lim * 0.4
+          piece_kind.set(key, c.ok >= c.n * 0.9 && (shoe_or_ring || on_outline) && inside_band ? -1 : bn >= c.n * 0.5 ? bw : -2)
+        })
+      }
+      const kind_of = (p: Part, i: number): number => piece_kind.get(`${this.parts.indexOf(p)}:${this.comp_cache.get(p)![i]}`) ?? -2
+      // ⛓ the links run on the belt itself (the side-view hull of the pieces that ride it), not on the wheels' hull: when the
+      // real belt sits higher / longer than the wheels (a raised sprocket, idlers), links on the wheel hull dragged the shoes
+      // off the belt, out of the white track part
+      const loop = (() => {
+        if (wband === null) { const qs = kept.length >= 8 ? kept : pts; let y0 = Infinity; let y1 = -Infinity; for (const q of qs) { y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]) } return wrap_loop(loop0, qs, (y1 - y0) * 0.35) }
+        const bp: P2[] = []
+        this.parts.forEach(p => { if (!p.owner.includes(code)) return; const pos = p.mesh.geometry.getAttribute('position'); for (let i = 0; i < pos.count; i++) if (p.owner[i] === code && kind_of(p, i) === -1) bp.push([pos.getZ(i), pos.getY(i)]) })
+        const hb = bp.length >= 24 ? belt_loop(bp) : null
+        // hug the belt where it is not convex (a raised sprocket: the top run dips between the sprocket and the idler)
+        const bl = hb !== null ? wrap_loop(hb, bp, wband.thick / 0.62 * 1.6) : null
+        return bl !== null && bl.len > loop0.len * 0.6 && bl.len < loop0.len * 1.6 ? bl : loop0
+      })()
       // a belt made of separate link pieces: one bone per link, the piece rides it rigidly (blending a link
       // between two bones bends it round the sprocket = jagged, torn-looking teeth)
       const pieces = new Map<string, { p: Part, c: number, z: number, y: number, n: number }>()
@@ -2569,7 +3331,7 @@ class VehicleApp {
         const pos = p.mesh.geometry.getAttribute('position')
         let comp = this.comp_cache.get(p); if (comp === undefined || comp.length !== pos.count) { comp = this.components(p); this.comp_cache.set(p, comp) }
         for (let i = 0; i < pos.count; i++) {
-          if (p.owner[i] !== code) continue
+          if (p.owner[i] !== code || kind_of(p, i) !== -1) continue
           const key = `${this.parts.indexOf(p)}:${comp[i]}`; let e = pieces.get(key); if (e === undefined) { e = { p, c: comp[i], z: 0, y: 0, n: 0 }; pieces.set(key, e) }
           e.z += pos.getZ(i); e.y += pos.getY(i); e.n++
         }
@@ -2579,13 +3341,16 @@ class VehicleApp {
       const N = rigid ? plist.length : m.links ?? Math.max(16, Math.min(64, Math.round(loop.len / (wr * 0.4))))
       const pivot = poses[j]!.pivot
       const links: THREE.Bone[] = []; const s0: number[] = []
+      // ✋ links dragged by hand: the rig is BOUND on the reshaped loop (like moving bones in edit mode, then binding),
+      // so the model does not move at rest; driving, the belt runs along the new path
+      const bloop = this.shape_of(loop, N, m.loop_edit ?? []); const sc = bloop.len / loop.len
       for (let i = 0; i < N; i++) {
-        const s = rigid ? plist[i].s : i * loop.len / N; const at = loop.at(s)
+        const s = rigid ? plist[i].s : i * loop.len / N; const at = bloop.at(s * sc)
         const b = new THREE.Bone(); b.name = `${m.name}_${String(i).padStart(2, '0')}`
         b.position.set(x - pivot.x, at.p[1] - pivot.y, at.p[0] - pivot.z); b.quaternion.copy(tangent_quat(at.t))
         tb.add(b); links.push(b); s0.push(s)
       }
-      tracks.push({ links, s0, loop, x, pivot, side: x >= 0 ? 1 : -1 })
+      tracks.push({ links, s0: s0.map(v => v * sc), loop: bloop, x, pivot, side: x >= 0 ? 1 : -1, base: loop, s0_base: s0.slice(), j })
       const piece_of = new Map<string, number>(); plist.forEach((e, k) => piece_of.set(`${this.parts.indexOf(e.p)}:${e.c}`, k))
       ;(m as any).found_links = N
       this.parts.forEach(p => {
@@ -2594,8 +3359,11 @@ class VehicleApp {
         for (let i = 0; i < pos.count; i++) {
           if (p.owner[i] !== code) continue
           if (e === undefined) { e = { a: new Int32Array(pos.count).fill(-1), b: new Int32Array(pos.count), w: new Float32Array(pos.count) }; belt.set(p, e) }
+          const kd = kind_of(p, i)
+          if (kd >= 0) { e.a[i] = -3; e.b[i] = kd; continue } // a piece inside a wheel's disc (bolts, hub, roller): spins with that wheel
+          if (kd === -2) { e.a[i] = -2; continue } // not the belt (frame, arm, a stray bar): stays still, whole
           if (rigid) { const k = piece_of.get(`${this.parts.indexOf(p)}:${this.comp_cache.get(p)![i]}`) ?? 0; e.a[i] = e.b[i] = this.bone_slot(links[k]); e.w[i] = 0; continue }
-          const f = loop.param([pos.getZ(i), pos.getY(i)]) / loop.len * N
+          const f = bloop.param([pos.getZ(i), pos.getY(i)]) / bloop.len * N
           const i0 = Math.floor(f) % N
           e.a[i] = this.bone_slot(links[i0]); e.b[i] = this.bone_slot(links[(i0 + 1) % N]); e.w[i] = f - Math.floor(f)
         }
@@ -2614,6 +3382,7 @@ class VehicleApp {
       for (let i = 0; i < n; i++) {
         const o = p.owner[i]
         const e = belt.get(p)
+        if (e !== undefined && e.a[i] === -3 && wheels[e.b[i]] !== undefined) { si[i * 4] = bi(wheels[e.b[i]]); sw[i * 4] = 1; continue }
         if (e !== undefined && e.a[i] >= 0) { si[i * 4] = bi(link_bone(e.a[i])); sw[i * 4] = 1 - e.w[i]; si[i * 4 + 1] = bi(link_bone(e.b[i])); sw[i * 4 + 1] = e.w[i]; continue }
         const b = o >= DOOR0 ? (door_bone[o - DOOR0] ?? body) : o >= 0 ? (wheels[o] ?? body) : body
         si[i * 4] = bi(b); sw[i * 4] = 1
@@ -2641,9 +3410,10 @@ class VehicleApp {
     })
     this.slot_bones = []
     this.rig = { root, body, wheels, steers, mechs, skinned, tracks }
+    this.apply_loop_edits() // links dragged by hand: the belt follows the reshaped loop (bound on the original one)
     if (this.show_bones_on) this.show_bones(true)
     this.clips = [...this.make_clips(), ...this.clone_clips()]
-    this.mixer = new THREE.AnimationMixer(this.holder)
+    this.mixer = new THREE.AnimationMixer(root) // the rig only: the hidden source meshes can carry the same names (wheel_FL…) and would take the keys instead of the bones
     this.render_anim_list()
     $('vh-anim-box').classList.remove('disabled')
     this.play(0)

@@ -27,12 +27,14 @@ import * as THREE from 'three'
 import { type Bone, type Skeleton } from 'three'
 import { type Mesh2MotionEngine } from '../../Mesh2MotionEngine.ts'
 import { Utility } from '../../lib/Utilities.ts'
+import { ModelCleanupUtility } from '../../lib/processes/load-model/ModelCleanupUtility.ts'
 import { SkeletonType } from '../../lib/enums/SkeletonType.ts'
 import { scan_humanoid, type BodyLandmarks } from './BodyScan.ts'
 import { rigify_metarig_script, download_text } from '../export/RigifyMetarig.ts'
 import { send_to_playtest, send_character } from '../common/SendCharacter.ts'
 import { WeightPaint } from '../skin/WeightPaint.ts'
 import { analyze, draw_analysis, model_geometries, type Analysis, type Branch, type AnchorKind } from './ModelAnalyzer.ts'
+import { FreeTransform } from './FreeTransform.ts'
 import { sample_points, CAGE, build_capsules, estimate_radii, apply_settings, type Capsule } from '../skin/CageWeights.ts'
 
 type Mode = 'idle' | 'marquee' | 'drag' | 'keygrab'
@@ -129,7 +131,34 @@ export class EasyRig {
   private hidden_for_regions: THREE.Object3D | null = null
 
   private pose: PoseControls | null = null
+  /** ⬚ free transform box (T): move / scale / rotate the selected joints (all when none) */
+  private readonly ft: FreeTransform
   constructor (private readonly engine: Mesh2MotionEngine) {
+    this.ft = new FreeTransform({
+      camera: () => this.engine.camera,
+      canvas: () => this.engine.renderer.domElement,
+      bones: () => this.skeleton().bones,
+      moving: () => {
+        if (this.selected.size === 0) return new Set(this.skeleton().bones) // nothing picked: the whole skeleton, both sides
+        this.compute_moving(); return new Set(this.moving)
+      },
+      apply: (t) => this.apply_world_targets(t),
+      begin_undo: () => this.engine.edit_skeleton_step.store_bone_state_for_undo(),
+      done: () => { this.engine.edit_skeleton_step.dispatchEvent(new CustomEvent('skeletonTransformed')); this.update_status() },
+      orbit: (on) => this.orbit_enabled(on),
+      mirror: (moved) => {
+        const es = this.engine.edit_skeleton_step
+        if (!es.is_mirror_mode_enabled()) return
+        const done = new Set<Bone>()
+        moved.forEach(b => { const m = es.find_mirror_bone(b); if (m !== undefined && !done.has(m) && !moved.has(m)) { es.apply_mirror_mode(b, 'translate'); done.add(m) } })
+      },
+      lang: () => ui_lang(),
+      extra: (moving) => {
+        const es = this.engine.edit_skeleton_step
+        if (!es.is_mirror_mode_enabled()) return []
+        return [...moving].map(b => es.find_mirror_bone(b)).filter((m): m is Bone => m !== undefined && !moving.has(m))
+      }
+    })
     CUSTOM_RIG.final_bones = () => this.engine.weight_skin_step.skeleton()?.bones ?? []
     TWIST.skeleton = () => this.engine.weight_skin_step.skeleton() ?? null
     mount_clone_rig(this.engine) // 🧬 the guided "rig file -> my model" panel
@@ -162,8 +191,76 @@ export class EasyRig {
     cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(loop)
   }
 
+  /** ⬚ open the free transform box on the selected joints (every joint when none is selected) */
+  public free_transform (): void {
+    if (this.ft.active) { this.ft.commit(); return }
+    if (this.mode !== 'idle') return
+    this.ft.open()
+  }
+
+  /** ⟲ Free transform (T): every number back to zero, like Blender's Apply All Transforms. The model's own rotation /
+   *  scale go into its vertices, it stands on the ground (lowest point y = 0) centred on x = z = 0, and the joints move
+   *  with it: the exported file opens upright in Blender / Unity, rotation 0 0 0, scale 1. Then it says which way the
+   *  model faces against the arrow (+Z): a model that is turned away gets a turn button. */
+  public zero_transform (): void {
+    const model = this.engine.load_model_step.model_meshes(); const skel = this.skeleton()
+    if (model === undefined || model === null) return
+    model.updateMatrixWorld(true)
+    let had = 0
+    const q0 = new THREE.Quaternion()
+    model.traverse(o => { if (o.quaternion.angleTo(q0) > 1e-5 || Math.abs(o.scale.x - 1) + Math.abs(o.scale.y - 1) + Math.abs(o.scale.z - 1) > 1e-5 || o.position.lengthSq() > 1e-10) had++ })
+    if (had > 0) ModelCleanupUtility.bake_transforms_into_geometry(model)
+    const box = new THREE.Box3().setFromObject(model); if (box.isEmpty()) return
+    const c = box.getCenter(new THREE.Vector3()); const d = new THREE.Vector3(-c.x, -box.min.y, -c.z)
+    const move = d.length() > box.getSize(new THREE.Vector3()).length() * 1e-4
+    if (move) ModelCleanupUtility.translate_model_vertices(model as any, d.x, d.y, d.z)
+    if (skel !== undefined && skel.bones.length > 0 && move) {
+      this.engine.edit_skeleton_step.store_bone_state_for_undo()
+      const targets = new Map<Bone, THREE.Vector3>(); skel.bones.forEach(b => targets.set(b, Utility.world_position_from_object(b).add(d)))
+      this.apply_world_targets(targets); this.engine.edit_skeleton_step.dispatchEvent(new CustomEvent('skeletonTransformed'))
+    }
+    this.last_model_box = null; this.schedule_cage()
+    const face = this.facing()
+    const msg = M(`⟲ Free transform: ${had > 0 ? `${had} transform(s) baked into the mesh, ` : ''}rotation 0 0 0 · scale 1 · standing on the ground at the centre. ${face}`,
+      `⟲ Free transform: ${had > 0 ? `đã đưa ${had} phép xoay / scale vào lưới, ` : ''}xoay 0 0 0 · scale 1 · đứng trên mặt đất, giữa gốc toạ độ. ${face}`, `⟲ 트랜스폼 초기화: 회전 0 · 스케일 1. ${face}`)
+    const st = document.getElementById('easy-rig-auto-notes'); if (st !== null) { st.style.display = ''; st.textContent = msg }
+  }
+  /** which way the model faces against the forward arrow (+Z), from the left / right joints */
+  private facing (): string {
+    const skel = this.skeleton(); if (skel === undefined) return ''
+    let l = 0; let r = 0; let nl = 0; let nr = 0
+    skel.bones.forEach(b => {
+      const n = b.name; const x = Utility.world_position_from_object(b).x
+      if (/(\.|_|-|\b)(l|left)$|^(l|left)[_.\- ]|left/i.test(n)) { l += x; nl++ } else if (/(\.|_|-|\b)(r|right)$|^(r|right)[_.\- ]|right/i.test(n)) { r += x; nr++ }
+    })
+    if (nl === 0 || nr === 0) return ''
+    const dx = l / nl - r / nr
+    if (Math.abs(dx) < 1e-4) return M('Facing: unclear (left and right joints overlap) — turn it with ↻ 90°.', 'Hướng: chưa rõ (khớp trái / phải chồng nhau) — xoay bằng ↻ 90°.', '방향 불명확')
+    return dx > 0 ? M('Facing the arrow (+Z) ✓', 'Đang nhìn đúng hướng mũi tên (+Z) ✓', '정면 ✓') : M('⚠ Facing AWAY from the arrow: press ↻ 180°.', '⚠ Model đang quay LƯNG lại mũi tên: bấm ↻ 180°.', '⚠ 반대 방향: ↻ 180°')
+  }
+  /** turn the model AND its joints together round the vertical (y) or the side (x) axis, about the model's centre on the ground */
+  public turn_model (axis: 'x' | 'y', deg: number): void {
+    const model = this.engine.load_model_step.model_meshes(); const skel = this.skeleton(); if (model === undefined || model === null) return
+    model.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(model); if (box.isEmpty()) return
+    const c = box.getCenter(new THREE.Vector3()); const piv = new THREE.Vector3(c.x, axis === 'y' ? 0 : c.y, c.z)
+    ModelCleanupUtility.translate_model_vertices(model as any, -piv.x, -piv.y, -piv.z)
+    ModelCleanupUtility.rotate_model_geometry(model as any, axis, deg)
+    ModelCleanupUtility.translate_model_vertices(model as any, piv.x, piv.y, piv.z)
+    if (skel !== undefined && skel.bones.length > 0) {
+      this.engine.edit_skeleton_step.store_bone_state_for_undo()
+      const q = new THREE.Quaternion().setFromAxisAngle(axis === 'y' ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(deg))
+      const targets = new Map<Bone, THREE.Vector3>(); skel.bones.forEach(b => targets.set(b, Utility.world_position_from_object(b).sub(piv).applyQuaternion(q).add(piv)))
+      this.apply_world_targets(targets); this.engine.edit_skeleton_step.dispatchEvent(new CustomEvent('skeletonTransformed'))
+    }
+    if (axis === 'x') this.zero_transform() // stood up: back on the ground
+    else { const st = document.getElementById('easy-rig-auto-notes'); if (st !== null) { st.style.display = ''; st.textContent = this.facing() } }
+    this.last_model_box = null; this.schedule_cage()
+  }
+
   public on_exit (): void {
     if (!this.active) return
+    if (this.ft.active) this.ft.commit()
     this.active = false
     this.mode = 'idle'
     this.selected.clear()
@@ -473,6 +570,7 @@ export class EasyRig {
   /* ---------------- pointer handling (called from EventListeners) ---------------- */
   public handle_down (e: PointerEvent): boolean {
     if (!this.active) return false
+    if (this.ft.active) { if (e.button === 0) { this.ft.commit(); e.preventDefault(); return true } return false } // a left click outside the box applies it; right-drag still turns the view
     if (this.mode === 'keygrab') { // G move: left = confirm, right = cancel (like Blender)
       if (e.button === 2) this.cancel_key_grab(); else this.confirm_key_grab()
       e.preventDefault(); return true
@@ -512,6 +610,7 @@ export class EasyRig {
       e.preventDefault(); return true
     }
     this.last_mouse = { clientX: e.clientX, clientY: e.clientY }
+    if (this.ft.active) return false
     if (this.mode === 'drag') { this.move_group(e); e.preventDefault(); return true }
     if (this.mode === 'keygrab') { this.move_key_grab(e); e.preventDefault(); return true }
     // idle: remember the joint under the cursor so its name can be shown
@@ -571,6 +670,8 @@ export class EasyRig {
     if (e.ctrlKey || e.metaKey) return // leave Ctrl+Z etc. to the app
     if (k === 'a') { e.preventDefault(); this.quick_select(e.altKey ? 'none' : 'all'); return }
     if (k === 'g') { e.preventDefault(); this.start_key_grab(); return }
+    if (k === 't') { e.preventDefault(); this.zero_transform(); return } // ⟲ Free transform = everything back to 0
+    if (k === 'b' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); this.free_transform(); return } // ⬚ the box round the joints
     if (k === 'f' || e.code === 'NumpadDecimal') { e.preventDefault(); this.frame_selection(); return }
     const view = ({ Digit1: 'front', Numpad1: 'front', Digit3: 'right', Numpad3: 'right', Digit7: 'top', Numpad7: 'top' } as Record<string, string>)[e.code]
     if (view !== undefined) { e.preventDefault(); this.view_axis(view, e.altKey || e.shiftKey) }
@@ -871,7 +972,8 @@ export class EasyRig {
     this.drag_plane.setFromNormalAndCoplanarPoint(n, this.grab_start)
 
     // which bones move: every selected bone, plus children of selected bones unless "move children" is off
-    const independent = this.engine.edit_skeleton_step.independent_bone_movement.is_enabled()
+    // (Ctrl / ⌘ held at the start of the drag flips the switch for this drag)
+    const independent = this.engine.edit_skeleton_step.independent_bone_movement.is_enabled() !== (e.ctrlKey || e.metaKey)
     this.moving.clear()
     const has_selected_ancestor = (b: THREE.Object3D): boolean => {
       let p = b.parent
@@ -1620,15 +1722,22 @@ export class EasyRig {
       <details><summary style="font-size:12px;cursor:pointer;opacity:.85">❓ How to move joints</summary>
       <ol style="margin:4px 0 0;padding-left:18px;font-size:12px;line-height:1.5">
         <li>Left-drag on empty space to box-select joints (they turn orange).</li>
-        <li>Drag any orange joint to move the whole group onto the model.</li>
+        <li>Drag one joint: only that joint moves. Hold Ctrl / ⌘ while dragging (or tick "Children follow") to move its whole branch.</li>
+        <li>Drag any orange joint to move the whole selected group onto the model.</li>
         <li>Right-drag: rotate view · Wheel: zoom · Middle-drag or Shift + right-drag: pan · Esc: deselect.</li>
         <li>Finger joints: click one (or box-select) and drag it, like any joint.</li>
+        <li>⟲ Free transform (T): every number back to 0 (rotation 0 0 0, scale 1, on the ground at the centre) so the file opens upright in Blender; the joints follow. ↻ turns the model to face the arrow.</li>
+        <li>⬚ Box (B): a box round the selection (or the whole skeleton): move, scale (Shift = proportional), rotate, Enter to apply.</li>
       </ol></details>
       <button id="easy-rig-fit" type="button">🔍 Scan model &amp; place joints</button>
+      <button id="easy-rig-zero" type="button" title="Like Blender's Apply All Transforms: rotation 0 0 0, scale 1, the model on the ground at the centre, the joints follow. Key: T">⟲ Free transform: back to 0 (T)</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="easy-rig-turn90" type="button" class="secondary-button" title="Turn the model and its joints 90° round the vertical axis">↻ 90°</button><button id="easy-rig-turn180" type="button" class="secondary-button" title="Turn the model and its joints to face the other way">↻ 180°</button><button id="easy-rig-stand" type="button" class="secondary-button" title="The model lies down: stand it up (90° round the side axis)">⇅ Stand up</button></div>
+      <button id="easy-rig-ft" type="button" class="secondary-button" title="A box round the selected joints (all joints when none is selected): drag inside to move, corners / edges to scale (Shift keeps proportions, Alt from the centre), the round knob to rotate. Enter = apply, Esc = cancel. Key: B">⬚ Box: move / scale joints (B)</button>
       <div style="font-size:12px;opacity:.8">Quick select</div>
       <div id="easy-rig-quick" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       <div id="easy-rig-auto-notes" style="display:none;font-size:12px;line-height:1.5;padding:6px 8px;border-radius:6px;background:rgba(71,114,179,.25)"></div>
       <div id="easy-rig-status" style="font-size:12px;opacity:.85">No joints selected</div>
+      <label style="display:flex;gap:6px;align-items:center;font-size:13px" title="Off: dragging a joint moves only that joint. On: the joints after it (children) move with it. Ctrl / ⌘ while dragging does the opposite for one drag."><input type="checkbox" id="easy-rig-children"> Children follow the dragged joint</label>
       <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="easy-rig-labels"> Show all joint names</label>
 <details style="border-top:1px solid rgba(255,255,255,.15);padding-top:6px"><summary style="font-weight:700;cursor:pointer">⌨ Mouse, keys, Rigify</summary><div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Mouse &amp; keys
@@ -1636,7 +1745,7 @@ export class EasyRig {
           <option value="greenbox">Greenbox (right-drag rotates)</option>
           <option value="blender">Blender (middle-drag / Alt+left rotates, G move)</option>
         </select></label>
-      <div style="font-size:11px;opacity:.75;line-height:1.45">G move (X/Y/Z lock, click OK, right-click cancel) · A all · Alt+A none · F frame · 1 / 3 / 7 front / side / top (Alt: opposite) · Ctrl+Z undo</div>
+      <div style="font-size:11px;opacity:.75;line-height:1.45">G move (X/Y/Z lock, click OK, right-click cancel) · T free transform (box: move / scale / rotate) · A all · Alt+A none · F frame · 1 / 3 / 7 front / side / top (Alt: opposite) · Ctrl+Z undo</div>
       <button type="button" class="secondary-button" id="easy-rig-rigify" style="padding:4px 10px;font-size:12px">🦴 Rigify meta-rig only (.py) · full kit after Finish</button></div></details>
       <div id="easy-rig-cage-box" style="display:flex;flex-direction:column;gap:6px"><details style="border-top:1px solid rgba(255,255,255,.15);padding-top:6px"><summary style="font-weight:700;cursor:pointer">🧩 Anatomy cage <span style="font-weight:400;opacity:.7;font-size:12px">(skin weights · advanced)</span></summary><div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
         <div style="font-size:12px;opacity:.8">Invisible tubes around each body part decide which bone moves which skin. Only used while rigging, not exported.</div>
@@ -1700,6 +1809,21 @@ export class EasyRig {
     groups.forEach(g => mk(g.id, g.label))
     mk('all', 'All'); mk('none', 'Deselect')
     ;(p.querySelector('#easy-rig-fit') as HTMLButtonElement).onclick = () => { this.fit_to_model() }
+    ;(p.querySelector('#easy-rig-ft') as HTMLButtonElement).onclick = () => { this.free_transform() }
+    ;(p.querySelector('#easy-rig-zero') as HTMLButtonElement).onclick = () => { this.zero_transform() }
+    ;(p.querySelector('#easy-rig-turn90') as HTMLButtonElement).onclick = () => { this.turn_model('y', 90) }
+    ;(p.querySelector('#easy-rig-turn180') as HTMLButtonElement).onclick = () => { this.turn_model('y', 180) }
+    ;(p.querySelector('#easy-rig-stand') as HTMLButtonElement).onclick = () => { this.turn_model('x', -90) }
+    // 🦴 "children follow": the same switch as the expert "Move Bone Children" Yes / No (off by default: one joint moves alone)
+    const kids = p.querySelector('#easy-rig-children') as HTMLInputElement
+    const yes = document.getElementById('independent-bone-movement') as HTMLInputElement | null
+    const no = document.getElementById('independent-bone-movement-no') as HTMLInputElement | null
+    kids.checked = yes?.checked ?? false
+    kids.onchange = () => {
+      if (yes !== null && no !== null) { yes.checked = kids.checked; no.checked = !kids.checked; document.getElementById('independent-bone-movement-group')?.dispatchEvent(new Event('change', { bubbles: true })) }
+      this.engine.edit_skeleton_step.independent_bone_movement.set_enabled(!kids.checked)
+    }
+    document.getElementById('independent-bone-movement-group')?.addEventListener('change', () => { kids.checked = yes?.checked ?? false })
     const con = p.querySelector('#easy-rig-cage-on') as HTMLInputElement
     con.checked = CAGE.enabled
     con.onchange = () => { CAGE.enabled = con.checked; this.draw_cage() }

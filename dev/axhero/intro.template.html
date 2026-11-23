@@ -128,6 +128,30 @@ code{background:rgba(255,255,255,.08);border-color:var(--line);color:#dafbe6}
 
 /* the team loop: six steps round a circle, the hub in the middle */
 .loopc{position:relative;height:1290px;margin-top:8px}
+/* ✨ showcase: input -> output tiles */
+.cangrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:14px}
+.can{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:9px;padding:16px;border-radius:15px;background:var(--card);border:1px solid var(--line);box-shadow:0 3px 6px rgba(0,0,0,.16);transition:transform .25s,border-color .25s,box-shadow .25s}
+.can:hover,.can:focus-visible{transform:translateY(-3px);border-color:rgba(79,237,137,.6);box-shadow:0 10px 28px rgba(0,0,0,.28)}
+.can .ci{font-size:26px;line-height:1}.can b{font-size:17px;color:var(--ink)}
+.can .io{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:stretch}
+.can .io .in,.can .io .out{font-size:13px;line-height:1.4;padding:8px 9px;border-radius:10px}
+.can .io .in{background:rgba(255,255,255,.05);border:1px dashed var(--line);color:var(--mut)}
+.can .io .out{background:rgba(79,237,137,.1);border:1px solid rgba(79,237,137,.45);color:#c9ffe0}
+.can .io .ar{align-self:center;font:900 20px/1 Roboto,sans-serif;color:var(--acc)}
+.can .cd{font-size:13.5px;line-height:1.5;color:var(--mut)}
+.can .where{font-size:12px;color:var(--mut);margin-top:auto}.can .where>span:last-child{color:var(--acc);font-weight:700}
+@media (max-width:520px){.can .io{grid-template-columns:1fr}.can .io .ar{transform:rotate(90deg);justify-self:center}}
+/* ✏️ loop layout editor (open the page with ?edit) */
+.loopedit{display:none;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.loopedit.show{display:flex}
+.loopedit button{font:600 13px Roboto,sans-serif;color:var(--ink);background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:10px;padding:7px 12px;cursor:pointer}
+.loopedit button.on{background:rgba(79,237,137,.18);border-color:var(--acc);color:#c9ffe0}
+.loopedit .hint{font-size:12.5px;color:var(--mut)}
+.loopc.editing .step,.loopc.editing .hub{cursor:grab;outline:1px dashed rgba(79,237,137,.7);outline-offset:3px;user-select:none}
+.loopc.editing .step.drag,.loopc.editing .hub.drag{cursor:grabbing;outline-style:solid;z-index:5}
+.loopc .hgrip{display:none;position:absolute;left:0;right:0;bottom:-10px;height:14px;cursor:ns-resize;border-radius:7px;background:repeating-linear-gradient(90deg,rgba(79,237,137,.5) 0 8px,transparent 8px 14px)}
+.loopc.editing .hgrip{display:block}
+
 .loopc .ring{position:absolute;inset:0;width:100%;height:100%}
 .loopc .hub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:250px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
 .loopc .hub b{font:900 64px/1 Roboto,sans-serif;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -172,15 +196,291 @@ code{background:rgba(255,255,255,.08);border-color:var(--line);color:#dafbe6}
 .shot.main{cursor:grab;touch-action:pan-y}.shot.main.drag{cursor:grabbing}
 .shot.main img{-webkit-user-drag:none;user-select:none}
 @media (max-width:760px){.thumbs>div{flex-basis:150px}.tstrip button{display:none}}
+.dgal{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px;margin-top:16px}.dgal figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}.dgal img{display:block;width:100%;height:auto}.dgal figcaption{padding:10px 12px;font-size:13px;color:var(--mut);line-height:1.5}
 </style>
-</head>
+<!--intro-glass--><link id="gb-glass-fonts" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"><style id="intro-glass">
+/* Emerald glass for the intro page: same tokens as the cockpit. Solid emerald instead of gradients (text, badges),
+   frosted cards, bold upright titles, one lantern glow behind the hero. */
+:root{--bg:#08090a;--card:rgba(24,27,30,.5);--line:rgba(255,255,255,.13);--ink:#f3f5f6;--mut:rgba(222,228,232,.62);--acc:#2fe98b;--acc2:#5ff2a8;--grad:#2fe98b;--soft:rgba(255,255,255,.06);
+  --g-blur:blur(18px) saturate(140%);--g-hi:inset 0 1px 0 rgba(255,255,255,.07);--g-glow:0 0 0 1px rgba(47,233,139,.55),0 6px 22px -6px rgba(47,233,139,.55)}
+body{background:radial-gradient(1000px 560px at 50% -200px,rgba(47,233,139,.06),transparent 70%),radial-gradient(800px 700px at 0% 100%,rgba(255,255,255,.025),transparent 70%),var(--bg)!important;background-attachment:fixed!important;
+  font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important;-webkit-font-smoothing:antialiased;word-break:keep-all}
+html[lang=vi] body,html[lang=vi] body *{font-family:"Be Vietnam Pro",-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important}
+body :where(code,pre,kbd){font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace!important}
+a{color:var(--acc2)}
+header{background:rgba(8,9,10,.62)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border-bottom:1px solid var(--line)!important}
+.brand i{background:var(--acc)!important;box-shadow:0 0 12px rgba(47,233,139,.8)!important}
+.lang{border:1px solid var(--line)!important;border-radius:12px!important;background:rgba(255,255,255,.04)}
+.lang button[aria-pressed=true]{background:rgba(255,255,255,.12)!important;color:#fff!important}
+.hero h1{font-style:normal!important;font-weight:700!important;letter-spacing:-.025em!important}
+h2{font-weight:700!important;letter-spacing:-.02em}
+.num,.step .who,.vid.ba .balbl>span{background:var(--acc)!important;color:#03140b!important;box-shadow:0 0 14px -2px rgba(47,233,139,.7)}
+.big,.loopc .hub b{background:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;color:var(--acc)!important;text-shadow:0 0 24px rgba(47,233,139,.35)}
+.tags span{background:rgba(255,255,255,.05)!important;border-color:var(--line)!important;border-radius:12px!important;color:var(--mut)!important}
+.card,.vid,.step,.fv{background:var(--card)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid var(--line)!important;border-radius:20px!important;box-shadow:var(--g-hi)!important}
+.shot{border-radius:16px!important;border-color:var(--line)!important;background:#0d0f11!important}
+.chat{background:rgba(0,0,0,.25)!important;border-color:var(--line)!important;border-radius:16px!important}
+.chat .a{color:var(--acc)!important}
+code{background:rgba(255,255,255,.07)!important;border-color:var(--line)!important}
+.step .ai{background:rgba(47,233,139,.10)!important}
+:is(.shot.main .mprev,.shot.main .mnext,.tstrip button,#lb button){background:rgba(11,12,14,.6)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid rgba(255,255,255,.24)!important}
+:is(.shot.main .mprev,.shot.main .mnext,.tstrip button,#lb button):hover{background:var(--acc)!important;color:#03140b!important}
+.thumbs{scrollbar-color:rgba(255,255,255,.25) transparent!important}
+#lb,.fv.big{background:rgba(2,6,5,.94)!important}
+:is(a,button,video):focus-visible{outline:2px solid var(--acc)!important;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition-duration:100ms!important}}
+/* the hero kept the wrap's max width but lost its side gutter (.hero padding wins): 24 px, 16 px on phones */
+.wrap.hero{padding-left:24px!important;padding-right:24px!important}
+@media (max-width:760px){.wrap.hero{padding-left:16px!important;padding-right:16px!important}}
+
+/* ===== round 42: layouts section, glass motion ===== */
+#gb-orbs{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+#gb-orbs i{position:absolute;border-radius:50%;filter:blur(60px);opacity:.5;animation:gb-drift 38s ease-in-out infinite alternate}
+#gb-orbs i:nth-child(1){width:520px;height:520px;left:-120px;top:10%;background:radial-gradient(circle,rgba(255,255,255,.07),transparent 70%)}
+#gb-orbs i:nth-child(2){width:460px;height:460px;right:-140px;top:45%;background:radial-gradient(circle,rgba(47,233,139,.07),transparent 70%);animation-duration:46s;animation-delay:-12s}
+#gb-orbs i:nth-child(3){width:380px;height:380px;left:35%;top:80%;background:radial-gradient(circle,rgba(160,190,255,.05),transparent 70%);animation-duration:52s;animation-delay:-25s}
+@keyframes gb-drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(60px,-40px) scale(1.08)}100%{transform:translate(-40px,30px) scale(.96)}}
+.rv{opacity:0;transform:translateY(22px) scale(.985);transition:opacity 650ms cubic-bezier(.2,.7,.2,1) var(--d,0ms),transform 650ms cubic-bezier(.2,.7,.2,1) var(--d,0ms)}
+.rv.in{opacity:1;transform:none}
+/* the loop steps are placed with transform: fade only */
+.rvo{opacity:0;transition:opacity 700ms cubic-bezier(.2,.7,.2,1) var(--d,0ms)}.rvo.in{opacity:1}
+h2.rv::after{content:'';display:block;height:2px;width:0;margin-top:10px;border-radius:2px;background:linear-gradient(90deg,var(--acc),rgba(255,255,255,.5));transition:width 900ms cubic-bezier(.2,.7,.2,1) 200ms}
+h2.rv.in::after{width:56px}
+.hero h1{animation:gb-rise 900ms cubic-bezier(.2,.7,.2,1) both}.hero p{animation:gb-rise 900ms cubic-bezier(.2,.7,.2,1) 120ms both}
+@keyframes gb-rise{from{opacity:0;transform:translateY(18px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+/* layouts */
+.lnote{margin:0 0 14px!important}
+.lchips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
+.lchip{appearance:none;border:1px solid rgba(255,255,255,.14);background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.03) 50%),rgba(24,27,30,.5);color:rgba(236,240,243,.82);
+  border-radius:999px;padding:7px 14px;font:600 13px/1 inherit;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.2);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);transition:background 150ms,color 150ms,transform 150ms}
+.lchip:hover{background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.05) 50%),rgba(36,40,44,.6);color:#fff}
+.lchip:active{transform:scale(.97)}
+.lchip[aria-pressed=true]{color:#03140b;background:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,.15) 45%,transparent 56%),rgba(47,233,139,.86);border-color:rgba(255,255,255,.6)}
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;perspective:900px}
+.lyt{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;cursor:pointer;color:#f3f5f6;padding:16px 16px 14px;border-radius:18px;min-height:178px;overflow:hidden;
+  border:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.02) 42%),rgba(20,23,26,.55);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 14px 30px -18px rgba(0,0,0,.8);font:inherit;transform-style:preserve-3d;
+  transition:opacity 650ms cubic-bezier(.2,.7,.2,1) var(--d,0ms),transform 650ms cubic-bezier(.2,.7,.2,1) var(--d,0ms),border-color 200ms,box-shadow 200ms}
+.lyt.in{transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg))}
+.lyt.in.tilt{transition:transform 120ms ease-out,border-color 200ms,box-shadow 200ms}
+.lyt::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity 200ms;background:radial-gradient(260px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,.14),transparent 60%)}
+.lyt:hover{border-color:rgba(255,255,255,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 20px 40px -18px rgba(0,0,0,.85),0 0 0 1px rgba(47,233,139,.18)}
+.lyt:hover::before{opacity:1}
+.lyt .lg{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(222,228,232,.5)}
+.lyt .ic{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:13px;font-size:20px;color:#f3f5f6;
+  background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 0 0 1px rgba(255,255,255,.08);transition:transform 300ms cubic-bezier(.2,.7,.2,1),color 200ms,background 200ms}
+.lyt .ic svg{width:21px;height:21px}
+.lyt:hover .ic{transform:translateZ(30px) translateY(-2px) rotate(-4deg);color:#5ff2a8;background:linear-gradient(180deg,rgba(47,233,139,.25),rgba(47,233,139,.06))}
+.lyt b{font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:1.3;transform:translateZ(16px)}
+.lyt .ld{font-size:13px;line-height:1.55;color:rgba(236,240,243,.68);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.lyt .go{margin-top:auto;font-size:12px;font-weight:600;color:rgba(95,242,168,.0);transform:translateY(6px);transition:color 200ms,transform 200ms}
+.lyt:hover .go,.lyt:focus-visible .go{color:#5ff2a8;transform:none}
+.lyt.novid .go{display:none}
+.lyt.hide{display:none}
+/* ✨ "What Greenbox does" tiles: the same liquid glass as the layout cards (round 62) */
+.cangrid{perspective:900px}
+.can{position:relative!important;overflow:hidden;color:#f3f5f6!important;border-radius:18px!important;
+  border:1px solid rgba(255,255,255,.12)!important;background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.02) 42%),rgba(20,23,26,.55)!important;-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 14px 30px -18px rgba(0,0,0,.8)!important;transform-style:preserve-3d;
+  transition:opacity 650ms cubic-bezier(.2,.7,.2,1) var(--d,0ms),transform 650ms cubic-bezier(.2,.7,.2,1) var(--d,0ms),border-color 200ms,box-shadow 200ms!important}
+.can.in{transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg))}
+.can.in.tilt{transition:transform 120ms ease-out,border-color 200ms,box-shadow 200ms!important}
+.can::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity 200ms;background:radial-gradient(260px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,.14),transparent 60%)}
+.can:hover,.can:focus-visible{border-color:rgba(255,255,255,.24)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 20px 40px -18px rgba(0,0,0,.85),0 0 0 1px rgba(47,233,139,.18)!important}
+.can:hover::before{opacity:1}
+.can .ci{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:13px;font-size:20px;color:#f3f5f6;
+  background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 0 0 1px rgba(255,255,255,.08);transition:transform 300ms cubic-bezier(.2,.7,.2,1),color 200ms,background 200ms}
+.can .ci svg{width:21px;height:21px}
+.can:hover .ci{transform:translateZ(30px) translateY(-2px) rotate(-4deg);color:#5ff2a8;background:linear-gradient(180deg,rgba(47,233,139,.25),rgba(47,233,139,.06))}
+.can b{font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:1.3;transform:translateZ(16px)}
+.can .io .in{border:1px solid rgba(255,255,255,.12)!important;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.14);color:rgba(236,240,243,.72)!important;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.can .io .out{border:1px solid rgba(47,233,139,.38)!important;background:linear-gradient(180deg,rgba(47,233,139,.2),rgba(47,233,139,.05))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 0 18px -8px rgba(47,233,139,.6);color:#dfffee!important;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.can .io .ar{color:#5ff2a8!important;text-shadow:0 0 12px rgba(47,233,139,.6)}
+.can .cd{color:rgba(236,240,243,.68)!important}
+.can .where{color:rgba(222,228,232,.5)!important}.can .where>span:last-child{color:#5ff2a8!important}
+.loopedit button{border-radius:999px!important;border:1px solid rgba(255,255,255,.16)!important;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.03))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.2);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:#f3f5f6!important}
+.loopedit button.on{border-color:rgba(47,233,139,.6)!important;background:linear-gradient(180deg,rgba(47,233,139,.3),rgba(47,233,139,.08))!important}
+#lmodal{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(4,5,6,.6);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;transition:opacity 200ms}
+#lmodal[hidden]{display:none}#lmodal.on{opacity:1}
+#lmodal .lbox{position:relative;width:min(760px,100%);max-height:calc(100vh - 32px);overflow:auto;border-radius:22px;padding:14px;border:1px solid rgba(255,255,255,.16);
+  background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.02) 40%),rgba(16,18,20,.82);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 30px 60px -20px rgba(0,0,0,.8);
+  transform:translateY(16px) scale(.97);transition:transform 250ms cubic-bezier(0,0,.2,1)}
+#lmodal.on .lbox{transform:none}
+#lmodal video{display:block;width:100%;max-height:62vh;border-radius:14px;background:#000;object-fit:contain}
+#lmodal .lmt{display:flex;align-items:center;gap:10px;margin:14px 4px 6px;font-size:18px}
+#lmodal .lmt .ic{display:inline-flex;width:34px;height:34px;align-items:center;justify-content:center;border-radius:10px;background:rgba(47,233,139,.14);color:#5ff2a8}
+#lmodal .lmd{margin:0 4px 6px;color:rgba(236,240,243,.75);line-height:1.6;font-size:14px}
+#lmodal .lx{position:absolute;top:22px;right:22px;z-index:2;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(10,12,14,.6);color:#fff;cursor:pointer;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+@media (max-width:760px){.lgrid{grid-template-columns:1fr 1fr;gap:10px}.lyt{min-height:150px;padding:12px}.lyt .ld{-webkit-line-clamp:2}}
+@media (max-width:420px){.lgrid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.rvo{opacity:1!important;transition:none!important}.rv,.lyt{opacity:1!important;transform:none!important;transition:none!important}#gb-orbs i,.hero h1,.hero p{animation:none!important}}
+/* the round diagram overflows between 980 and 1120 px wide: use the list layout there too */
+@media (max-width:1120px){.loopc{height:auto;display:flex;flex-direction:column;gap:14px}.loopc .ring{display:none}.loopc .hub{position:static;transform:none;width:auto;order:7;padding:12px;border:1px dashed var(--acc);border-radius:15px}.step{position:static;width:auto;transform:none}}
+/* download the full tool */
+.getbox{margin:22px 0 0;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.getbtn{display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 20px 12px 14px;border-radius:16px;font:700 16px/1.2 inherit;color:#03140b!important;text-decoration:none;cursor:pointer;
+  border:1px solid rgba(255,255,255,.7);background:linear-gradient(180deg,rgba(255,255,255,.62) 0%,rgba(255,255,255,.18) 44%,rgba(255,255,255,0) 56%,rgba(0,90,45,.14) 100%),rgba(47,233,139,.86);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -3px 10px rgba(0,90,45,.3),0 10px 26px -12px rgba(47,233,139,.7);transition:transform 150ms cubic-bezier(0,0,.2,1),filter 200ms}
+.getbtn:hover{filter:brightness(1.06)}.getbtn:active{transform:scale(.98)}
+.getbtn img.fi{width:30px;height:30px;filter:drop-shadow(0 2px 4px rgba(0,60,30,.4))}
+.getbtn small{flex-basis:100%;text-align:left;font:600 12px/1.3 inherit;color:rgba(3,20,11,.65);margin-left:40px}
+.getbtn.off{cursor:default;color:#f3f5f6!important;border-color:rgba(255,255,255,.18);background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.03) 50%),rgba(30,33,37,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+.getbtn.off small{color:rgba(222,228,232,.6)}.getbtn.off:active{transform:none}
+.hero .getsub,.getsub{margin:0!important;font-size:13px!important;line-height:1.55;color:var(--mut);max-width:640px}
+.lyt .ic img.fi{width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}
+.lyt .ic:has(img.fi){background:none!important;box-shadow:none!important;width:46px;height:46px}
+.lyt:hover .ic:has(img.fi){background:none}
+#lmodal .lmt .ic img.fi{width:30px;height:30px}#lmodal .lmt .ic:has(img.fi){background:none}
+/* ===== round 44: glass video cards + glass arrows, a little more lantern green ===== */
+:root{--lq-card:linear-gradient(180deg,rgba(255,255,255,.13) 0%,rgba(255,255,255,.04) 38%,rgba(47,233,139,.05) 70%,rgba(47,233,139,.11) 100%),rgba(14,26,21,.52);
+  --lq-edge:rgba(170,255,214,.20);--lq-hi:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -1px 0 rgba(47,233,139,.22),0 0 0 1px rgba(47,233,139,.06),0 18px 40px -22px rgba(0,0,0,.85),0 0 30px -14px rgba(47,233,139,.35)}
+body{background:radial-gradient(1000px 560px at 50% -200px,rgba(47,233,139,.13),transparent 70%),radial-gradient(800px 700px at 100% 60%,rgba(47,233,139,.05),transparent 70%),radial-gradient(800px 700px at 0% 100%,rgba(255,255,255,.025),transparent 70%),var(--bg)!important;background-attachment:fixed!important}
+.fv,.vid,.card{background:var(--lq-card)!important;border:1px solid var(--lq-edge)!important;box-shadow:var(--lq-hi)!important;-webkit-backdrop-filter:blur(20px) saturate(160%)!important;backdrop-filter:blur(20px) saturate(160%)!important;overflow:hidden}
+.fv{position:relative;padding:10px!important;border-radius:22px!important;transition:border-color 200ms,box-shadow 200ms,opacity 650ms cubic-bezier(.2,.7,.2,1) var(--d,0ms),transform 650ms cubic-bezier(.2,.7,.2,1) var(--d,0ms)!important}
+.fv::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.09) 48%,transparent 60%);background-size:260% 100%;background-position:130% 0;transition:background-position 900ms cubic-bezier(.2,.7,.2,1)}
+.fv:hover{border-color:rgba(170,255,214,.36)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.34),inset 0 -1px 0 rgba(47,233,139,.3),0 0 0 1px rgba(47,233,139,.14),0 22px 44px -22px rgba(0,0,0,.9),0 0 36px -12px rgba(47,233,139,.5)!important}
+.fv:hover::before{background-position:-60% 0}
+.fv video{border-radius:14px!important;display:block}
+.fv figcaption{padding:12px 6px 4px!important;color:#eef8f3!important}
+.fv figcaption svg.gbi{color:#7dffbf}
+/* round arrows on the big picture: liquid glass with a lantern edge */
+#mainshot :is(.mprev,.mnext){background:linear-gradient(180deg,rgba(255,255,255,.30) 0%,rgba(255,255,255,.08) 46%,rgba(47,233,139,.10) 56%,rgba(47,233,139,.22) 100%),rgba(12,26,20,.45)!important;
+  -webkit-backdrop-filter:blur(14px) saturate(170%)!important;backdrop-filter:blur(14px) saturate(170%)!important;border:1px solid rgba(220,255,238,.55)!important;color:#fff!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),inset 0 -3px 10px rgba(47,233,139,.35),0 0 22px -4px rgba(47,233,139,.6),0 10px 24px -10px rgba(0,0,0,.7)!important;text-shadow:0 1px 2px rgba(0,40,20,.5)}
+#mainshot :is(.mprev,.mnext):hover{background:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,.16) 45%,rgba(255,255,255,0) 56%),rgba(47,233,139,.78)!important;color:#03140b!important;text-shadow:none}
+:is(.tstrip button,#lb button){background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.05) 50%,rgba(47,233,139,.12)),rgba(12,26,20,.5)!important;border:1px solid rgba(220,255,238,.4)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 0 14px -4px rgba(47,233,139,.5)!important}
+.lyt{background:var(--lq-card)!important;border-color:var(--lq-edge)!important}
+.shot.main{border-color:var(--lq-edge)!important;box-shadow:var(--lq-hi)!important}
+
+/* ===== logo (round 44) ===== */
+.brand{display:inline-flex;align-items:center;gap:10px}
+.brand i{width:30px!important;height:30px!important;border-radius:0!important;background:url(data:image/webp;base64,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) center/contain no-repeat!important;box-shadow:none!important;filter:drop-shadow(0 0 10px rgba(47,233,139,.6))}
+.brand{background:linear-gradient(180deg,#ffffff 30%,#9ff5cb);-webkit-background-clip:text;background-clip:text;color:transparent!important}
+.brand i{-webkit-background-clip:border-box!important;background-clip:border-box!important}
+/* arrows: an SVG chevron in the exact centre (the ‹ › characters sat low / off-centre depending on the font) */
+:is(#mainshot .mprev,#mainshot .mnext,.tstrip .tl,.tstrip .tr,#lb .prev,#lb .next){display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0!important;line-height:0!important;font-size:0!important}
+:is(#mainshot .mprev,#mainshot .mnext,.tstrip .tl,.tstrip .tr,#lb .prev,#lb .next) svg.chev{width:46%;height:46%;flex:none;display:block;filter:drop-shadow(0 1px 1px rgba(0,30,15,.45))}
+#mainshot :is(.mprev,.mnext):hover svg.chev{filter:none}
+/* 💎 stronger glass (round 63): layout cards + showcase tiles — clearer body, light-catching rim, a sheen that
+   sweeps across on hover, and soft green light behind the grids so the blur has something to show */
+:is(.lyt,.can){background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.03) 38%,rgba(255,255,255,.015)),rgba(18,22,24,.34)!important;
+  -webkit-backdrop-filter:blur(22px) saturate(185%) brightness(1.06)!important;backdrop-filter:blur(22px) saturate(185%) brightness(1.06)!important;
+  border-color:rgba(255,255,255,.07)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.34),inset 0 -1px 0 rgba(255,255,255,.07),inset 0 0 26px rgba(255,255,255,.035),0 18px 36px -20px rgba(0,0,0,.85)!important;isolation:isolate}
+/* the rim: a gradient border, bright at the top-left like the edge of a glass pane */
+:is(.lyt,.can)::after{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;z-index:2;
+  background:linear-gradient(140deg,rgba(255,255,255,.62),rgba(255,255,255,.1) 32%,rgba(255,255,255,.04) 60%,rgba(95,242,168,.42));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.85;transition:opacity 200ms}
+:is(.lyt,.can):hover::after{opacity:1}
+/* light under the pointer + a diagonal sheen that sweeps across on hover */
+:is(.lyt,.can)::before{opacity:1!important;background:radial-gradient(260px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,.0),transparent 60%),linear-gradient(115deg,transparent 38%,rgba(255,255,255,.16) 47%,rgba(255,255,255,.04) 52%,transparent 60%)!important;
+  background-size:100% 100%,260% 100%!important;background-repeat:no-repeat!important;background-position:0 0,140% 0!important;transition:background-position 900ms cubic-bezier(.2,.7,.2,1)!important}
+:is(.lyt,.can):hover::before{background-image:radial-gradient(260px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,.16),transparent 60%),linear-gradient(115deg,transparent 38%,rgba(255,255,255,.16) 47%,rgba(255,255,255,.04) 52%,transparent 60%)!important;background-position:0 0,-40% 0!important}
+:is(.lyt,.can):hover{border-color:rgba(255,255,255,.12)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),inset 0 -1px 0 rgba(255,255,255,.08),inset 0 0 30px rgba(255,255,255,.05),0 24px 44px -20px rgba(0,0,0,.9),0 0 0 1px rgba(47,233,139,.22),0 0 34px -10px rgba(47,233,139,.35)!important}
+:is(.lyt,.can) .ic,.can .ci{box-shadow:inset 0 1px 0 rgba(255,255,255,.42),inset 0 -1px 0 rgba(255,255,255,.08),0 0 0 1px rgba(255,255,255,.1),0 6px 14px -8px rgba(0,0,0,.7)!important}
+.can .io .in,.can .io .out{box-shadow:inset 0 1px 0 rgba(255,255,255,.26),inset 0 -1px 0 rgba(255,255,255,.05)!important;-webkit-backdrop-filter:blur(12px) saturate(160%);backdrop-filter:blur(12px) saturate(160%)}
+/* soft green light drifting behind the two grids */
+#can .wrap,#layouts .wrap{position:relative;isolation:isolate}
+#can .wrap::before,#layouts .wrap::before{content:'';position:absolute;z-index:-1;inset:8% -4% 0;pointer-events:none;filter:blur(40px);opacity:.75;
+  background:radial-gradient(30% 34% at 18% 30%,rgba(47,233,139,.32),transparent 70%),radial-gradient(26% 30% at 78% 22%,rgba(150,245,223,.2),transparent 70%),radial-gradient(34% 30% at 60% 82%,rgba(47,233,139,.22),transparent 72%);
+  animation:gbGlassDrift 18s ease-in-out infinite alternate}
+@keyframes gbGlassDrift{from{transform:translate3d(-2%,-1%,0) scale(1)}to{transform:translate3d(2%,2%,0) scale(1.06)}}
+@media (prefers-reduced-motion:reduce){#can .wrap::before,#layouts .wrap::before{animation:none}:is(.lyt,.can)::before{transition:none!important}}
+/* 💎 the team loop in the same stronger glass (round 64): step boxes, their 🤖 / 🧑 notes, tool chips, the hub */
+.loopc{isolation:isolate}
+.loopc::before{content:'';position:absolute;z-index:-1;inset:6% 4%;pointer-events:none;filter:blur(46px);opacity:.8;
+  background:radial-gradient(22% 20% at 50% 12%,rgba(47,233,139,.26),transparent 70%),radial-gradient(20% 22% at 84% 34%,rgba(150,245,223,.18),transparent 70%),radial-gradient(22% 22% at 82% 72%,rgba(47,233,139,.2),transparent 70%),radial-gradient(22% 20% at 50% 90%,rgba(150,245,223,.16),transparent 70%),radial-gradient(22% 22% at 16% 70%,rgba(47,233,139,.22),transparent 70%),radial-gradient(20% 22% at 16% 30%,rgba(150,245,223,.18),transparent 70%),radial-gradient(18% 16% at 50% 50%,rgba(47,233,139,.22),transparent 70%);
+  animation:gbGlassDrift 20s ease-in-out infinite alternate}
+.loopc .step{overflow:hidden;isolation:isolate;
+  background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.03) 38%,rgba(255,255,255,.015)),rgba(18,22,24,.34)!important;
+  -webkit-backdrop-filter:blur(22px) saturate(185%) brightness(1.06)!important;backdrop-filter:blur(22px) saturate(185%) brightness(1.06)!important;
+  border-color:rgba(255,255,255,.07)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.34),inset 0 -1px 0 rgba(255,255,255,.07),inset 0 0 26px rgba(255,255,255,.035),0 18px 36px -20px rgba(0,0,0,.85)!important;
+  transition:box-shadow 250ms,border-color 250ms}
+.loopc .step::after{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;z-index:2;
+  background:linear-gradient(140deg,rgba(255,255,255,.62),rgba(255,255,255,.1) 32%,rgba(255,255,255,.04) 60%,rgba(95,242,168,.42));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.loopc .step::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;
+  background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.14) 47%,rgba(255,255,255,.04) 52%,transparent 60%);background-size:260% 100%;background-repeat:no-repeat;background-position:140% 0;transition:background-position 900ms cubic-bezier(.2,.7,.2,1)}
+.loopc .step:hover::before{background-position:-40% 0}
+.loopc .step:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.42),inset 0 -1px 0 rgba(255,255,255,.08),inset 0 0 30px rgba(255,255,255,.05),0 24px 44px -20px rgba(0,0,0,.9),0 0 0 1px rgba(47,233,139,.22),0 0 34px -10px rgba(47,233,139,.35)!important}
+.loopc .step .ai,.loopc .step .hu{border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -1px 0 rgba(255,255,255,.04);-webkit-backdrop-filter:blur(10px) saturate(150%);backdrop-filter:blur(10px) saturate(150%)}
+.loopc .step .ai{background:linear-gradient(180deg,rgba(47,233,139,.2),rgba(47,233,139,.06))!important;border-color:rgba(47,233,139,.28)}
+.loopc .step .hu{background:linear-gradient(180deg,rgba(255,207,58,.16),rgba(255,207,58,.04))!important;border-color:rgba(255,207,58,.24)}
+.loopc .step .tl i{border-radius:999px!important;border:1px solid rgba(95,242,168,.36)!important;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.02))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.24);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.loopc .hub{padding:22px 20px;border-radius:26px;
+  background:radial-gradient(120% 90% at 50% 0%,rgba(255,255,255,.12),rgba(255,255,255,.02) 55%),rgba(18,22,24,.3);-webkit-backdrop-filter:blur(22px) saturate(185%);backdrop-filter:blur(22px) saturate(185%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 0 30px rgba(47,233,139,.08),0 0 0 1px rgba(255,255,255,.07),0 0 40px -12px rgba(47,233,139,.4)}
+@media (prefers-reduced-motion:reduce){.loopc::before{animation:none}.loopc .step::before{transition:none}}
+/* ↺ loop intro (round 65): the light that runs round the ring; steps pop in as it arrives */
+.loopc .lpdot{position:absolute;z-index:3;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;pointer-events:none;background:#d9ffec;
+  box-shadow:0 0 10px 3px rgba(79,237,137,.95),0 0 28px 10px rgba(47,233,139,.45);transition:opacity 500ms}
+@media (min-width:1121px){.loopc .step.rvo{transform:translate(-50%,-50%) scale(.9);transition:opacity 600ms cubic-bezier(.2,.7,.2,1),transform 600ms cubic-bezier(.2,.9,.25,1.25),box-shadow 250ms,border-color 250ms!important}
+  .loopc .step.rvo.in{transform:translate(-50%,-50%) scale(1)}
+  .loopc .hub.rvo{transform:translate(-50%,-50%) scale(.85);transition:opacity 700ms,transform 700ms cubic-bezier(.2,.9,.25,1.2)}.loopc .hub.rvo.in{transform:translate(-50%,-50%) scale(1)}}
+</style><!--/intro-glass--></head>
 <body>
+<!-- ===== 🎬 opening: a Greenbox crystal box cracks open, light bursts out, the camera flies in to the page (once per visit) ===== -->
+<style>
+#gbopen{position:fixed;inset:0;z-index:9999;background:radial-gradient(120% 90% at 50% 45%,#0d2a1d 0%,#050807 62%,#020303 100%);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;transition:opacity .45s ease}
+#gbopen.out{opacity:0;pointer-events:none}
+#gbopen .stage{position:relative;width:340px;height:420px;display:flex;flex-direction:column;align-items:center;transform-origin:50% 42%}
+#gbopen .half{position:absolute;left:0;top:0;width:340px;height:300px;display:flex;align-items:center;justify-content:center;perspective:900px}
+#gbopen .hl{clip-path:polygon(0 0,50% 0,46% 22%,54% 38%,47% 53%,55% 68%,48% 84%,52% 100%,0 100%)}
+#gbopen .hr{clip-path:polygon(50% 0,100% 0,100% 100%,52% 100%,48% 84%,55% 68%,47% 53%,54% 38%,46% 22%)}
+#gbopen .cube{position:relative;width:150px;height:150px;transform-style:preserve-3d;animation:gbspin 3.4s cubic-bezier(.3,.1,.3,1) forwards}
+#gbopen .f{position:absolute;inset:0;border:2px solid rgba(214,255,234,.85);border-radius:10px;background:linear-gradient(135deg,rgba(190,255,224,.42),rgba(47,233,139,.14) 55%,rgba(10,80,48,.38));box-shadow:inset 0 0 38px rgba(47,233,139,.55),0 0 26px rgba(47,233,139,.35);backface-visibility:visible}
+#gbopen .f1{transform:translateZ(75px)}#gbopen .f2{transform:rotateY(180deg) translateZ(75px)}#gbopen .f3{transform:rotateY(90deg) translateZ(75px)}
+#gbopen .f4{transform:rotateY(-90deg) translateZ(75px)}#gbopen .f5{transform:rotateX(90deg) translateZ(75px)}#gbopen .f6{transform:rotateX(-90deg) translateZ(75px)}
+#gbopen .core{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;border-radius:50%;background:radial-gradient(circle,#fff 0%,#b9ffd9 30%,rgba(47,233,139,.55) 60%,rgba(47,233,139,0) 75%);animation:gbcore 3.4s ease-in forwards}
+@keyframes gbspin{0%{transform:rotateX(-22deg) rotateY(-30deg) translateY(10px)}35%{transform:rotateX(-22deg) rotateY(25deg) translateY(-6px)}46%{transform:rotateX(-22deg) rotateY(38deg)}48%{transform:rotateX(-22deg) rotateY(36deg) translateX(-3px)}50%{transform:rotateX(-22deg) rotateY(40deg) translateX(3px)}52%,100%{transform:rotateX(-22deg) rotateY(38deg)}}
+@keyframes gbcore{0%,30%{transform:scale(.6);opacity:.55}50%{transform:scale(1.25);opacity:1}100%{transform:scale(1.5);opacity:1}}
+#gbopen .hl{animation:gbleft 3.4s cubic-bezier(.5,0,.2,1) forwards}#gbopen .hr{animation:gbright 3.4s cubic-bezier(.5,0,.2,1) forwards}
+@keyframes gbleft{0%,52%{transform:none}72%,100%{transform:translate(-120px,18px) rotate(-14deg);opacity:.95}}
+@keyframes gbright{0%,52%{transform:none}72%,100%{transform:translate(120px,18px) rotate(14deg);opacity:.95}}
+#gbopen svg.crack{position:absolute;left:0;top:0;width:340px;height:300px;overflow:visible;pointer-events:none}
+#gbopen svg.crack polyline{fill:none;stroke:#eafff3;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px #2fe98b) drop-shadow(0 0 14px #2fe98b);stroke-dasharray:420;stroke-dashoffset:420;animation:gbcrack 3.4s ease-out forwards}
+@keyframes gbcrack{0%,28%{stroke-dashoffset:420;opacity:1}46%{stroke-dashoffset:0;opacity:1}54%,100%{stroke-dashoffset:0;opacity:0}}
+#gbopen .burst{position:absolute;left:50%;top:150px;width:60px;height:60px;margin:-30px 0 0 -30px;border-radius:50%;background:radial-gradient(circle,#fff 0%,#d9ffe9 25%,rgba(47,233,139,.75) 55%,rgba(47,233,139,0) 72%);transform:scale(0);animation:gbburst 3.4s cubic-bezier(.6,0,.3,1) forwards}
+@keyframes gbburst{0%,50%{transform:scale(0)}70%{transform:scale(5)}100%{transform:scale(40)}}
+#gbopen .logo{position:absolute;top:300px;width:250px;opacity:0;transform:translateY(12px);animation:gblogo 3.4s ease forwards}
+@keyframes gblogo{0%,6%{opacity:0;transform:translateY(12px)}22%,55%{opacity:1;transform:none}70%,100%{opacity:0;transform:translateY(30px)}}
+#gbopen .stage{animation:gbcam 3.4s cubic-bezier(.7,0,.6,1) forwards}
+@keyframes gbcam{0%,58%{transform:scale(1)}100%{transform:scale(5.5)}}
+#gbopen .skip{position:absolute;right:18px;bottom:16px;color:rgba(230,255,240,.7);font:600 13px/1 system-ui,sans-serif;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:8px 14px}
+@media (prefers-reduced-motion:reduce){#gbopen{display:none}}
+</style>
+<div id="gbopen" aria-hidden="true">
+  <div class="stage">
+    <div class="half hl"><div class="cube"><div class="f f1"></div><div class="f f2"></div><div class="f f3"></div><div class="f f4"></div><div class="f f5"></div><div class="f f6"></div><div class="core"></div></div></div>
+    <div class="half hr"><div class="cube"><div class="f f1"></div><div class="f f2"></div><div class="f f3"></div><div class="f f4"></div><div class="f f5"></div><div class="f f6"></div><div class="core"></div></div></div>
+    <svg class="crack" viewBox="0 0 340 300"><polyline points="170,40 156,92 184,140 160,178 187,214 163,252 177,290"/><polyline points="184,140 214,128" style="stroke-width:2"/><polyline points="160,178 128,190" style="stroke-width:2"/></svg>
+    <div class="burst"></div>
+    <img class="logo" src="{{gb_logo.webp}}" alt="Greenbox">
+  </div>
+  <div class="skip">Bỏ qua ›</div>
+</div>
+<script>
+(function () {
+  const el = document.getElementById('gbopen'); if (!el) return;
+  let seen = false; try { seen = sessionStorage.getItem('gb.open') === '1'; sessionStorage.setItem('gb.open', '1'); } catch (e) {}
+  const done = () => { if (!el.parentNode) return; el.classList.add('out'); setTimeout(() => el.remove(), 480); document.documentElement.style.overflow = ''; };
+  if (seen || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.remove(); return; }
+  document.documentElement.style.overflow = 'hidden';
+  setTimeout(done, 3300);
+  el.addEventListener('click', done); addEventListener('keydown', done, { once: true });
+})();
+</script>
+<!-- ===== end opening ===== -->
+
 <header><div class="wrap">
   <div class="brand"><i></i>GREENBOX STUDIO</div>
   <nav>
     <a href="#s1"><span data-l="vi">Hình ảnh</span><span data-l="en">Screens</span><span data-l="ko">화면</span></a>
+    <a href="#can"><span data-l="vi">Tính năng</span><span data-l="en">Features</span><span data-l="ko">기능</span></a>
+    <a href="#drama">🎬 AI Drama</a>
+    <a href="#playable">🚜 Playable</a>
     <a href="#demo"><span data-l="vi">Video</span><span data-l="en">Demo</span><span data-l="ko">데모</span></a>
-    <a href="#all"><span data-l="vi">Tính năng</span><span data-l="en">Features</span><span data-l="ko">기능</span></a>
     <a href="#loop"><span data-l="vi">Quy trình</span><span data-l="en">Loop</span><span data-l="ko">루프</span></a>
     <a href="#s2"><span data-l="vi">Vấn đề</span><span data-l="en">Problem</span><span data-l="ko">문제</span></a>
     <a href="#s3"><span data-l="vi">Giải pháp</span><span data-l="en">Solution</span><span data-l="ko">해결</span></a>
@@ -199,17 +499,18 @@ code{background:rgba(255,255,255,.08);border-color:var(--line);color:#dafbe6}
   <p data-l="en">Greenbox Studio puts the slowest jobs of a video / playable-ad team in one tool: joystick, HP bar, gacha, steering wheel… exported straight as transparent .MOV; automatic rigging of people, animals and vehicles; sounds placed on the hits. Claude can drive all of it through MCP.</p>
   <p data-l="ko">영상 / 플레이어블 광고 팀의 가장 시간이 걸리는 작업을 하나로: 조이스틱, HP 바, 가챠, 핸들… 투명 .MOV로 바로 내보내기; 사람·동물·차량 자동 리깅; 타격 지점에 사운드 배치. Claude가 MCP로 전부 조작합니다.</p>
   <div class="tags"><span>HTML · WebGL (three.js)</span><span>GLB / FBX</span><span>.MOV alpha</span><span>MCP · Claude Code</span><span>VI / EN / KO</span></div>
+  <!--DOWNLOAD-->
 </div>
 
 <section id="s1"><div class="wrap">
   <h2><span class="num">1</span><span data-l="vi">Hình ảnh dịch vụ</span><span data-l="en">Service screens</span><span data-l="ko">서비스 화면</span></h2>
   <div class="shot main" id="mainshot"><img alt="Wheel & pedals driven by the AI" data-cap-en="Cockpit · Wheel &amp; pedals: the AI drove the wheel and pedals from the video itself (steering line and gas on the timeline). Standard image sizes to generate on the right." src="{{drive_en.webp}}">
-    <button class="mprev" aria-label="Previous picture">‹</button><button class="mnext" aria-label="Next picture">›</button><div class="mdots"></div></div>
+    <button class="mprev" aria-label="Previous picture"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 18-6-6 6-6"/></svg></button><button class="mnext" aria-label="Next picture"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 18 6-6-6-6"/></svg></button><div class="mdots"></div></div>
   <p class="cap mcap" data-l="vi">Cockpit · Vô lăng &amp; bàn đạp: AI tự lái theo video (đường lái và ga hiện trên timeline). Bên phải: xuất MP4 / .MOV alpha và kích thước ảnh chuẩn để gen.</p>
   <p class="cap mcap" data-l="en">Cockpit · Wheel &amp; pedals: the AI drove the wheel and pedals from the video itself (steering line and gas on the timeline). Right: MP4 / alpha .MOV export and the standard image sizes to generate.</p>
   <p class="cap" id="mcap-dyn" style="display:none"></p>
   <p class="cap mcap" data-l="ko">콕핏 · 핸들 & 페달: AI가 영상만 보고 핸들과 페달을 조작 (타임라인에 조향·가속). 오른쪽: MP4 / 알파 .MOV, 생성용 표준 크기.</p>
-  <div class="tstrip"><button class="tl" aria-label="Scroll left">‹</button><button class="tr" aria-label="Scroll right">›</button>
+  <div class="tstrip"><button class="tl" aria-label="Scroll left"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 18-6-6 6-6"/></svg></button><button class="tr" aria-label="Scroll right"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 18 6-6-6-6"/></svg></button>
   <div class="thumbs">
     <div><div class="shot"><img alt="SMASH DOWN" data-cap-en="SMASH DOWN: draw the wall, shoot it with real physics, record a 9:16 blockout for Seedance." src="{{g_smash.webp}}"></div><p class="cap">SMASH DOWN</p></div>
     <div><div class="shot"><img alt="Map building" data-cap-en="Map editor: whole map size, mountains, a river with water, a citadel with the character inside." src="{{g_castle.webp}}"></div><p class="cap">Map building</p></div>
@@ -232,6 +533,102 @@ code{background:rgba(255,255,255,.08);border-color:var(--line);color:#dafbe6}
   <p class="zoomhint"><span data-l="vi">🔍 Kéo ảnh lớn sang trái / phải (hoặc ‹ ›) để lướt; kéo dải ảnh nhỏ để xem hết các tính năng, bấm ảnh nhỏ để mở; bấm ảnh lớn để xem toàn màn hình.</span><span data-l="en">🔍 Drag the big picture left / right (or ‹ ›) to go through them; drag the strip of small pictures to see every feature, click one to show it; click the big picture for full screen.</span><span data-l="ko">🔍 큰 사진을 드래그(또는 ‹ ›); 아래 줄을 드래그해 모든 기능 보기; 썸네일 클릭; 큰 사진 클릭 = 전체 화면.</span></p>
 </div></section>
 
+<section id="can"><div class="wrap">
+  <h2>✨ <span data-l="vi">&nbsp;Greenbox làm được gì</span><span data-l="en">&nbsp;What Greenbox does</span><span data-l="ko">&nbsp;Greenbox로 할 수 있는 것</span></h2>
+  <p class="note lnote"><span data-l="vi">Mỗi ô: bạn đưa vào gì → nhận lại gì, và làm ở đâu. Bấm một ô để xem video quay thật.</span><span data-l="en">Each tile: what you put in → what you get back, and where. Click a tile to watch the real recording.</span><span data-l="ko">무엇을 넣으면 → 무엇이 나오는지. 클릭해 실제 영상 보기.</span></p>
+  <div class="cangrid">
+    <button class="can" type="button" data-open="rig"><span class="ci">🦴</span><b><span data-l="vi">Gắn xương tự động</span><span data-l="en">Auto rig</span><span data-l="ko">자동 리깅</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Model 3D chưa có xương (GLB · FBX · OBJ)</span><span data-l="en">A 3D model with no bones (GLB · FBX · OBJ)</span><span data-l="ko">본 없는 3D 모델</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Nhân vật có xương + 178 animation, xuất GLB / FBX</span><span data-l="en">A rigged character + 178 animations, GLB / FBX</span><span data-l="ko">리깅 캐릭터 + 애니메이션 178개</span></span></span>
+      <span class="cd"><span data-l="vi">Quét thân hình, tự đặt khớp và tính da; khớp nào lệch thì kéo lại bằng chuột.</span><span data-l="en">Scans the body, places the joints and skins it; drag any joint that is off.</span><span data-l="ko">몸을 스캔해 관절과 스킨을 자동으로.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Use Your Model</span><span data-l="en">Use Your Model</span><span data-l="ko">Use Your Model</span></span></button>
+    <button class="can" type="button" data-open="clonerig"><span class="ci">🧬</span><b><span data-l="vi">Clone rig</span><span data-l="en">Clone rig</span><span data-l="ko">리그 복제</span></b>
+      <span class="io"><span class="in"><span data-l="vi">1 model đã rig + 1 model chưa rig</span><span data-l="en">1 rigged model + 1 plain model</span><span data-l="ko">리깅 모델 + 일반 모델</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Model mới có cùng bộ xương và animation</span><span data-l="en">The plain model with the same skeleton and animations</span><span data-l="ko">같은 스켈레톤·애니메이션</span></span></span>
+      <span class="cd"><span data-l="vi">Copy rig của con vật / nhân vật này sang con khác cùng dáng (cá sấu → cá sấu).</span><span data-l="en">Copies the rig of one animal / character onto another of the same shape.</span><span data-l="ko">같은 형태끼리 리그 복사.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Use Your Model</span><span data-l="en">Use Your Model</span><span data-l="ko">Use Your Model</span></span></button>
+    <button class="can" type="button" data-open="retarget"><span class="ci">🕺</span><b><span data-l="vi">Model đã có xương</span><span data-l="en">Already rigged model</span><span data-l="ko">리깅된 모델</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Model có xương sẵn (Mixamo, Blender…)</span><span data-l="en">A model with its own bones (Mixamo, Blender…)</span><span data-l="ko">기존 본이 있는 모델</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Thư viện animation chạy trên xương gốc, xuất GLB / FBX</span><span data-l="en">The animation library on its own bones, GLB / FBX</span><span data-l="ko">원래 본으로 애니메이션</span></span></span>
+      <span class="cd"><span data-l="vi">Không rig lại: giữ nguyên xương của file, chỉ thêm animation.</span><span data-l="en">No re-rig: keeps the file’s skeleton and adds animations.</span><span data-l="ko">다시 리깅하지 않음.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Use Your Rigged Model</span><span data-l="en">Use Your Rigged Model</span><span data-l="ko">Use Your Rigged Model</span></span></button>
+    <button class="can" type="button" data-open="vehicle"><span class="ci">🚜</span><b><span data-l="vi">Rig xe</span><span data-l="en">Vehicle rig</span><span data-l="ko">차량 리그</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Model xe 3D (1 khối hoặc nhiều mảnh)</span><span data-l="en">A 3D vehicle (one block or many pieces)</span><span data-l="ko">3D 차량 모델</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Xe có xương: bánh lăn & bẻ lái, xích chạy, cửa, gầu, tháp pháo + animation</span><span data-l="en">A rigged vehicle: rolling / steering wheels, moving tracks, doors, bucket, turret + animations</span><span data-l="ko">바퀴·트랙·문·버킷 리그 + 애니메이션</span></span></span>
+      <span class="cd"><span data-l="vi">Tự cắt bánh, xích, lưỡi ủi; máy nhớ những rig bạn chấm ★ để lần sau đoán đúng hơn.</span><span data-l="en">Auto cut finds wheels, tracks, blade; it remembers the rigs you rate ★.</span><span data-l="ko">자동 분할, ★ 평가 학습.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Vehicles</span><span data-l="en">Vehicles</span><span data-l="ko">Vehicles</span></span></button>
+    <button class="can" type="button" data-open="mocap"><span class="ci">🎥</span><b><span data-l="vi">Mocap từ video</span><span data-l="en">Video mocap</span><span data-l="ko">영상 모캡</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Video 1 người (quay điện thoại)</span><span data-l="en">A video of one person (phone footage)</span><span data-l="ko">한 사람 영상</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Animation 3D chạy trên nhân vật của bạn, xuất GLB / FBX</span><span data-l="en">A 3D animation on your character, GLB / FBX</span><span data-l="ko">캐릭터 3D 애니메이션</span></span></span>
+      <span class="cd"><span data-l="vi">Nhân vật bắt chước người trong video, không cần bộ đồ mocap.</span><span data-l="en">Your character copies the person in the video, no mocap suit.</span><span data-l="ko">모캡 슈트 없이.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Video mocap</span><span data-l="en">Video mocap</span><span data-l="ko">Video mocap</span></span></button>
+    <button class="can" type="button" data-open="playtest"><span class="ci">🎮</span><b><span data-l="vi">Map & chơi thử</span><span data-l="en">Map & play test</span><span data-l="ko">맵 & 플레이 테스트</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Nhân vật / xe + sơ đồ 2D hoặc map tự dựng</span><span data-l="en">A character / vehicle + a 2D plan or a map you build</span><span data-l="ko">캐릭터 + 2D 플랜 또는 맵</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Map 3D chơi được (nhà nhiều tầng, núi, sông), video 9:16, playable HTML, gói Unity</span><span data-l="en">A playable 3D map (houses with floors, hills, rivers), 9:16 video, playable HTML, Unity package</span><span data-l="ko">플레이 가능한 3D 맵, 9:16 영상, Unity 패키지</span></span></span>
+      <span class="cd"><span data-l="vi">Đi lại, nhảy, leo, đánh bằng bàn phím; đặt camera, quay blockout cho team quảng cáo.</span><span data-l="en">Walk, jump, climb, fight with the keyboard; place cameras and record blockouts.</span><span data-l="ko">키보드로 플레이, 카메라 배치, 블록아웃 녹화.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Play test</span><span data-l="en">Play test</span><span data-l="ko">Play test</span></span></button>
+    <button class="can" type="button" data-open="smash"><span class="ci">🎯</span><b><span data-l="vi">SMASH DOWN</span><span data-l="en">SMASH DOWN</span><span data-l="ko">SMASH DOWN</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Bức tường lon / hộp vẽ tay</span><span data-l="en">A wall of cans / boxes you draw</span><span data-l="ko">직접 그린 캔·상자 벽</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Video blockout 9:16 (vật lý thật) → Seedance làm thành cảnh quảng cáo</span><span data-l="en">A 9:16 blockout with real physics → Seedance turns it into an ad scene</span><span data-l="ko">9:16 블록아웃 → Seedance 광고 장면</span></span></span>
+      <span class="cd"><span data-l="vi">Đổi chủ đề trong prompt là có map mới, cùng góc máy và cú bắn.</span><span data-l="en">Change the theme in the prompt for a new map, same camera and shots.</span><span data-l="ko">프롬프트만 바꾸면 새 맵.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">SMASH DOWN</span><span data-l="en">SMASH DOWN</span><span data-l="ko">SMASH DOWN</span></span></button>
+    <button class="can" type="button" data-open="joy"><span class="ci">🕹</span><b><span data-l="vi">Overlay video</span><span data-l="en">Video overlays</span><span data-l="ko">영상 오버레이</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Video gameplay</span><span data-l="en">A gameplay video</span><span data-l="ko">게임플레이 영상</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Video có joystick, thanh máu, đếm ngược, tiền… (MP4 phông xanh hoặc .MOV trong suốt)</span><span data-l="en">The video with joystick, HP bar, countdown, money… (green MP4 or transparent .MOV)</span><span data-l="ko">조이스틱·HP 바·카운트다운 (MP4 / 알파 .MOV)</span></span></span>
+      <span class="cd"><span data-l="vi">Bấm theo nhịp video là ghi lại; xuất lớp trong suốt để ghép ở phần mềm edit.</span><span data-l="en">Tap along the video to record; export a transparent layer for your editor.</span><span data-l="ko">영상에 맞춰 입력 → 투명 레이어.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Cockpit · Overlay</span><span data-l="en">Cockpit · Overlay</span><span data-l="ko">Cockpit · Overlay</span></span></button>
+    <button class="can" type="button" data-open="wheel"><span class="ci">🚗</span><b><span data-l="vi">Vô lăng & bàn đạp</span><span data-l="en">Wheel & pedals</span><span data-l="ko">핸들 & 페달</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Video lái xe</span><span data-l="en">A driving video</span><span data-l="ko">운전 영상</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Vô lăng + bàn đạp tự chuyển động theo video, xuất MP4</span><span data-l="en">Wheel + pedals moving with the video, MP4</span><span data-l="ko">영상에 맞춰 움직이는 핸들·페달</span></span></span>
+      <span class="cd"><span data-l="vi">AI đọc chuyển động của cảnh: trượt ngang = đánh lái, nhanh / chậm = ga / phanh.</span><span data-l="en">The AI reads the motion: sideways = steering, faster / slower = gas / brake.</span><span data-l="ko">AI가 움직임을 읽어 조작.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Cockpit · Drive</span><span data-l="en">Cockpit · Drive</span><span data-l="ko">Cockpit · Drive</span></span></button>
+    <button class="can" type="button" data-open="sfx"><span class="ci">🔊</span><b><span data-l="vi">Gắn SFX</span><span data-l="en">SFX sync</span><span data-l="ko">SFX 싱크</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Video gameplay</span><span data-l="en">A gameplay video</span><span data-l="ko">게임플레이 영상</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Video có âm thanh đặt đúng từng cú va chạm</span><span data-l="en">The video with a sound on every hit</span><span data-l="ko">타격마다 사운드가 들어간 영상</span></span></span>
+      <span class="cd"><span data-l="vi">Tự tìm điểm va chạm, 1 nút gắn cùng một âm vào tất cả.</span><span data-l="en">Finds the hits, one click puts the sound on all of them.</span><span data-l="ko">타격 지점 자동 검출.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Cockpit · SFX</span><span data-l="en">Cockpit · SFX</span><span data-l="ko">Cockpit · SFX</span></span></button>
+    <button class="can" type="button" data-open="endcard"><span class="ci">🏁</span><b><span data-l="vi">End card & carousel</span><span data-l="en">End card & carousel</span><span data-l="ko">엔드카드</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Icon game, logo, ảnh nút</span><span data-l="en">Game icon, logo, button picture</span><span data-l="ko">아이콘·로고·버튼</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">End card PLAY NOW! và carousel thẻ trên nền game mờ</span><span data-l="en">A PLAY NOW! end card and a card carousel over the blurred game</span><span data-l="ko">PLAY NOW! 엔드카드·캐러셀</span></span></span>
+      <span class="cd"><span data-l="vi">Kéo, neo, bắt dính như After Effects; xuất video.</span><span data-l="en">Drag, anchor and snap like After Effects; export the video.</span><span data-l="ko">After Effects처럼 배치.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Cockpit · End card</span><span data-l="en">Cockpit · End card</span><span data-l="ko">Cockpit · End card</span></span></button>
+    <button class="can" type="button" data-open="gbag"><span class="ci">🎁</span><b><span data-l="vi">Gacha</span><span data-l="en">Gacha</span><span data-l="ko">Gacha</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Ảnh vật phẩm / thẻ</span><span data-l="en">Item / card pictures</span><span data-l="ko">아이템·카드 이미지</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Màn xé túi mù, mở rương, chọn 1 trong N, có âm thanh</span><span data-l="en">Blind bag tear, lucky chest, pick 1 of N, with sound</span><span data-l="ko">블라인드 백·상자·카드 선택</span></span></span>
+      <span class="cd"><span data-l="vi">Con trỏ tự bấm theo kịch bản, xuất video sẵn dùng.</span><span data-l="en">The pointer taps by itself, ready-to-use video.</span><span data-l="ko">포인터 자동 탭.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Cockpit · Gacha</span><span data-l="en">Cockpit · Gacha</span><span data-l="ko">Cockpit · Gacha</span></span></button>
+    <button class="can" type="button" data-open="#mcp"><span class="ci">🤖</span><b><span data-l="vi">AI làm thay (MCP)</span><span data-l="en">AI does it (MCP)</span><span data-l="ko">AI 자동화 (MCP)</span></b>
+      <span class="io"><span class="in"><span data-l="vi">Một câu chat với Claude / Codex</span><span data-l="en">One chat message to Claude / Codex</span><span data-l="ko">Claude / Codex에 채팅 한 줄</span></span><span class="ar" aria-hidden="true">→</span><span class="out"><span data-l="vi">Greenbox tự làm các việc trên và báo lại trong khung chat bên cạnh</span><span data-l="en">Greenbox does the jobs above and reports in the side chat</span><span data-l="ko">Greenbox가 작업하고 사이드 채팅에 보고</span></span></span>
+      <span class="cd"><span data-l="vi">AI đề xuất, người duyệt: mọi bước hiện ra để bạn xem và sửa.</span><span data-l="en">The AI proposes, people approve: every step is shown.</span><span data-l="ko">AI 제안, 사람 승인.</span></span><span class="where"><span data-l="vi">Ở đâu:</span><span data-l="en">Where:</span><span data-l="ko">위치:</span> <span data-l="vi">Claude Code · Codex</span><span data-l="en">Claude Code · Codex</span><span data-l="ko">Claude Code · Codex</span></span></button>
+  </div>
+</div></section>
+
+<section id="drama"><div class="wrap">
+  <h2>🎬 <span data-l="vi">&nbsp;AI Drama — phần riêng của Greenbox</span><span data-l="en">&nbsp;AI Drama — a separate part of Greenbox</span><span data-l="ko">&nbsp;AI 드라마 — Greenbox의 별도 파트</span></h2>
+  <p class="note"><span data-l="vi">Giao diện kiểu DramaClaw nhưng gọn cho một người: ① dán truyện (~1000 từ), chọn thể loại, quốc gia, phong cách, phim lẻ (thời lượng) hoặc phim bộ (thời lượng 1 tập, số tập) → ② Claude viết kịch bản hoàn chỉnh (tập, nhịp 5 / 10 / 15 giây, lời thoại, prompt) → ③ nhân vật lấy tên từ kịch bản, sửa tên được, ảnh tạo trên Higgsfield (Claude làm) hoặc tải ảnh lên → ④ gen từng tập / từng nhịp, tập sau mở khi tập trước được duyệt, đủ 2 tập thì Claude đặt tên tập + gợi ý hook → ⑤ Claude ghép các clip thành tập hoàn chỉnh (ffmpeg). Mọi bước hiện trên Greenbox; khi Claude làm qua MCP, trang cập nhật theo thời gian thực.</span><span data-l="en">A DramaClaw-style interface made simple for one person: ① paste a story (~1000 words), pick genre, country, style, single film (length) or series (episode length, number of episodes) → ② Claude writes the full script (episodes, 5 / 10 / 15 s beats, lines, prompts) → ③ characters named from the script, renamable, pictures made on Higgsfield (by Claude) or uploaded → ④ generate one episode / beat at a time, the next opens when the previous is approved; after 2 episodes Claude names them and suggests hooks → ⑤ Claude joins the clips into a finished episode (ffmpeg). Everything happens in Greenbox; when Claude works over MCP the page updates live.</span><span data-l="ko">DramaClaw 스타일을 1인용으로 단순화: 이야기 → Claude 대본 → 캐릭터 (Higgsfield / 업로드) → 회차별 생성 → 클립 합치기. MCP 작업이 실시간으로 표시.</span></p>
+  <p><a class="getbtn" href="../drama.html" target="_blank" rel="noopener" style="display:inline-flex;margin-top:6px"><span data-l="vi">▶ Mở AI Drama</span><span data-l="en">▶ Open AI Drama</span><span data-l="ko">▶ AI 드라마 열기</span></a></p>
+  <div class="dgal">
+    <figure><img src="{{drama_story.webp}}" alt="" loading="lazy"><figcaption>① <span data-l="vi">Nguồn truyện: dán vài câu hoặc ~1000 từ, chọn phim bộ / lẻ, thể loại, quốc gia, thời lượng → “Claude viết kịch bản” (đang chạy qua MCP)</span><span data-l="en">Story: paste a few lines or ~1000 words, pick series / film, genre, country, length → “Claude writes the script” (running over MCP)</span><span data-l="ko">이야기 입력 → Claude 대본</span></figcaption></figure>
+    <figure><img src="{{drama_script.webp}}" alt="" loading="lazy"><figcaption>② <span data-l="vi">Kịch bản Claude viết: 5 tập × 6 nhịp 10 giây, có hành động, lời thoại, prompt video</span><span data-l="en">The script Claude wrote: 5 episodes × 6 beats of 10 s, with action, lines, video prompt</span><span data-l="ko">대본: 5화 × 6비트</span></figcaption></figure>
+    <figure><img src="{{drama_chars.webp}}" alt="" loading="lazy"><figcaption>③ <span data-l="vi">Nhân vật trong Greenbox Cockpit: 4 character sheet đã gắn, đèn “Claude listening”, tiếp theo là gen nhịp 1</span><span data-l="en">Characters in the Greenbox Cockpit: 4 sheets attached, “Claude listening”, next: beat 1</span><span data-l="ko">캐릭터 4명 완료 → 비트 1</span></figcaption></figure>
+    <figure><img src="{{drama_prod.webp}}" alt="" loading="lazy"><figcaption>④ <span data-l="vi">Sản xuất: nhịp 1 đã có clip video (Claude tạo trên Higgsfield từ character sheet), nhịp 2 mở “Gen nhịp này” — gen từng nhịp, không tốn credit thừa</span><span data-l="en">Production: beat 1 has its video clip (made by Claude on Higgsfield from the character sheet), beat 2 offers “Generate this beat” — one beat at a time, no wasted credits</span><span data-l="ko">제작: 비트 1 클립 완료, 비트 2 생성 대기</span></figcaption></figure>
+  </div>
+</div></section>
+
+<section id="playable"><div class="wrap">
+  <h2>🚜 <span data-l="vi">&nbsp;Playable “Bulldozer Master” — làm bằng Greenbox</span><span data-l="en">&nbsp;“Bulldozer Master” playable — made with Greenbox</span><span data-l="ko">&nbsp;“Bulldozer Master” 플레이어블 — Greenbox로 제작</span></h2>
+  <p class="note"><span data-l="vi">Từ gói model của game (xe ủi lăn, xe khoan, 3 khối quặng) tới một playable ad chơi được, 1 file HTML 3 MB. Xe khoan vào tường đá, ngọc văng vào thùng xe, bán ở thùng rác công trường, trả $ để xe tiến hoá thành mũi khoan, đào tiếp thạch anh và kim cương.</span><span data-l="en">From the game's model pack (roller crusher, drill crusher, 3 ore blocks) to a playable ad, one 3 MB HTML file. The bulldozer drills into a wall of ore, gems burst into its bin, sell them at the skip, pay $ to evolve it into the drill, dig on to amethyst and diamond.</span><span data-l="ko">게임 모델(롤러 크러셔, 드릴 크러셔, 광석 3종)에서 플레이 가능한 광고까지, HTML 하나 3 MB. 광석 벽을 뚫고 보석을 적재함에 담아 팔고, $로 드릴로 진화.</span></p>
+  <div class="vids">
+    <div class="vid"><video src="{{bd_make_s.mp4}}" autoplay muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🛠 <span data-l="vi">Quá trình làm trong Greenbox (Play test)</span><span data-l="en">Making it in Greenbox (Play test)</span><span data-l="ko">Greenbox 제작 과정</span></h3>
+      <p data-l="vi">① Thả model Bulldozer Master + quặng (giảm từ 20 MB còn ~100 KB mỗi khối) + đồ trang trí từ Cửa hàng model (Polyfork) → ② mặt bằng mỏ, đường tới quầy bán → ③ 2D plan: tường quặng đồng → thạch anh → kim cương, thùng bán, ô $ nâng cấp (tiến hoá) → ④ chơi thử → ⑤ xuất 1 file HTML + gói Unity có MonoBehaviour.</p>
+      <p data-l="en">① Drop in the Bulldozer Master models + ores (20 MB → ~100 KB each) + props from the Model shop (Polyfork) → ② quarry floor, roads to the sell point → ③ the 2D plan: an ore wall copper → amethyst → diamond, a sell skip, a $ upgrade pad (evolve) → ④ play test → ⑤ export one HTML + a Unity package with MonoBehaviours.</p>
+      <p data-l="ko">① 모델 + 광석 + Polyfork 소품 → ② 채석장 바닥 → ③ 2D 플랜: 광석 벽, 판매, $ 업그레이드(진화) → ④ 플레이 테스트 → ⑤ HTML + Unity 패키지.</p></div></div>
+    <div class="vid"><video src="{{bd_play_s.mp4}}" autoplay muted loop playsinline controls preload="metadata" style="max-height:520px;object-fit:contain;background:#0b1a14"></video><div class="vb"><h3>🎮 <span data-l="vi">Cảnh chơi, edit bằng layout Tiền của Greenbox</span><span data-l="en">Gameplay, edited with Greenbox's Money layout</span><span data-l="ko">게임플레이 + 돈 레이아웃 편집</span></h3>
+      <p data-l="vi">Video chơi thật của file playable; bộ đếm tiền (layout Tiền: mốc +$60 lúc bán ngọc, −$60 lúc nâng cấp) xuất phông xanh rồi ghép lên. Xe không leo lên đá, đào từng khối; khối khoá hiện “🔒 Nâng cấp mũi khoan”.</p>
+      <p data-l="en">The real playable being played; the money counter (Money layout: +$60 when gems are sold, −$60 at the upgrade) exported on green and laid over. The vehicle never climbs the rocks, digs one block at a time; locked blocks say “🔒 Upgrade the drill”.</p>
+      <p data-l="ko">실제 플레이 영상 + 돈 레이아웃(판매 +$60, 업그레이드 −$60) 그린 스크린 합성.</p>
+      <p><a class="getbtn" href="../rig3d/playtest.html" target="_blank" rel="noopener" style="display:inline-flex;margin-top:6px"><span data-l="vi">▶ Mở trang chơi thử</span><span data-l="en">▶ Open play test</span><span data-l="ko">▶ 플레이 테스트 열기</span></a></p></div></div>
+  </div>
+  <div class="cols" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px">
+    <div class="card"><b>⛏ OreDrill</b><p data-l="vi">MonoBehaviour cho khối quặng: rung, ngọc bắn vòng cung vào xe, vỡ rồi mọc lại.</p><p data-l="en">MonoBehaviour on an ore: shakes, gems arc into the vehicle, crumbles, grows back.</p><p data-l="ko">광석: 흔들림, 보석 아치, 부서짐, 재생성.</p></div>
+    <div class="card"><b>💵 SellNode</b><p data-l="vi">Ô bán: ngọc bay vào, cộng tiền theo giá từng loại (GBWallet).</p><p data-l="en">Sell node: gems fly in, money by each gem's value (GBWallet).</p><p data-l="ko">판매: 보석 → 돈 (GBWallet).</p></div>
+    <div class="card"><b>⬆ DrillUpgrade</b><p data-l="vi">Ô $: trả dần, đủ thì xe tiến hoá (khoan ×2) và mở khu mới.</p><p data-l="en">$ pad: pays bit by bit, then the vehicle evolves (drill ×2) and new areas open.</p><p data-l="ko">$ 패드: 진화 (드릴 ×2) + 새 구역.</p></div>
+    <div class="card"><b>🛒 Polyfork</b><p data-l="vi">Cửa hàng model trong Play test: 2 791 model low-poly miễn phí, chọn nhiều cái rồi thêm vào map.</p><p data-l="en">Model shop in Play test: 2,791 free low-poly models, pick several, add them to the map.</p><p data-l="ko">모델 상점: 2,791개 무료 로우폴리.</p></div>
+  </div>
+  <div class="cols" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px">
+    <div class="card"><b>✅ <span data-l="vi">Dùng Greenbox</span><span data-l="en">Done in Greenbox</span><span data-l="ko">Greenbox 사용</span></b>
+      <ul data-l="vi"><li>Play test: sơn nền mỏ, đường, đặt cây / đá / đồ Polyfork.</li><li>2D plan: tường quặng, ô bán, ô $ nâng cấp, dây mở khoá.</li><li>Chơi thử ngay trong tool, xuất 1 file HTML + gói Unity (MonoBehaviour) qua MCP.</li><li>Cửa hàng model Polyfork, layout Tiền để edit video gameplay.</li></ul>
+      <ul data-l="en"><li>Play test: quarry floor, roads, trees / rocks / Polyfork props.</li><li>2D plan: ore wall, sell node, $ upgrade pad, unlock wires.</li><li>Play test in the tool, export one HTML + a Unity package (MonoBehaviours) through MCP.</li><li>Polyfork model shop, the Money layout to edit the gameplay video.</li></ul>
+      <ul data-l="ko"><li>플레이 테스트: 바닥, 도로, 소품.</li><li>2D 플랜: 광석 벽, 판매, $ 업그레이드.</li><li>MCP로 HTML + Unity 패키지 내보내기.</li><li>Polyfork 상점, 돈 레이아웃 편집.</li></ul></div>
+    <div class="card"><b>🧰 <span data-l="vi">Ngoài Greenbox</span><span data-l="en">Outside Greenbox</span><span data-l="ko">Greenbox 외부</span></b>
+      <ul data-l="vi"><li>Blender: tách khối đá và viên đá nhỏ, giảm poly (20 MB → ~100 KB), bỏ FX, xuất lại xe để giữ texture.</li><li>Claude Code viết thêm vào engine: loại “quặng” và “tiến hoá xe” chưa có sẵn (giờ thành tính năng chung).</li><li>Map dựng bằng script gọi thẳng các hàm của editor (thay cho bấm tay); quay video bằng Chrome chạy ngầm + ffmpeg cắt.</li></ul>
+      <ul data-l="en"><li>Blender: split the rock block and small stones, decimate (20 MB → ~100 KB), drop FX, re-export the vehicles with textures.</li><li>Claude Code added to the engine: the “ore” and “evolve” kinds did not exist (now a shared feature).</li><li>The map was built by a script calling the editor's own functions (instead of clicks); recorded with headless Chrome + ffmpeg.</li></ul>
+      <ul data-l="ko"><li>Blender: 광석 분리, 폴리 감소, FX 제거.</li><li>Claude Code가 엔진에 “광석”·“진화” 추가.</li><li>스크립트로 맵 구성, 헤드리스 Chrome + ffmpeg 녹화.</li></ul></div>
+    <div class="card"><b>⚠ <span data-l="vi">Khó khăn đã gặp</span><span data-l="en">What was hard</span><span data-l="ko">어려웠던 점</span></b>
+      <ul data-l="vi"><li>File FBX mất texture và dính hiệu ứng rác; quặng nặng 20 MB.</li><li>Xe leo lên đá rồi bị kẹt; phải viết lại cách xe va chạm.</li><li>Lỗi xuất: playable sập khi mở, mọi model bị dán chung ảnh ô $, khối ẩn bị mất.</li><li>Giới hạn ~5 MB cho playable; MCP chỉ chạy khi Cockpit đang mở, server từng tắt giữa chừng.</li></ul>
+      <ul data-l="en"><li>The FBX lost its textures and carried FX junk; each ore was 20 MB.</li><li>The vehicle climbed rocks, then got stuck; collision was rewritten.</li><li>Export bugs: the playable crashed on load, every model got the $ pad picture, hidden blocks went missing.</li><li>A ~5 MB budget for the playable; MCP only works with the Cockpit open, the server stopped mid-way.</li></ul>
+      <ul data-l="ko"><li>FBX 텍스처 손실, 광석 20 MB.</li><li>차량이 바위에 올라가 끼임 → 충돌 재작성.</li><li>내보내기 버그 수정.</li><li>~5 MB 제한, MCP는 Cockpit 필요.</li></ul></div>
+  </div>
+  <p class="note"><span data-l="vi">Ghi chú của tác giả: tôi làm video AI và đang học AI từng bước, nên bản này còn vài hạn chế — video gameplay quay trước bản sửa cuối (còn ô vuông cam ở điểm xuất phát), xe trong playable chỉ phát animation có sẵn chứ chưa tự rig, và Play test hiện chỉ làm kiểu game idle-arcade (đi, nhặt, bán, mở khoá).</span><span data-l="en">Author's note: I make AI videos and I am learning AI step by step, so this version has limits: the gameplay clip was recorded before the last fix (the orange start square still shows), the vehicle only plays its own baked animation (no auto rig in the playable yet), and Play test only makes idle-arcade games (walk, pick up, sell, unlock).</span><span data-l="ko">작성자 메모: 저는 AI 영상 제작자이며 AI를 차근차근 배우는 중이라 한계가 있습니다 — 게임플레이 영상은 최종 수정 전 녹화, 차량은 내장 애니메이션만 재생, 플레이 테스트는 아이들 아케이드 장르만 지원.</span></p>
+</div></section>
+
+
 <section id="demo"><div class="wrap">
   <h2>▶ <span data-l="vi">&nbsp;Xem nó chạy</span><span data-l="en">&nbsp;See it in action</span><span data-l="ko">&nbsp;실제 동작</span></h2>
   <div class="vids">
@@ -251,11 +648,12 @@ code{background:rgba(255,255,255,.08);border-color:var(--line);color:#dafbe6}
         <p data-l="ko">왼쪽: Greenbox 블록아웃(실제 물리). 오른쪽: 같은 영상을 Seedance 2.5로 — 같은 카메라와 움직임, 완성된 광고 장면. 테마만 바꾸면 새 맵.</p></div></div>
     <div class="vid"><video src="{{smash_bases_s.mp4}}" autoplay muted loop playsinline controls preload="metadata" style="max-height:440px;object-fit:contain;background:#0b1a14"></video><div class="vb"><h3>⟳ <span data-l="vi">SMASH DOWN: 1 khối xếp, 6 loại đế = nhiều biến thể</span><span data-l="en">SMASH DOWN: one stack, 6 bases = many variants</span><span data-l="ko">SMASH DOWN: 받침 6종 = 다양한 변형</span></h3><p data-l="vi">Cùng một khối xếp đặt trên bàn, bệ tròn, bục bậc thang, đảo nổi, đế trượt qua lại, đế xoay; mỗi đế đổi được màu và tốc độ. Đế xoay mang cả chồng khối theo, chỉ chỗ bị bắn trúng mới đổ: mỗi đế là một video blockout khác cho Seedance.</p><p data-l="en">The same stack on a table, a round pedestal, podium steps, a floating island, a slider, a turntable; each base takes a colour and a speed. The turntable carries the whole stack, only what is shot falls: every base is another blockout video for Seedance.</p><p data-l="ko">같은 블록을 테이블, 원형 받침, 계단, 떠 있는 섬, 슬라이더, 회전판 위에. 회전판은 맞은 곳만 무너짐: 받침마다 새 블록아웃.</p></div></div>
     <div class="vid"><video src="{{castle_s.mp4}}" autoplay muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🏰 <span data-l="vi">Tự tay dựng map: núi, sông, tường thành</span><span data-l="en">Building a map by hand: mountains, river, citadel</span><span data-l="ko">맵 직접 만들기: 산, 강, 성채</span></h3><p data-l="vi">Chỉnh cỡ map tổng (ô đất vuông) → cọ Nâng đắp từng đỉnh núi, tô đá + tuyết → Khoét lòng sông rồi Đổ nước → xếp tường, cổng, tháp, nhà → nhân vật chibi áo trắng đứng trong thành, chơi được ngay.</p><p data-l="en">Set the whole map size (the ground square) → the Raise brush builds each peak, painted rock + snow → Dig a river bed, Pour water in → walls, gate, towers, houses → the white chibi character stands inside the citadel, playable right away.</p><p data-l="ko">맵 전체 크기 → 올리기 브러시로 산봉우리, 바위 + 눈 → 강바닥 파기, 물 붓기 → 성벽, 문, 탑, 집 → 성 안의 캐릭터, 바로 플레이.</p></div></div>
+    <div class="vid"><video src="{{city_s.mp4}}" autoplay muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🏙 <span data-l="vi">Xây cả một thành phố nhỏ nhà cao tầng</span><span data-l="en">A small city of high-rise buildings</span><span data-l="ko">고층 건물이 있는 작은 도시</span></h3><p data-l="vi">Tô đường thành ngã tư → dựng 8 toà nhà từng tầng một (sàn, tường, cửa sổ, cửa chính, tới 6 tầng) → mái trên tầng cao nhất → trồng cây dọc phố → nhân vật đi bộ giữa phố, chơi được ngay.</p><p data-l="en">Paint the streets as a crossroads → 8 buildings rise floor by floor (slab, walls, windows, front door, up to 6 storeys) → a roof on each top floor → trees along the streets → the character walks down the street, playable right away.</p><p data-l="ko">도로 칠하기 → 8개 건물을 층마다 쌓기 (바닥, 벽, 창문, 문, 최대 6층) → 지붕 → 가로수 → 캐릭터가 거리를 걷기, 바로 플레이.</p></div></div>
     <div class="vid"><video src="{{island_s.mp4}}" autoplay muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🏝 <span data-l="vi">Map mới: đảo nhiệt đới</span><span data-l="en">New map: a tropical island</span><span data-l="ko">새 맵: 열대 섬</span></h3><p data-l="vi">Dâng mực nước biển → nâng một hòn đảo lên khỏi mặt nước → tô bãi cát quanh bờ, núi lửa đá một góc → làng chòi, cây, thùng, hàng rào → nhân vật chạy trên đảo.</p><p data-l="en">Raise the sea level → lift an island out of the water → paint a sand beach round it, a rock volcano on one side → huts, trees, crates, fences → the character runs on the island.</p><p data-l="ko">해수면 올리기 → 섬 솟아오르기 → 모래 해변, 화산 → 오두막, 나무, 상자 → 캐릭터가 섬을 달림.</p></div></div>
     <div class="vid"><video src="{{village_s.mp4}}" autoplay muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🌉 <span data-l="vi">Map mới: làng ven sông có cầu</span><span data-l="en">New map: a river village with a bridge</span><span data-l="ko">새 맵: 다리가 있는 강마을</span></h3><p data-l="vi">Tô một con đường → khoét lòng sông và đổ nước → đắp đồi rừng hai bên → cầu gỗ có lan can, nhà, hàng rào dọc đường → nhân vật đi trên đường.</p><p data-l="en">Paint a road → dig a river bed and pour water in → forest hills on both sides → a wooden bridge with rails, houses and fences along the road → the character walks the road.</p><p data-l="ko">도로 칠하기 → 강 파고 물 붓기 → 언덕 → 난간 있는 나무 다리, 집, 울타리 → 캐릭터.</p></div></div>
     <div class="vid"><video src="{{croc_s.mp4}}" autoplay muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🐊 <span data-l="vi">Động vật: clone rig cá sấu</span><span data-l="en">Animals: cloning a crocodile rig</span><span data-l="ko">동물: 악어 리그 복제</span></h3><p data-l="vi">Không chỉ người: 1 con cá sấu đã có xương + 6 animation → 🧬 Clone rig copy nguyên bộ xương (ở tư thế gốc) sang con cá sấu thường chưa có xương → bò, cắn, đứng. Làm được với chó, ngựa, khủng long… bất kỳ con nào có 1 bản rig mẫu.</p><p data-l="en">Not only humans: one crocodile with bones + 6 animations → 🧬 Clone rig copies its whole skeleton (in its rest pose) onto a plain crocodile without bones → walk, bite, idle. Works for dogs, horses, dinosaurs… any animal with one rigged sample.</p><p data-l="ko">사람만이 아님: 본 + 애니메이션 6개가 있는 악어 → 🧬 리그 복제로 본 없는 다른 악어에 → 새 몸에 맞게 스켈레톤 변형 → 걷기, 물기, 대기. 개, 말, 공룡… 샘플 하나면 OK.</p></div></div>
     <div class="vid"><video src="{{rig_s.mp4}}" muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🦴 <span data-l="vi">Gắn xương nhân vật chibi (GLB chưa có xương)</span><span data-l="en">Rigging a chibi character (GLB, no bones)</span><span data-l="ko">치비 캐릭터 리깅 (본 없는 GLB)</span></h3><p data-l="vi">Thả file → xoay cho nhìn thẳng, đặt xuống sàn → khung người tự khớp → tính da → đi, chém, nhảy, lộn.</p><p data-l="en">Drop the file → turn it to face the front, stand it on the floor → the human skeleton fits by itself → skin → walk, sword combo, dance, backflip.</p><p data-l="ko">파일 → 정면으로 회전, 바닥에 맞춤 → 스켈레톤 자동 맞춤 → 스킨 → 걷기, 검 콤보, 댄스, 백플립.</p></div></div>
-    <div class="vid"><video src="{{vehicle_s.mp4}}" muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🚜 <span data-l="vi">Rig xe ủi bằng 🪄 Tự cắt</span><span data-l="en">Rigging the bulldozer with 🪄 Auto cut</span><span data-l="ko">🪄 자동 분할로 불도저 리깅</span></h3><p data-l="vi">Bánh, 2 dải xích, lưỡi ủi được tìm theo hình dạng → chạy, quay tại chỗ, nâng lưỡi ủi.</p><p data-l="en">Wheels, both tracks and the blade found by shape → drive, pivot turn, blade raise.</p><p data-l="ko">바퀴, 트랙 2개, 블레이드를 모양으로 검출 → 주행, 제자리 회전, 블레이드.</p></div></div>
+    <div class="vid"><video src="{{vehicle_s.mp4}}" muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🚜 <span data-l="vi">Rig xe: xương hiện ngay · 🔩 bắt vít</span><span data-l="en">Vehicle rig: skeleton at once · 🔩 bolts</span><span data-l="ko">차량 리그: 스켈레톤 · 🔩 볼트</span></h3><p data-l="vi">Thả xe vào là hiện bộ xương → bánh + xích chạy → 🔩 bắt vít cần vào thân, gàu vào đầu cần → nâng lên xoay quanh ốc, không bay cả cụm.</p><p data-l="en">Drop the vehicle and its skeleton shows → wheels + tracks drive → 🔩 bolt the arm to the body, the bucket to the arm → it lifts round the bolt instead of flying off.</p><p data-l="ko">차량을 넣으면 스켈레톤 표시 → 바퀴 + 트랙 주행 → 🔩 암을 차체에, 버킷을 암에 고정 → 볼트를 중심으로 들어 올림.</p></div></div>
     <div class="vid"><video src="{{playtest_s.mp4}}" muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🎮 <span data-l="vi">Chơi thử nhân vật vừa rig</span><span data-l="en">Play test of the rigged character</span><span data-l="ko">리깅한 히어로 플레이 테스트</span></h3><p data-l="vi">Một nút "Play test" từ trang gắn xương: chạy, rẽ, nhảy, đánh bằng bàn phím và chuột.</p><p data-l="en">One "Play test" click from the rig page: run, turn, jump, attack with the keyboard and mouse.</p><p data-l="ko">리깅 페이지에서 "Play test" 한 번: 달리기, 회전, 점프, 공격.</p></div></div>
     <div class="vid"><video src="{{mocap_s.mp4}}" muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🎥 <span data-l="vi">Mocap: video → 3D</span><span data-l="en">Mocap: video → 3D</span><span data-l="ko">모캡: 영상 → 3D</span></h3><p data-l="vi">Video 1 người (clip kickboxing mẫu đi kèm tool) → nhận dáng người trong trình duyệt → nhân vật chibi đánh theo. Xuất GLB / FBX.</p><p data-l="en">A video of one person (the kickboxing sample that ships with the tool) → pose found in the browser → the chibi character copies it. Export GLB / FBX.</p><p data-l="ko">한 사람 영상(툴에 포함된 킥복싱 샘플) → 브라우저에서 포즈 인식 → 치비 캐릭터가 따라함. GLB / FBX.</p></div></div>
     <div class="vid"><video src="{{smash_s.mp4}}" muted loop playsinline controls preload="metadata"></video><div class="vb"><h3>🎯 <span data-l="vi">SMASH DOWN: tự vẽ map → chơi thử → video blockout</span><span data-l="en">SMASH DOWN: draw the map → play it → blockout video</span><span data-l="ko">SMASH DOWN: 맵 그리기 → 플레이 → 블록아웃</span></h3>
@@ -266,7 +664,9 @@ code{background:rgba(255,255,255,.08);border-color:var(--line);color:#dafbe6}
   </div>
 </div></section>
 
-<section id="all"><div class="wrap">
+<!--LAYOUTS-->
+<!-- the recordings the layout cards open (shown once, in the cards) -->
+<section id="all" hidden aria-hidden="true"><div class="wrap">
   <h2>🎞 <span data-l="vi">&nbsp;Mọi tính năng đều đã quay lại</span><span data-l="en">&nbsp;Every feature, recorded</span><span data-l="ko">&nbsp;모든 기능 녹화</span></h2>
   <p class="note" style="font-size:16px;margin:0 0 18px"><span data-l="vi">Quay tự động trong trình duyệt (cùng bộ kịch bản kiểm thử). Cuộn tới đâu video chạy tới đó; bấm để xem to.</span><span data-l="en">Recorded automatically in the browser (the same scripts as the tests). Clips play as you scroll; click one to see it big.</span><span data-l="ko">스크롤하면 재생, 클릭하면 크게.</span></p>
   <div class="fvs">
@@ -278,6 +678,9 @@ code{background:rgba(255,255,255,.08);border-color:var(--line);color:#dafbe6}
     <figure class="fv"><video data-src="{{f_hpbar.mp4}}" muted loop playsinline preload="none"></video><figcaption>❤️ <span data-l="vi">Thanh máu HUD khung 9:16 (đúng cỡ xuất)</span><span data-l="en">HP bar HUD in the 9:16 frame (export size)</span><span data-l="ko">HP 바 (9:16)</span></figcaption></figure>
     <figure class="fv"><video data-src="{{f_countdown.mp4}}" muted loop playsinline preload="none"></video><figcaption>⏱ <span data-l="vi">Đếm ngược nảy số</span><span data-l="en">Bouncing countdown</span><span data-l="ko">카운트다운</span></figcaption></figure>
     <figure class="fv"><video data-src="{{f_vfx.mp4}}" muted loop playsinline preload="none"></video><figcaption>🎬 <span data-l="vi">Video FX: che mờ, chuyển cảnh, viền đỏ</span><span data-l="en">Video FX: blur mask, transitions, red hits</span><span data-l="ko">비디오 FX</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_upgrade.mp4}}" muted loop playsinline preload="none"></video><figcaption>⬆ <span data-l="vi">Chọn nâng cấp: 3 thẻ, con trỏ chọn 1</span><span data-l="en">Upgrade pick: 3 cards, the pointer picks one</span><span data-l="ko">업그레이드 카드 선택</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_minimap.mp4}}" muted loop playsinline preload="none"></video><figcaption>🗺 <span data-l="vi">Mini map góc màn hình bám theo chấm đỏ</span><span data-l="en">Corner minimap following the red dot</span><span data-l="ko">미니맵</span></figcaption></figure>
+    <figure class="fv"><video data-src="{{f_inventory.mp4}}" muted loop playsinline preload="none"></video><figcaption>🎒 <span data-l="vi">Kho đồ: gộp lên cấp, chiếm thêm ô</span><span data-l="en">Inventory: merge to level up, more cells</span><span data-l="ko">인벤토리 합성</span></figcaption></figure>
     <figure class="fv"><video data-src="{{f_wheel.mp4}}" muted loop playsinline preload="none"></video><figcaption>🏎 <span data-l="vi">Vô lăng + bàn đạp (AI tự lái)</span><span data-l="en">Wheel + pedals (AI-driven)</span><span data-l="ko">핸들 + 페달</span></figcaption></figure>
     <figure class="fv"><video data-src="{{f_gseq.mp4}}" muted loop playsinline preload="none"></video><figcaption>🃏 <span data-l="vi">Thẻ lần lượt, pointer tự bấm</span><span data-l="en">Card sequence, the pointer taps itself</span><span data-l="ko">카드 순서</span></figcaption></figure>
     <figure class="fv"><video data-src="{{f_gpick.mp4}}" muted loop playsinline preload="none"></video><figcaption>👆 <span data-l="vi">Chọn 1 trong N</span><span data-l="en">Pick 1 of N</span><span data-l="ko">N 중 1</span></figcaption></figure>
@@ -295,6 +698,7 @@ code{background:rgba(255,255,255,.08);border-color:var(--line);color:#dafbe6}
 <section id="loop"><div class="wrap">
   <h2>↺ <span data-l="vi">&nbsp;Quy trình của team: tự động phần tay chân, người giữ quyết định</span><span data-l="en">&nbsp;The team loop: machines do the legwork, people keep the decisions</span><span data-l="ko">&nbsp;팀 루프: 반복 작업은 자동, 결정은 사람</span></h2>
   <p class="note" style="font-size:16px;margin:0 0 18px"><span data-l="vi">Mỗi bước có phần 🤖 máy làm (việc lặp, tốn tay) và phần 🧑 người chỉnh lại. Greenbox không thay người: AI đề xuất, con người duyệt — để tránh lạm dụng AI và giữ chất lượng.</span><span data-l="en">Every step has a 🤖 machine part (repetitive, manual work) and a 🧑 human check. Greenbox does not replace people: the AI proposes, a person approves — so the AI is not over-used and quality stays high.</span><span data-l="ko">각 단계: 🤖 기계가 반복 작업, 🧑 사람이 검토.</span></p>
+  <div class="loopedit" id="loopedit"><button type="button" data-a="edit">✏️ <span data-l="vi">Chỉnh bố cục</span><span data-l="en">Edit layout</span><span data-l="ko">레이아웃 편집</span></button><button type="button" data-a="reset">↺ <span data-l="vi">Mặc định</span><span data-l="en">Default</span><span data-l="ko">기본값</span></button><button type="button" data-a="save">⬇ loop-layout.json</button><span class="hint"><span data-l="vi">Kéo từng ô và vòng giữa; kéo vạch dưới cùng để đổi chiều cao. Tự lưu trong trình duyệt này. Cho mọi người cùng thấy: tải loop-layout.json, đặt vào dev/axhero rồi chạy release.</span><span data-l="en">Drag each box and the centre; drag the bottom bar for the height. Saved in this browser. For everyone: download loop-layout.json, put it in dev/axhero, run the release.</span><span data-l="ko">상자를 드래그하세요. 이 브라우저에 저장됩니다.</span></span></div>
   <div class="loopc">
     <svg class="ring" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="lp-a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#4fed89"/></marker></defs>
       <ellipse cx="50" cy="50" rx="36" ry="38" fill="none" stroke="rgba(79,237,137,.45)" stroke-width=".35" stroke-dasharray="1.2 1.2" vector-effect="non-scaling-stroke"/>
@@ -451,7 +855,7 @@ code{background:rgba(255,255,255,.08);border-color:var(--line);color:#dafbe6}
   <span data-l="en">Greenbox Studio · AX Hero 2026 · Mockup: open <code>Greenbox-Cockpit.html</code> in the attached .zip.</span>
   <span data-l="ko">Greenbox Studio · AX Hero 2026 · 목업: 첨부 .zip의 <code>Greenbox-Cockpit.html</code>을 여세요.</span>
 </div></footer>
-<div id="lb" role="dialog" aria-modal="true"><button class="close" aria-label="Close">✕</button><button class="prev" aria-label="Previous">‹</button><img alt=""><div class="lbcap"></div><div class="count"></div><button class="next" aria-label="Next">›</button></div>
+<div id="lb" role="dialog" aria-modal="true"><button class="close" aria-label="Close">✕</button><button class="prev" aria-label="Previous"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 18-6-6 6-6"/></svg></button><img alt=""><div class="lbcap"></div><div class="count"></div><button class="next" aria-label="Next"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 18 6-6-6-6"/></svg></button></div>
 <script>
 (function () {
   // pictures: click = large; ← → / swipe go through all of them; Esc closes
@@ -523,6 +927,180 @@ code{background:rgba(255,255,255,.08);border-color:var(--line);color:#dafbe6}
     addEventListener('pointerup', function (e) { if (m0 === null) return; var dx = e.clientX - m0; m0 = null; main.classList.remove('drag'); if (mm && Math.abs(dx) > 50) main.querySelector(dx < 0 ? '.mnext' : '.mprev').click(); setTimeout(function () { mm = false; }, 0); });
     main.addEventListener('click', function (e) { if (mm) { e.stopPropagation(); e.preventDefault(); } }, true);
   }
+})();
+</script>
+<!--gb-icons--><script id="gb-icons">
+/* Greenbox line icons: Lucide (lucide.dev, ISC licence) in place of emoji in buttons, titles and the feature list */
+(function(){if(window.__gbIcons)return;window.__gbIcons=1;
+var I={"banknote":"<rect width=\"20\" height=\"12\" x=\"2\" y=\"6\" rx=\"2\" /> <circle cx=\"12\" cy=\"12\" r=\"2\" /> <path d=\"M6 12h.01M18 12h.01\" />","bone":"<path d=\"M17 10c.7-.7 1.69 0 2.5 0a2.5 2.5 0 1 0 0-5 .5.5 0 0 1-.5-.5 2.5 2.5 0 1 0-5 0c0 .81.7 1.8 0 2.5l-7 7c-.7.7-1.69 0-2.5 0a2.5 2.5 0 0 0 0 5c.28 0 .5.22.5.5a2.5 2.5 0 1 0 5 0c0-.81-.7-1.8 0-2.5Z\" />","bot":"<path d=\"M12 8V4H8\" /> <rect width=\"16\" height=\"12\" x=\"4\" y=\"8\" rx=\"2\" /> <path d=\"M2 14h2\" /> <path d=\"M20 14h2\" /> <path d=\"M15 13v2\" /> <path d=\"M9 13v2\" />","briefcase":"<path d=\"M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16\" /> <rect width=\"20\" height=\"14\" x=\"2\" y=\"6\" rx=\"2\" />","car":"<path d=\"M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2\" /> <circle cx=\"7\" cy=\"17\" r=\"2\" /> <path d=\"M9 17h6\" /> <circle cx=\"17\" cy=\"17\" r=\"2\" />","car-front":"<path d=\"m21 8-2 2-1.5-3.7A2 2 0 0 0 15.646 5H8.4a2 2 0 0 0-1.903 1.257L5 10 3 8\" /> <path d=\"M7 14h.01\" /> <path d=\"M17 14h.01\" /> <rect width=\"18\" height=\"8\" x=\"3\" y=\"10\" rx=\"2\" /> <path d=\"M5 18v2\" /> <path d=\"M19 18v2\" />","circle-check":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m9 12 2 2 4-4\" />","circle-dot":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <circle cx=\"12\" cy=\"12\" r=\"1\" />","clapperboard":"<path d=\"M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z\" /> <path d=\"m6.2 5.3 3.1 3.9\" /> <path d=\"m12.4 3.4 3.1 4\" /> <path d=\"M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z\" />","coins":"<circle cx=\"8\" cy=\"8\" r=\"6\" /> <path d=\"M18.09 10.37A6 6 0 1 1 10.34 18\" /> <path d=\"M7 6h1v4\" /> <path d=\"m16.71 13.88.7.71-2.82 2.82\" />","dna":"<path d=\"m10 16 1.5 1.5\" /> <path d=\"m14 8-1.5-1.5\" /> <path d=\"M15 2c-1.798 1.998-2.518 3.995-2.807 5.993\" /> <path d=\"m16.5 10.5 1 1\" /> <path d=\"m17 6-2.891-2.891\" /> <path d=\"M2 15c6.667-6 13.333 0 20-6\" /> <path d=\"m20 9 .891.891\" /> <path d=\"M3.109 14.109 4 15\" /> <path d=\"m6.5 12.5 1 1\" /> <path d=\"m7 18 2.891 2.891\" /> <path d=\"M9 22c1.798-1.998 2.518-3.995 2.807-5.993\" />","download":"<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\" /> <polyline points=\"7 10 12 15 17 10\" /> <line x1=\"12\" x2=\"12\" y1=\"15\" y2=\"3\" />","drafting-compass":"<path d=\"m12.99 6.74 1.93 3.44\" /> <path d=\"M19.136 12a10 10 0 0 1-14.271 0\" /> <path d=\"m21 21-2.16-3.84\" /> <path d=\"m3 21 8.02-14.26\" /> <circle cx=\"12\" cy=\"5\" r=\"2\" />","dribbble":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M19.13 5.09C15.22 9.14 10 10.44 2.25 10.94\" /> <path d=\"M21.75 12.84c-6.62-1.41-12.14 1-16.38 6.32\" /> <path d=\"M8.56 2.75c4.37 6 6 9.42 8 17.72\" />","droplet":"<path d=\"M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z\" />","film":"<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"M7 3v18\" /> <path d=\"M3 7.5h4\" /> <path d=\"M3 12h18\" /> <path d=\"M3 16.5h4\" /> <path d=\"M17 3v18\" /> <path d=\"M17 7.5h4\" /> <path d=\"M17 16.5h4\" />","flag":"<path d=\"M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z\" /> <line x1=\"4\" x2=\"4\" y1=\"22\" y2=\"15\" />","folder-tree":"<path d=\"M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z\" /> <path d=\"M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z\" /> <path d=\"M3 5a2 2 0 0 0 2 2h3\" /> <path d=\"M3 3v13a2 2 0 0 0 2 2h3\" />","fuel":"<line x1=\"3\" x2=\"15\" y1=\"22\" y2=\"22\" /> <line x1=\"4\" x2=\"14\" y1=\"9\" y2=\"9\" /> <path d=\"M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18\" /> <path d=\"M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5\" />","gallery-horizontal-end":"<path d=\"M2 7v10\" /> <path d=\"M6 5v14\" /> <rect width=\"12\" height=\"18\" x=\"10\" y=\"3\" rx=\"2\" />","gamepad-2":"<line x1=\"6\" x2=\"10\" y1=\"11\" y2=\"11\" /> <line x1=\"8\" x2=\"8\" y1=\"9\" y2=\"13\" /> <line x1=\"15\" x2=\"15.01\" y1=\"12\" y2=\"12\" /> <line x1=\"18\" x2=\"18.01\" y1=\"10\" y2=\"10\" /> <path d=\"M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z\" />","gem":"<path d=\"M6 3h12l4 6-10 13L2 9Z\" /> <path d=\"M11 3 8 9l4 13 4-13-3-6\" /> <path d=\"M2 9h20\" />","gift":"<rect x=\"3\" y=\"8\" width=\"18\" height=\"4\" rx=\"1\" /> <path d=\"M12 8v13\" /> <path d=\"M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7\" /> <path d=\"M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5\" />","heart":"<path d=\"M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z\" />","joystick":"<path d=\"M21 17a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2Z\" /> <path d=\"M6 15v-2\" /> <path d=\"M12 15V9\" /> <circle cx=\"12\" cy=\"6\" r=\"3\" />","layers":"<path d=\"m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z\" /> <path d=\"m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65\" /> <path d=\"m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65\" />","lock":"<rect width=\"18\" height=\"11\" x=\"3\" y=\"11\" rx=\"2\" ry=\"2\" /> <path d=\"M7 11V7a5 5 0 0 1 10 0v4\" />","map":"<path d=\"M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z\" /> <path d=\"M15 5.764v15\" /> <path d=\"M9 3.236v15\" />","mountain":"<path d=\"m8 3 4 8 5-5 5 15H2L8 3z\" />","notebook-pen":"<path d=\"M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4\" /> <path d=\"M2 6h4\" /> <path d=\"M2 10h4\" /> <path d=\"M2 14h4\" /> <path d=\"M2 18h4\" /> <path d=\"M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z\" />","nut":"<path d=\"M12 4V2\" /> <path d=\"M5 10v4a7.004 7.004 0 0 0 5.277 6.787c.412.104.802.292 1.102.592L12 22l.621-.621c.3-.3.69-.488 1.102-.592A7.003 7.003 0 0 0 19 14v-4\" /> <path d=\"M12 4C8 4 4.5 6 4 8c-.243.97-.919 1.952-2 3 1.31-.082 1.972-.29 3-1 .54.92.982 1.356 2 2 1.452-.647 1.954-1.098 2.5-2 .595.995 1.151 1.427 2.5 2 1.31-.621 1.862-1.058 2.5-2 .629.977 1.162 1.423 2.5 2 1.209-.548 1.68-.967 2-2 1.032.916 1.683 1.157 3 1-1.297-1.036-1.758-2.03-2-3-.5-2-4-4-8-4Z\" />","pencil":"<path d=\"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z\" /> <path d=\"m15 5 4 4\" />","person-standing":"<circle cx=\"12\" cy=\"5\" r=\"1\" /> <path d=\"m9 20 3-6 3 6\" /> <path d=\"m6 8 6 2 6-2\" /> <path d=\"M12 10v4\" />","pickaxe":"<path d=\"M14.531 12.469 6.619 20.38a1 1 0 1 1-3-3l7.912-7.912\" /> <path d=\"M15.686 4.314A12.5 12.5 0 0 0 5.461 2.958 1 1 0 0 0 5.58 4.71a22 22 0 0 1 6.318 3.393\" /> <path d=\"M17.7 3.7a1 1 0 0 0-1.4 0l-4.6 4.6a1 1 0 0 0 0 1.4l2.6 2.6a1 1 0 0 0 1.4 0l4.6-4.6a1 1 0 0 0 0-1.4z\" /> <path d=\"M19.686 8.314a12.501 12.501 0 0 1 1.356 10.225 1 1 0 0 1-1.751-.119 22 22 0 0 0-3.393-6.319\" />","pointer":"<path d=\"M22 14a8 8 0 0 1-8 8\" /> <path d=\"M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2\" /> <path d=\"M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1\" /> <path d=\"M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10\" /> <path d=\"M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15\" />","puzzle":"<path d=\"M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z\" />","repeat":"<path d=\"m17 2 4 4-4 4\" /> <path d=\"M3 11v-1a4 4 0 0 1 4-4h14\" /> <path d=\"m7 22-4-4 4-4\" /> <path d=\"M21 13v1a4 4 0 0 1-4 4H3\" />","search":"<circle cx=\"11\" cy=\"11\" r=\"8\" /> <path d=\"m21 21-4.3-4.3\" />","shopping-bag":"<path d=\"M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z\" /> <path d=\"M3 6h18\" /> <path d=\"M16 10a4 4 0 0 1-8 0\" />","sparkles":"<path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\" /> <path d=\"M20 3v4\" /> <path d=\"M22 5h-4\" /> <path d=\"M4 17v2\" /> <path d=\"M5 18H3\" />","star":"<path d=\"M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z\" />","target":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <circle cx=\"12\" cy=\"12\" r=\"6\" /> <circle cx=\"12\" cy=\"12\" r=\"2\" />","timer":"<line x1=\"10\" x2=\"14\" y1=\"2\" y2=\"2\" /> <line x1=\"12\" x2=\"15\" y1=\"14\" y2=\"11\" /> <circle cx=\"12\" cy=\"14\" r=\"8\" />","tractor":"<path d=\"m10 11 11 .9a1 1 0 0 1 .8 1.1l-.665 4.158a1 1 0 0 1-.988.842H20\" /> <path d=\"M16 18h-5\" /> <path d=\"M18 5a1 1 0 0 0-1 1v5.573\" /> <path d=\"M3 4h8.129a1 1 0 0 1 .99.863L13 11.246\" /> <path d=\"M4 11V4\" /> <path d=\"M7 15h.01\" /> <path d=\"M8 10.1V4\" /> <circle cx=\"18\" cy=\"18\" r=\"2\" /> <circle cx=\"7\" cy=\"15\" r=\"5\" />","trending-up":"<polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\" /> <polyline points=\"16 7 22 7 22 13\" />","triangle-alert":"<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /> <path d=\"M12 9v4\" /> <path d=\"M12 17h.01\" />","upload":"<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\" /> <polyline points=\"17 8 12 3 7 8\" /> <line x1=\"12\" x2=\"12\" y1=\"3\" y2=\"15\" />","user":"<path d=\"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\" /> <circle cx=\"12\" cy=\"7\" r=\"4\" />","video":"<path d=\"m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5\" /> <rect x=\"2\" y=\"6\" width=\"14\" height=\"12\" rx=\"2\" />","volume-2":"<path d=\"M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z\" /> <path d=\"M16 9a5 5 0 0 1 0 6\" /> <path d=\"M19.364 18.364a9 9 0 0 0 0-12.728\" />","wand-sparkles":"<path d=\"m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72\" /> <path d=\"m14 7 3 3\" /> <path d=\"M5 6v4\" /> <path d=\"M19 14v4\" /> <path d=\"M10 2v2\" /> <path d=\"M7 8H3\" /> <path d=\"M21 16h-4\" /> <path d=\"M11 3H9\" />","wrench":"<path d=\"M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z\" />","zap":"<path d=\"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z\" />"},E={"🦴":"bone","🧬":"dna","🔩":"nut","🎥":"video","🎯":"target","👆":"pointer","✅":"circle-check","🪄":"wand-sparkles","📐":"drafting-compass","🎮":"gamepad-2","⭐":"star","⚠":"triangle-alert","🔒":"lock","🎬":"clapperboard","🚗":"car","🚜":"tractor","🏎":"car-front","⏺":"circle-dot","⚡":"zap","🕹":"joystick","🏀":"dribbble","📝":"notebook-pen","🔍":"search","🛠":"wrench","🎁":"gift","🩸":"droplet","🎞":"film","✏":"pencil","🔊":"volume-2","❤":"heart","🏁":"flag","🪨":"mountain","💵":"banknote","⏱":"timer","⛏":"pickaxe","🗺":"map","⛰":"mountain","🧩":"puzzle","📈":"trending-up","💰":"coins","⛽":"fuel","🃏":"layers","🛍":"shopping-bag","🧰":"briefcase","🎠":"gallery-horizontal-end","🔁":"repeat","🤖":"bot","🗂":"folder-tree","⬆":"upload","⬇":"download","✨":"sparkles","👤":"user","🕺":"person-standing","📤":"upload","💎":"gem"},NS='http://www.w3.org/2000/svg';
+var K=Object.keys(E).sort(function(a,b){return b.length-a.length}).map(function(k){return k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')});
+var RE=new RegExp('('+K.join('|')+')\uFE0F?','g');
+var SEL='button,summary,label,h1,h2,h3,h4,#gbai header,#gbai-mcp-status,#gbai-pair-state,figcaption,.tags span,.gbc-it,.gbc-gt,.gbc-dh,.gbc-crumb,nav a,[role=tab],.tab,.ptabs,.ic,.gbi-ok';
+var SKIP='option,textarea,input,select,script,style,svg,canvas,[contenteditable],[data-no-gbi],.stage,#stage,.overlay-out';
+function mk(n){var s=document.createElementNS(NS,'svg');s.setAttribute('viewBox','0 0 24 24');s.setAttribute('fill','none');s.setAttribute('stroke','currentColor');s.setAttribute('stroke-width','1.8');s.setAttribute('stroke-linecap','round');s.setAttribute('stroke-linejoin','round');s.setAttribute('aria-hidden','true');s.setAttribute('class','gbi gbi-'+n);s.innerHTML=I[n];return s}
+function swap(t){var p=t.parentElement;if(!p||!p.closest(SEL)||p.closest(SKIP))return;var v=t.nodeValue;RE.lastIndex=0;if(!RE.test(v))return;RE.lastIndex=0;
+ var f=document.createDocumentFragment(),last=0,m;while((m=RE.exec(v))){if(m.index>last)f.appendChild(document.createTextNode(v.slice(last,m.index)));var k=m[1],n=E[k]||E[k.replace(/\uFE0F/g,'')];if(n)f.appendChild(mk(n));else f.appendChild(document.createTextNode(m[0]));last=m.index+m[0].length}
+ if(last<v.length)f.appendChild(document.createTextNode(v.slice(last)));
+ /* gb-i18n keeps the English source on the text node (__s): carry it over, without the emoji */
+ if(t.__s!=null){var tn=[].filter.call(f.childNodes,function(c){return c.nodeType===3});if(tn.length===1){RE.lastIndex=0;tn[0].__s=String(t.__s).replace(RE,'');tn[0].__o=tn[0].nodeValue}}
+ t.parentNode.replaceChild(f,t)}
+function run(root){if(!root)return;if(root.nodeType===3){swap(root);return}if(root.nodeType!==1&&root.nodeType!==9&&root.nodeType!==11)return;
+ var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null),a=[],t;while((t=w.nextNode()))if(t.nodeValue&&/[\u2190-\u21FF\u2300-\u23FF\u2600-\u27BF\u2B00-\u2BFF\uD83C-\uDBFF]/.test(t.nodeValue))a.push(t);a.forEach(swap)}
+var q=[],raf=0;function flush(){raf=0;var b=q;q=[];b.forEach(run)}
+function start(){run(document.body);new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==='characterData')q.push(m.target);else m.addedNodes.forEach(function(n){q.push(n)})});if(!raf){raf=1;Promise.resolve().then(flush)}}).observe(document.body,{childList:true,subtree:true,characterData:true})}
+var st=document.createElement('style');st.textContent='svg.gbi{width:1.15em;height:1.15em;vertical-align:-.2em;flex:none;display:inline-block}.gbc-it .ic svg.gbi{width:18px;height:18px}';(document.head||document.documentElement).appendChild(st);
+if(document.body)start();else document.addEventListener('DOMContentLoaded',start)})();
+</script><!--/gb-icons--><!--intro-motion--><script id="intro-motion">
+/* intro page: drifting light, reveal on scroll, the layout cards (filter, tilt, open the recording) */
+(function(){
+  var still=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var o=document.createElement('div');o.id='gb-orbs';o.innerHTML='<i></i><i></i><i></i>';document.body.prepend(o);
+  // reveal: section titles, cards, pictures, videos
+  var els=[].slice.call(document.querySelectorAll('section h2, .card, .fv, .shot.main, .tstrip, .lyt, .chat, .can'));
+  els.forEach(function(e,i){e.classList.add(e.classList.contains('step')?'rvo':'rv');if(!e.style.getPropertyValue('--d')&&!e.classList.contains('lyt'))e.style.setProperty('--d',((i%4)*70)+'ms')});
+  if(still||!('IntersectionObserver' in window)){els.forEach(function(e){e.classList.add('in')})}
+  else{var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target)}})},{rootMargin:'0px 0px -8% 0px',threshold:.08});els.forEach(function(e){io.observe(e)})}
+  // ↺ the team loop: the ring is drawn first, then a light runs round it and each step appears as the light reaches it
+  (function(){
+    var box=document.querySelector('.loopc');if(!box)return;
+    var steps=[].slice.call(box.querySelectorAll('.step')),hub=box.querySelector('.hub'),ring=box.querySelector('svg.ring'),all=steps.concat(hub?[hub]:[]);
+    all.forEach(function(e){e.classList.add('rvo')});
+    function showAll(){all.forEach(function(e){e.classList.add('in')})}
+    if(still||!('IntersectionObserver' in window)||!ring||!steps.length){showAll();return}
+    function center(el){var r=box.getBoundingClientRect(),b=el.getBoundingClientRect();return[(b.left+b.width/2-r.left)/r.width*100,(b.top+b.height/2-r.top)/r.height*100]}
+    var started=false,lo=new IntersectionObserver(function(es){if(started||!es.some(function(e){return e.isIntersecting}))return;started=true;lo.disconnect();run()},{rootMargin:'0px 0px -28% 0px',threshold:.9});lo.observe(hub||box);
+    function run(){
+      if(innerWidth<=1120||box.classList.contains('editing')){showAll();return}
+      var NS='http://www.w3.org/2000/svg',c=steps.map(center),H=hub?center(hub):[50,50],n=c.length,d='M'+c[0][0].toFixed(2)+' '+c[0][1].toFixed(2),cum=[0],tot=0;
+      var sh=window.__gbLoopShape&&window.__gbLoopShape();
+      if(sh){ // the default layout: a true circle from the top, clockwise; the steps sit every 360/n degrees
+        d='M50 '+(50-sh.ry).toFixed(3)+' A'+sh.rx.toFixed(3)+' '+sh.ry.toFixed(3)+' 0 1 1 50 '+(50+sh.ry).toFixed(3)+' A'+sh.rx.toFixed(3)+' '+sh.ry.toFixed(3)+' 0 1 1 50 '+(50-sh.ry).toFixed(3);
+        for(var j=1;j<=n;j++)cum.push(j/n);tot=1}
+      else for(var i=0;i<n;i++){var a=c[i],b=c[(i+1)%n],mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=mx-H[0],dy=my-H[1],L=Math.hypot(dx,dy)||1,q=[mx+dx/L*9,my+dy/L*9];
+        var seg=' Q'+q[0].toFixed(2)+' '+q[1].toFixed(2)+' '+b[0].toFixed(2)+' '+b[1].toFixed(2);d+=seg;
+        var tp=document.createElementNS(NS,'path');tp.setAttribute('d','M'+a[0]+' '+a[1]+seg);ring.appendChild(tp);tot+=tp.getTotalLength();tp.remove();cum.push(tot)}
+      // the usual dashed ring + arrows wait until the light has gone round
+      var old=[].slice.call(ring.children).filter(function(x){return x.tagName.toLowerCase()!=='defs'});
+      old.forEach(function(x){x.style.transition='opacity 700ms';x.style.opacity='0'});
+      var route=document.createElementNS(NS,'path');route.setAttribute('d',d);route.setAttribute('fill','none');route.setAttribute('stroke','#4fed89');route.setAttribute('stroke-width','.28');route.setAttribute('pathLength','1');
+      route.style.strokeDasharray='1';route.style.strokeDashoffset='1';route.style.filter='drop-shadow(0 0 1px rgba(79,237,137,.9))';ring.appendChild(route);
+      if(hub)hub.classList.add('in');
+      void route.getBoundingClientRect();route.style.transition='stroke-dashoffset 1500ms cubic-bezier(.45,0,.2,1)';route.style.strokeDashoffset='0';
+      setTimeout(function(){
+        var dot=document.createElement('i');dot.className='lpdot';box.appendChild(dot);
+        var T=4200,t0=performance.now(),k=0;
+        (function tick(now){var f=Math.min(1,(now-t0)/T),e=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2,sl=e*tot,p;
+          if(sh){var a=(-90+360*e)*Math.PI/180;p={x:50+sh.rx*Math.cos(a),y:50+sh.ry*Math.sin(a)}}else p=route.getPointAtLength(e*route.getTotalLength());
+          dot.style.left=p.x+'%';dot.style.top=p.y+'%';
+          while(k<n&&cum[k]<=sl+.01){steps[k].classList.add('in');k++}
+          if(f<1)requestAnimationFrame(tick);
+          else{showAll();dot.style.opacity='0';setTimeout(function(){dot.remove()},600);old.forEach(function(x){x.style.opacity=''});route.style.transition='opacity 900ms';route.style.opacity='.25'}})(t0);
+      },1550);
+    }
+  })();
+  // ✨ showcase tiles: the same tilt + light as the layout cards
+  if(!still)[].forEach.call(document.querySelectorAll('.can'),function(c){
+    c.addEventListener('pointermove',function(e){if(e.pointerType!=='mouse')return;var r=c.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
+      c.classList.add('tilt');c.style.setProperty('--ry',((x-.5)*6).toFixed(2)+'deg');c.style.setProperty('--rx',((.5-y)*6).toFixed(2)+'deg');c.style.setProperty('--mx',(x*100)+'%');c.style.setProperty('--my',(y*100)+'%')});
+    c.addEventListener('pointerleave',function(){c.style.setProperty('--rx','0deg');c.style.setProperty('--ry','0deg');setTimeout(function(){c.classList.remove('tilt')},140)})});
+  // layout cards
+  var grid=document.querySelector('.lgrid');if(!grid)return;
+  var cards=[].slice.call(grid.querySelectorAll('.lyt'));
+  var ALIAS={clonerig:['rig_s'],retarget:['rig_s'],flash:['f_vfx'],rig:['rig_s'],vehicle:['vehicle_s'],playtest:['playtest_s','map_s'],mocap:['mocap_s'],smash:['f_smash','smash_s']};
+  function vid(id){var c=(ALIAS[id]||[]).concat(['f_'+id,id+'_s',id]);for(var i=0;i<c.length;i++){var v=document.querySelector('video[data-vid="'+c[i]+'"]');if(v)return v}return null}
+  cards.forEach(function(c){if(!vid(c.dataset.id))c.classList.add('novid')});
+  // filter chips
+  document.querySelectorAll('.lchip').forEach(function(b){b.onclick=function(){var g=b.dataset.g;document.querySelectorAll('.lchip').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});
+    cards.forEach(function(c,i){var on=g==='*'||c.dataset.g===g;c.classList.toggle('hide',!on);if(on&&!still){c.classList.remove('in');c.style.setProperty('--d',(i%6)*50+'ms');void c.offsetWidth;c.classList.add('in')}})}});
+  // tilt + light follow the pointer
+  if(!still)cards.forEach(function(c){
+    c.addEventListener('pointermove',function(e){if(e.pointerType!=='mouse')return;var r=c.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
+      c.classList.add('tilt');c.style.setProperty('--ry',((x-.5)*8).toFixed(2)+'deg');c.style.setProperty('--rx',((.5-y)*8).toFixed(2)+'deg');c.style.setProperty('--mx',(x*100)+'%');c.style.setProperty('--my',(y*100)+'%')});
+    c.addEventListener('pointerleave',function(){c.style.setProperty('--rx','0deg');c.style.setProperty('--ry','0deg');setTimeout(function(){c.classList.remove('tilt')},140)})});
+  // open: the recording in a glass window (the same video data as the page, nothing loaded twice)
+  var m=document.getElementById('lmodal'),mv=m.querySelector('.lmv'),last=null;
+  function close(){m.classList.remove('on');setTimeout(function(){m.hidden=true;mv.innerHTML=''},200);if(last)last.focus()}
+  cards.forEach(function(c){c.onclick=function(){var v=vid(c.dataset.id);last=c;mv.innerHTML='';
+    if(v){var nv=document.createElement('video');nv.src=v.getAttribute('data-src')||v.currentSrc||v.src;nv.muted=true;nv.loop=true;nv.playsInline=true;nv.autoplay=true;nv.controls=true;mv.appendChild(nv);var p=nv.play();if(p&&p.catch)p.catch(function(){})}
+    m.querySelector('.lmt .ic').innerHTML=c.querySelector('.ic').innerHTML;m.querySelector('.lmt b').innerHTML=c.querySelector('b').innerHTML;m.querySelector('.lmd').innerHTML=c.querySelector('.ld').innerHTML;
+    m.hidden=false;void m.offsetWidth;m.classList.add('on');m.querySelector('.lx').focus()}});
+  m.querySelector('.lx').onclick=close;m.addEventListener('click',function(e){if(e.target===m)close()});
+  addEventListener('keydown',function(e){if(e.key==='Escape'&&!m.hidden)close()});
+})();
+</script><!--/intro-motion--><!--gb-fav--><script id="gb-fav">
+(function(){var l=document.querySelector('link[rel~=icon]');if(!l){l=document.createElement('link');l.rel='icon';document.head.appendChild(l)}l.type='image/webp';l.href="data:image/webp;base64,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"})();
+</script><!--/gb-fav--><!--LOOPLAYOUT--><script id="intro-can-loop">
+/* ✨ showcase tiles open the matching recording; ✏️ the team loop can be laid out by hand (page opened with ?edit) */
+(function(){
+  // showcase: a tile opens the layout card's recording (same modal), or scrolls to its section
+  [].forEach.call(document.querySelectorAll('.can[data-open]'),function(t){t.addEventListener('click',function(){
+    var id=t.getAttribute('data-open');
+    if(id.charAt(0)==='#'){var s=document.querySelector(id);if(s)s.scrollIntoView({behavior:'smooth'});return}
+    var c=document.querySelector('.lyt[data-id="'+id+'"]');
+    if(c&&!c.classList.contains('novid'))c.click();else{var l=document.getElementById('layouts');if(l)l.scrollIntoView({behavior:'smooth'})}
+  })});
+
+  var box=document.querySelector('.loopc'),bar=document.getElementById('loopedit');if(!box||!bar)return;
+  var KEY='gb.intro.loop',DEF=window.__LOOP_LAYOUT||null,ring=box.querySelector('svg.ring'),ring0=ring?ring.innerHTML:'';
+  var items=[].slice.call(box.querySelectorAll('.step'));var hub=box.querySelector('.hub');if(hub)items.push(hub);
+  function key(el){if(el===hub)return 'hub';var m=/\bs(\d)\b/.exec(el.className);return m?'s'+m[1]:''}
+  function wide(){return innerWidth>1120}
+  function saved(){try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){return null}}
+  function center(el){var r=box.getBoundingClientRect(),b=el.getBoundingClientRect();return[(b.left+b.width/2-r.left)/r.width*100,(b.top+b.height/2-r.top)/r.height*100]}
+  // arrows from each step to the next, bowed away from the centre, with an arrow head half way
+  function draw(){
+    if(!ring)return;var c=items.filter(function(e){return e!==hub}).map(center),H=hub?center(hub):[50,50],n=c.length,out='';
+    var defs=ring.querySelector('defs');out+=defs?defs.outerHTML:'';
+    for(var i=0;i<n;i++){var a=c[i],b=c[(i+1)%n],mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=mx-H[0],dy=my-H[1],L=Math.hypot(dx,dy)||1,k=9,q=[mx+dx/L*k,my+dy/L*k];
+      var P=function(t){var u=1-t;return[u*u*a[0]+2*u*t*q[0]+t*t*b[0],u*u*a[1]+2*u*t*q[1]+t*t*b[1]]},p1=P(.47),p2=P(.53);
+      out+='<path d="M'+a[0].toFixed(2)+' '+a[1].toFixed(2)+' Q'+q[0].toFixed(2)+' '+q[1].toFixed(2)+' '+b[0].toFixed(2)+' '+b[1].toFixed(2)+'" fill="none" stroke="rgba(79,237,137,.45)" stroke-width=".35" stroke-dasharray="1.2 1.2" vector-effect="non-scaling-stroke"/>';
+      out+='<path d="M'+p1[0].toFixed(2)+' '+p1[1].toFixed(2)+' L'+p2[0].toFixed(2)+' '+p2[1].toFixed(2)+'" fill="none" stroke="#4fed89" stroke-width=".6" marker-end="url(#lp-a)" vector-effect="non-scaling-stroke"/>'}
+    ring.innerHTML=out}
+  // the default loop: the six steps evenly round a TRUE circle (in pixels, so a wide box does not make an oval)
+  var shape=null;
+  function circle(){
+    var steps=items.filter(function(e){return e!==hub});if(!steps.length||!ring)return;
+    box.style.height='';var r=box.getBoundingClientRect(),W=r.width,H=r.height,mw=0,mh=0;
+    steps.forEach(function(e){mw=Math.max(mw,e.offsetWidth);mh=Math.max(mh,e.offsetHeight)}); // offset* ignore the pop-in scale
+    var R=Math.max(160,Math.min((W-mw)/2,(H-mh)/2)-10),n=steps.length;
+    steps.forEach(function(e,i){var a=(-90+360*i/n)*Math.PI/180;e.style.left=((W/2+R*Math.cos(a))/W*100).toFixed(3)+'%';e.style.top=((H/2+R*Math.sin(a))/H*100).toFixed(3)+'%'});
+    var rx=R/W*100,ry=R/H*100,defs=ring.querySelector('defs'),out=defs?defs.outerHTML:'';
+    out+='<ellipse cx="50" cy="50" rx="'+rx.toFixed(3)+'" ry="'+ry.toFixed(3)+'" fill="none" stroke="rgba(79,237,137,.45)" stroke-width=".35" stroke-dasharray="1.2 1.2" vector-effect="non-scaling-stroke"/>';
+    for(var i=0;i<n;i++){var m=(-90+360*(i+.5)/n),a1=(m-2)*Math.PI/180,a2=(m+2)*Math.PI/180;
+      out+='<path d="M'+(50+rx*Math.cos(a1)).toFixed(3)+' '+(50+ry*Math.sin(a1)).toFixed(3)+' A'+rx.toFixed(3)+' '+ry.toFixed(3)+' 0 0 1 '+(50+rx*Math.cos(a2)).toFixed(3)+' '+(50+ry*Math.sin(a2)).toFixed(3)+'" fill="none" stroke="#4fed89" stroke-width=".6" marker-end="url(#lp-a)" vector-effect="non-scaling-stroke"/>'}
+    ring.innerHTML=out;shape={rx:rx,ry:ry,n:n}}
+  // the intro animation (intro-motion.js) asks for the circle; null = a hand-made layout (it follows the boxes)
+  window.__gbLoopShape=function(){return shape};
+  function apply(L){
+    shape=null;
+    if(!wide()){items.forEach(function(e){e.style.left='';e.style.top=''});box.style.height='';if(ring)ring.innerHTML=ring0;return}
+    if(!L){circle();return}
+    items.forEach(function(e){var p=L.pos&&L.pos[key(e)];if(p){e.style.left=p[0]+'%';e.style.top=p[1]+'%'}});
+    if(L.h)box.style.height=L.h+'px';draw()}
+  function now(){var pos={};items.forEach(function(e){var l=parseFloat(e.style.left),t=parseFloat(e.style.top);if(isNaN(l)||isNaN(t)){var c=center(e);l=c[0];t=c[1]}pos[key(e)]=[+l.toFixed(2),+t.toFixed(2)]});return{pos:pos,h:Math.round(box.getBoundingClientRect().height)}}
+  function store(){try{localStorage.setItem(KEY,JSON.stringify(now()))}catch(e){}}
+  apply(saved()||DEF);
+  var wasWide=wide();addEventListener('resize',function(){if(wide()!==wasWide||shape){wasWide=wide();if(!on)apply(saved()||DEF)}else if(box.style.height)draw()});
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){if(!on)apply(saved()||DEF)});
+
+  // the editor: shown when the page is opened with ?edit (or #edit), or after a double click on the loop's title
+  var on=false,grip=document.createElement('div');grip.className='hgrip';grip.title='Height';box.appendChild(grip);
+  if(/edit/.test(location.search+location.hash))bar.classList.add('show');
+  var h2=document.querySelector('#loop h2');if(h2)h2.addEventListener('dblclick',function(){bar.classList.toggle('show')});
+  function set(v){on=v&&wide();if(on)shape=null;box.classList.toggle('editing',on);bar.querySelector('[data-a="edit"]').classList.toggle('on',on);if(on){items.forEach(function(e){var c=center(e);e.style.left=c[0]+'%';e.style.top=c[1]+'%'});draw()}}
+  bar.addEventListener('click',function(ev){var b=ev.target.closest('button');if(!b)return;var a=b.getAttribute('data-a');
+    if(a==='edit')set(!on);
+    if(a==='reset'){try{localStorage.removeItem(KEY)}catch(e){}apply(DEF);if(on)set(true)}
+    if(a==='save'){var url=URL.createObjectURL(new Blob([JSON.stringify(now(),null,1)],{type:'application/json'})),x=document.createElement('a');x.href=url;x.download='loop-layout.json';x.click();setTimeout(function(){URL.revokeObjectURL(url)},3000)}});
+  var drag=null;
+  items.forEach(function(e){e.addEventListener('pointerdown',function(ev){if(!on||ev.button!==0)return;ev.preventDefault();var r=box.getBoundingClientRect(),c=center(e);
+    drag={e:e,dx:(ev.clientX-r.left)/r.width*100-c[0],dy:(ev.clientY-r.top)/r.height*100-c[1]};e.classList.add('drag');e.setPointerCapture(ev.pointerId)})});
+  grip.addEventListener('pointerdown',function(ev){if(!on)return;ev.preventDefault();drag={grip:true,y:ev.clientY,h:box.getBoundingClientRect().height};grip.setPointerCapture(ev.pointerId)});
+  addEventListener('pointermove',function(ev){if(!drag)return;
+    if(drag.grip){box.style.height=Math.max(600,Math.round(drag.h+ev.clientY-drag.y))+'px';draw();return}
+    var r=box.getBoundingClientRect(),x=(ev.clientX-r.left)/r.width*100-drag.dx,y=(ev.clientY-r.top)/r.height*100-drag.dy;
+    drag.e.style.left=Math.max(0,Math.min(100,x)).toFixed(2)+'%';drag.e.style.top=Math.max(0,Math.min(100,y)).toFixed(2)+'%';draw()});
+  addEventListener('pointerup',function(){if(!drag)return;if(drag.e)drag.e.classList.remove('drag');drag=null;store()});
 })();
 </script>
 </body>

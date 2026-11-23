@@ -14,7 +14,111 @@ html.gbk.gb-embed,html.gbk{--panel:#0d3028;--sunk:#10382f;--ink:#effbf8;--muted:
 html.gbk button{border-radius:15px}
 html.gbk :is(input[type=range],input[type=checkbox]){accent-color:#19df62}
 </style>
-</head><body>
+<!--gb-glass--><link id="gb-glass-fonts" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"><style id="gb-glass">
+/* Emerald glass for the tool pages shown inside the cockpit (HUD, SFX, the 3D pages): same tokens as the cockpit */
+html.gbk{--g-ink:#f3f5f6;--g-ink2:rgba(236,240,243,.74);--g-ink3:rgba(222,228,232,.54);--g-acc:#2fe98b;--g-acc-hi:#5ff2a8;--g-acc-ink:#03140b;
+  --g-fill:rgba(255,255,255,.06);--g-fill-2:rgba(255,255,255,.10);--g-line:rgba(255,255,255,.13);--g-line-2:rgba(255,255,255,.24);
+  --g-blur:blur(18px) saturate(140%);--g-glow:0 0 0 1px rgba(47,233,139,.55),0 6px 22px -6px rgba(47,233,139,.55);--g-ease:cubic-bezier(.4,0,.4,1);
+  --bg:#08090a;--panel:rgba(22,25,28,.6);--sunk:rgba(255,255,255,.035);--ink:var(--g-ink);--muted:var(--g-ink3);--line:var(--g-line);--accent:var(--g-acc);--mark:var(--g-acc);
+  --button-primary-bg:var(--g-acc);--current-step-indicator:var(--g-acc);--blue:var(--g-acc);--org:var(--g-acc-hi);
+  --gbp-accent:var(--g-acc);--gbp-panel:rgba(18,20,23,.72);--gbp-card:rgba(255,255,255,.04);--gbp-btn:rgba(255,255,255,.06);--gbp-on:rgba(47,233,139,.14);--gbp-line:var(--g-line-2);--gbp-accent-ink:var(--g-acc-ink)}
+html.gbk body,html.gbk body :where(button,input,select,textarea,label,h1,h2,h3,h4,p,span,div,b,small,summary,td,th,a,li){font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important}
+html.gbk:lang(vi) body,html.gbk:lang(vi) body :where(button,input,select,textarea,label,h1,h2,h3,h4,p,span,div,b,small,summary,td,th,a,li){font-family:"Be Vietnam Pro",-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important}
+html.gbk body :where(code,pre,kbd,samp,.mono){font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace!important}
+html.gbk body{-webkit-font-smoothing:antialiased;word-break:keep-all}
+/* panels: frosted glass, sections a faint fill, 16 px corners */
+html.gbk aside,html.gbk.embed aside,html.gbk #tool-panel{background:rgba(14,16,18,.66)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border-color:var(--g-line)!important;box-shadow:none!important}
+html.gbk section{background:rgba(255,255,255,.035)!important;border:1px solid var(--g-line)!important;border-radius:16px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)!important}
+html.gbk :is(h2,h3){color:var(--g-ink)!important;font-weight:700!important;letter-spacing:-.01em}
+html.gbk h3 b{background:var(--g-acc)!important;color:var(--g-acc-ink)!important;box-shadow:0 0 12px -2px rgba(47,233,139,.7)}
+/* buttons: glass; primary / on = the emerald */
+html.gbk button{border-radius:12px!important;background:var(--g-fill)!important;border:1px solid var(--g-line-2)!important;color:var(--g-ink)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)!important;transition:background-color 150ms var(--g-ease),transform 150ms cubic-bezier(0,0,.2,1)!important}
+@media (hover:hover){html.gbk button:hover:not(:disabled){background:var(--g-fill-2)!important;border-color:var(--g-line-2)!important}}
+html.gbk button:active:not(:disabled){transform:scale(.98)}
+html.gbk :is(button.pri,button.primary,.button,label.button,#load-model-button,#action_upload){background:var(--g-acc)!important;color:var(--g-acc-ink)!important;border-color:transparent!important;box-shadow:var(--g-glow)!important;font-weight:600!important;border-radius:12px!important}
+@media (hover:hover){html.gbk :is(button.pri,button.primary,.button):hover{background:var(--g-acc-hi)!important}}
+html.gbk :is(button.on,button[aria-pressed=true]){background:rgba(47,233,139,.14)!important;color:var(--g-acc-hi)!important;border-color:rgba(47,233,139,.5)!important;box-shadow:inset 0 0 16px -8px rgba(47,233,139,.7)!important}
+html.gbk button.alpha{background:var(--g-fill-2)!important}
+/* inputs: dark, a fine line, emerald focus */
+html.gbk :is(input[type=number],input[type=text],select,textarea){background:rgba(0,0,0,.25)!important;border:1px solid var(--g-line-2)!important;border-radius:8px!important;color:var(--g-ink)!important}
+html.gbk :is(input[type=range],input[type=checkbox],input[type=radio]){accent-color:var(--g-acc)}
+html.gbk :is(button,a,input,select,summary):focus-visible{outline:2px solid var(--g-acc)!important;outline-offset:2px}
+html.gbk :is(.sm,small,.hint){color:var(--g-ink3)}
+/* 3D pages: the top menu as a glass bar, the open page in emerald */
+html.gbk nav{background:rgba(11,12,14,.62)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border-bottom:1px solid var(--g-line)!important;box-shadow:none!important}
+html.gbk nav a{color:var(--g-ink2)!important;border-radius:10px}html.gbk nav a:hover{background:var(--g-fill)!important;color:var(--g-ink)!important}
+html.gbk nav a.on,html.gbk nav a[aria-current]{background:rgba(47,233,139,.12)!important;color:var(--g-acc-hi)!important;box-shadow:inset 0 0 0 1px rgba(47,233,139,.42)}
+html.gbk :is(#logo-branding,.logo) i{background:var(--g-acc)!important;box-shadow:0 0 12px rgba(47,233,139,.7)!important}
+html.gbk :is(#vh-status,#pt-status){background:rgba(255,255,255,.05)!important;border:1px solid var(--g-line);border-radius:12px;color:var(--g-ink)}
+html.gbk *{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}
+@media (prefers-reduced-motion:reduce){html.gbk *{transition-duration:100ms!important}}
+
+/* ===== liquid glass buttons (round 40): tinted emerald glass, a white sheen on the top half, a bright top edge,
+   a green glow from inside the bottom. Primary = emerald liquid with a white highlight. ===== */
+html.gbk{--lq-fill:linear-gradient(180deg,rgba(255,255,255,.17) 0%,rgba(255,255,255,.06) 47%,rgba(255,255,255,.02) 53%,rgba(255,255,255,.05) 100%),rgba(30,33,37,.42);
+  --lq-fill-hi:linear-gradient(180deg,rgba(255,255,255,.26) 0%,rgba(255,255,255,.09) 47%,rgba(255,255,255,.04) 53%,rgba(255,255,255,.08) 100%),rgba(40,44,48,.48);
+  --lq-line:rgba(255,255,255,.3);
+  --lq-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.05),inset 0 0 14px rgba(255,255,255,.05),0 6px 16px -8px rgba(0,0,0,.55);
+  --lq-pri:linear-gradient(180deg,rgba(255,255,255,.62) 0%,rgba(255,255,255,.18) 44%,rgba(255,255,255,0) 56%,rgba(0,90,45,.14) 100%),rgba(47,233,139,.86);
+  --lq-pri-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -3px 10px rgba(0,90,45,.3),0 0 0 1px rgba(255,255,255,.35),0 6px 18px -10px rgba(47,233,139,.7);
+  --lq-on:linear-gradient(180deg,rgba(255,255,255,.3) 0%,rgba(255,255,255,.08) 47%,rgba(255,255,255,.05) 53%,rgba(47,233,139,.10) 100%),rgba(40,46,48,.52);
+  --lq-on-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -2px 8px rgba(47,233,139,.18),0 0 0 1px rgba(47,233,139,.45);
+  --lq-blur:blur(14px) saturate(170%);}
+html.gbk button{background:var(--lq-fill)!important;border:1px solid var(--lq-line)!important;color:#f6f7f8!important;box-shadow:var(--lq-shadow)!important;
+  -webkit-backdrop-filter:var(--lq-blur);backdrop-filter:var(--lq-blur);text-shadow:0 1px 1px rgba(0,30,15,.35);
+  transition:background 150ms var(--g-ease),box-shadow 150ms var(--g-ease),transform 150ms cubic-bezier(0,0,.2,1)!important}
+@media (hover:hover){html.gbk button:hover:not(:disabled){background:var(--lq-fill-hi)!important;border-color:rgba(255,255,255,.45)!important}}
+html.gbk button:active:not(:disabled){transform:scale(.97)}
+html.gbk :is(button.pri,button.primary,.button,label.button,#load-model-button,#action_upload){background:var(--lq-pri)!important;color:#03140b!important;text-shadow:0 1px 0 rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.7)!important;box-shadow:var(--lq-pri-shadow)!important}
+@media (hover:hover){html.gbk :is(button.pri,button.primary,.button):hover{background:linear-gradient(180deg,rgba(255,255,255,.72) 0%,rgba(255,255,255,.24) 44%,rgba(255,255,255,0) 56%,rgba(0,90,45,.1) 100%),rgba(95,242,168,.88)!important}}
+html.gbk :is(button.on,button[aria-pressed=true]){background:var(--lq-on)!important;color:#fff!important;border-color:rgba(255,255,255,.6)!important;box-shadow:var(--lq-on-shadow)!important}
+html.gbk button:disabled{opacity:.45;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)!important}
+/* panels: a whiter frost, a bright top edge */
+html.gbk section{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025))!important;border-color:rgba(255,255,255,.16)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)!important}
+/* sliders: a glass track, a white bead */
+html.gbk input[type=range]{accent-color:#5ff2a8}
+
+/* ===== hover glow (round 41): one short flash (≈0.6 s) that settles to a faint edge light, never a long glow ===== */
+@keyframes lq-flash{0%{filter:none}28%{filter:drop-shadow(0 0 9px rgba(190,255,225,.45)) brightness(1.08)}100%{filter:drop-shadow(0 0 2px rgba(190,255,225,.18))}}
+@media (hover:hover){html.gbk button:hover:not(:disabled){animation:lq-flash 600ms cubic-bezier(.2,.7,.2,1) forwards}}
+@media (prefers-reduced-motion:reduce){html.gbk button:hover{animation:none!important}}
+/* colour swatches keep their own colour under the glass sheen */
+html.gbk button[style*="--sw"]{background:linear-gradient(180deg,rgba(255,255,255,.38) 0%,rgba(255,255,255,.08) 48%,rgba(0,0,0,0) 55%),var(--sw)!important;border-color:rgba(255,255,255,.4)!important}
+html.gbk button[style*="--sw"].on{box-shadow:0 0 0 2px #fff,0 0 12px rgba(47,233,139,.8)!important}
+
+/* ===== round 42: neutral glass, line icons, white glass pictures ===== */
+html.gbk svg.gbi{color:rgba(236,240,243,.86)}
+html.gbk :is(button.on,button[aria-pressed=true],.gbc-it[aria-pressed=true]) svg.gbi{color:#5ff2a8}
+html.gbk :is(button.pri,button.primary,.gbc-b.pri,.btn.pri) svg.gbi{color:#03140b}
+html.gbk button.gb-tile img{filter:grayscale(1) brightness(1.32) contrast(1.06) drop-shadow(0 4px 10px rgba(0,0,0,.45))!important;opacity:.92;transition:filter 200ms cubic-bezier(.4,0,.4,1),transform 150ms cubic-bezier(0,0,.2,1)}
+html.gbk button.gb-tile.on img,html.gbk button.gb-tile.pri img{filter:grayscale(.15) brightness(1.15) drop-shadow(0 4px 12px rgba(47,233,139,.35))!important;opacity:1}
+@media (hover:hover){html.gbk button.gb-tile:hover img{filter:grayscale(.55) brightness(1.25) drop-shadow(0 4px 12px rgba(0,0,0,.4))!important}}
+
+/* ===== logo (round 44) ===== */
+html.gbk :is(#logo-branding,.logo) i{width:22px!important;height:22px!important;border-radius:0!important;background:url(data:image/webp;base64,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) center/contain no-repeat!important;box-shadow:none!important;filter:drop-shadow(0 0 7px rgba(47,233,139,.5))}
+/* ===== round 56: tidy button layout on every page (haru-ui: one grid, equal widths, clear groups) ===== */
+/* a row of only buttons = an even grid (no ragged wrapping); colour swatch rows stay small squares */
+html.gbk section .row:not(:has(> :not(button))):not(:has(> button[style*="--sw"])):has(> button + button){display:grid!important;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px!important;align-items:stretch}
+html.gbk section .row:not(:has(> :not(button))):not(:has(> button[style*="--sw"])) > button{width:100%;justify-content:center;text-align:center;min-height:38px;white-space:normal;line-height:1.2}
+html.gbk section .row:has(> button[style*="--sw"]){display:flex!important;flex-wrap:wrap;gap:8px!important;align-items:center}
+/* checkbox rows: one per line, aligned */
+html.gbk section .row:has(> label > input[type=checkbox]){display:flex!important;flex-direction:column;align-items:flex-start;gap:6px!important}
+/* label + control pairs: label on the left, control fills the rest */
+html.gbk section label.sm:has(> input[type=range]){display:grid!important;grid-template-columns:minmax(84px,auto) 1fr auto;align-items:center;gap:10px}
+html.gbk section label.sm:has(> select){display:flex;align-items:center;gap:8px}
+html.gbk section label.sm > select{flex:1;min-width:0}
+/* colour swatches: real colour, glass sheen, a clear ring when chosen */
+html.gbk button[style*="--sw"]{border-radius:10px!important;padding:0!important}
+html.gbk button[style*="--sw"]:is(.on,[aria-pressed=true]){box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(47,233,139,.7),0 0 14px rgba(47,233,139,.6)!important;transform:translateY(-1px)}
+/* group title above a tile grid */
+html.gbk .gb-grouptitle{margin:14px 0 6px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(222,232,227,.55)}
+/* the page guides (gb-base.js tour) in glass, like the cockpit guide */
+#gb-tour .gbt-hole{border-radius:14px!important;border:0!important;box-shadow:0 0 0 9999px rgba(2,6,5,.6),0 0 0 2px rgba(95,242,168,.9),0 0 26px 2px rgba(47,233,139,.5)!important}
+#gb-tour .gbt-tip{background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.03) 40%,rgba(47,233,139,.06)),rgba(12,20,17,.9)!important;-webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);
+  border:1px solid rgba(170,255,214,.24)!important;border-radius:18px!important;padding:16px 18px 14px!important;color:#eef6f2!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 0 34px -12px rgba(47,233,139,.55),0 24px 50px -20px rgba(0,0,0,.85)!important}
+#gb-tour .gbt-tip button{border-radius:12px!important;padding:8px 13px!important;border:1px solid rgba(255,255,255,.18)!important;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04)),rgba(30,34,37,.5)!important;color:#eef6f2!important}
+#gb-tour .gbt-tip .gbt-next{color:#03140b!important;border-color:rgba(255,255,255,.7)!important;background:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,.15) 45%,transparent 56%),rgba(47,233,139,.88)!important}
+</style><!--/gb-glass--></head><body>
 <title>SFX Sync Bench</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -994,4 +1098,27 @@ window.__sfx = { analyze: () => analyze(), sounds: () => S.lib.map(l => l.name),
 })();
 </script>
 
-</body></html>
+<!--gb-icons--><script id="gb-icons">
+/* Greenbox line icons: Lucide (lucide.dev, ISC licence) in place of emoji in buttons, titles and the feature list */
+(function(){if(window.__gbIcons)return;window.__gbIcons=1;
+var I={"panel-right-open":"<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"M15 3v18\" /> <path d=\"m10 15-3-3 3-3\" />","zap":"<path d=\"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z\" />"},E={"⚡":"zap","⇥":"panel-right-open"},NS='http://www.w3.org/2000/svg';
+var K=Object.keys(E).sort(function(a,b){return b.length-a.length}).map(function(k){return k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')});
+var RE=new RegExp('('+K.join('|')+')\uFE0F?','g');
+var SEL='button,summary,label,h1,h2,h3,h4,#gbai header,#gbai-mcp-status,#gbai-pair-state,figcaption,.tags span,.gbc-it,.gbc-gt,.gbc-dh,.gbc-crumb,nav a,[role=tab],.tab,.ptabs,.ic,.gbi-ok';
+var SKIP='option,textarea,input,select,script,style,svg,canvas,[contenteditable],[data-no-gbi],.stage,#stage,.overlay-out';
+function mk(n){var s=document.createElementNS(NS,'svg');s.setAttribute('viewBox','0 0 24 24');s.setAttribute('fill','none');s.setAttribute('stroke','currentColor');s.setAttribute('stroke-width','1.8');s.setAttribute('stroke-linecap','round');s.setAttribute('stroke-linejoin','round');s.setAttribute('aria-hidden','true');s.setAttribute('class','gbi gbi-'+n);s.innerHTML=I[n];return s}
+function swap(t){var p=t.parentElement;if(!p||!p.closest(SEL)||p.closest(SKIP))return;var v=t.nodeValue;RE.lastIndex=0;if(!RE.test(v))return;RE.lastIndex=0;
+ var f=document.createDocumentFragment(),last=0,m;while((m=RE.exec(v))){if(m.index>last)f.appendChild(document.createTextNode(v.slice(last,m.index)));var k=m[1],n=E[k]||E[k.replace(/\uFE0F/g,'')];if(n)f.appendChild(mk(n));else f.appendChild(document.createTextNode(m[0]));last=m.index+m[0].length}
+ if(last<v.length)f.appendChild(document.createTextNode(v.slice(last)));
+ /* gb-i18n keeps the English source on the text node (__s): carry it over, without the emoji */
+ if(t.__s!=null){var tn=[].filter.call(f.childNodes,function(c){return c.nodeType===3});if(tn.length===1){RE.lastIndex=0;tn[0].__s=String(t.__s).replace(RE,'');tn[0].__o=tn[0].nodeValue}}
+ t.parentNode.replaceChild(f,t)}
+function run(root){if(!root)return;if(root.nodeType===3){swap(root);return}if(root.nodeType!==1&&root.nodeType!==9&&root.nodeType!==11)return;
+ var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null),a=[],t;while((t=w.nextNode()))if(t.nodeValue&&/[\u2190-\u21FF\u2300-\u23FF\u2600-\u27BF\u2B00-\u2BFF\uD83C-\uDBFF]/.test(t.nodeValue))a.push(t);a.forEach(swap)}
+var q=[],raf=0;function flush(){raf=0;var b=q;q=[];b.forEach(run)}
+function start(){run(document.body);new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==='characterData')q.push(m.target);else m.addedNodes.forEach(function(n){q.push(n)})});if(!raf){raf=1;Promise.resolve().then(flush)}}).observe(document.body,{childList:true,subtree:true,characterData:true})}
+var st=document.createElement('style');st.textContent='svg.gbi{width:1.15em;height:1.15em;vertical-align:-.2em;flex:none;display:inline-block}.gbc-it .ic svg.gbi{width:18px;height:18px}';(document.head||document.documentElement).appendChild(st);
+if(document.body)start();else document.addEventListener('DOMContentLoaded',start)})();
+</script><!--/gb-icons--><!--gb-fav--><script id="gb-fav">
+(function(){var l=document.querySelector('link[rel~=icon]');if(!l){l=document.createElement('link');l.rel='icon';document.head.appendChild(l)}l.type='image/webp';l.href="data:image/webp;base64,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"})();
+</script><!--/gb-fav--><script src="./gb-ai/embed.js?v=20261110g" defer></script></body></html>

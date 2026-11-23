@@ -7,6 +7,7 @@
 <script>(function(){var r=document.documentElement,set=function(v){r.classList.toggle("gbv",v==="v");r.classList.toggle("gbk",v!=="v"&&v!=="d")};try{set(localStorage.getItem("gbc.ui")||"k")}catch(e){set("k")}addEventListener("message",function(e){if((e.origin===location.origin||(location.protocol==='file:'&&e.origin==='null'))&&e.data&&e.data.gbTheme)set(e.data.gbTheme)})})();</script>
 <script src="./gb-xp.js"></script>
 <script src="./gb-endcard.js?v=20261102e"></script>
+<script src="./gb-layouts.js?v=20261110c"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Public+Sans:wght@400;500;700&family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,900&display=swap">
 <script src="./vendor/mp4-muxer-5.1.3.js"></script>
 <style>
@@ -44,7 +45,8 @@ label>span{min-width:92px;color:var(--muted)}
 input,select,button{font:inherit;color:inherit}
 input[type=number],input[type=text],select{background:#0b1526;border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-width:0;flex:1}
 input[type=color]{width:34px;height:26px;padding:0;border:1px solid var(--line);border-radius:6px;background:none}
-input[type=range]{flex:1}
+input[type=range]{flex:1 1 0;min-width:0}
+label>input,label>select{min-width:0}
 button{background:#17263d;border:1px solid var(--line);border-radius:7px;padding:6px 9px;cursor:pointer}
 button:hover{border-color:#71cbff}
 button.pri{background:linear-gradient(180deg,#1aa3ff,#0b6fd6);border-color:#71cbff;color:#fff;font-weight:600}
@@ -105,7 +107,111 @@ html.gbk button.pri{background:linear-gradient(120deg,#37966a,#19df62 60%,#4fed8
 html.gbk button.alpha{background:linear-gradient(120deg,#1c8c72,#0e8b51);border-color:transparent}
 html.gbk :is(input[type=range],input[type=checkbox]){accent-color:#19df62}
 </style>
-</head>
+<!--gb-glass--><link id="gb-glass-fonts" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"><style id="gb-glass">
+/* Emerald glass for the tool pages shown inside the cockpit (HUD, SFX, the 3D pages): same tokens as the cockpit */
+html.gbk{--g-ink:#f3f5f6;--g-ink2:rgba(236,240,243,.74);--g-ink3:rgba(222,228,232,.54);--g-acc:#2fe98b;--g-acc-hi:#5ff2a8;--g-acc-ink:#03140b;
+  --g-fill:rgba(255,255,255,.06);--g-fill-2:rgba(255,255,255,.10);--g-line:rgba(255,255,255,.13);--g-line-2:rgba(255,255,255,.24);
+  --g-blur:blur(18px) saturate(140%);--g-glow:0 0 0 1px rgba(47,233,139,.55),0 6px 22px -6px rgba(47,233,139,.55);--g-ease:cubic-bezier(.4,0,.4,1);
+  --bg:#08090a;--panel:rgba(22,25,28,.6);--sunk:rgba(255,255,255,.035);--ink:var(--g-ink);--muted:var(--g-ink3);--line:var(--g-line);--accent:var(--g-acc);--mark:var(--g-acc);
+  --button-primary-bg:var(--g-acc);--current-step-indicator:var(--g-acc);--blue:var(--g-acc);--org:var(--g-acc-hi);
+  --gbp-accent:var(--g-acc);--gbp-panel:rgba(18,20,23,.72);--gbp-card:rgba(255,255,255,.04);--gbp-btn:rgba(255,255,255,.06);--gbp-on:rgba(47,233,139,.14);--gbp-line:var(--g-line-2);--gbp-accent-ink:var(--g-acc-ink)}
+html.gbk body,html.gbk body :where(button,input,select,textarea,label,h1,h2,h3,h4,p,span,div,b,small,summary,td,th,a,li){font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important}
+html.gbk:lang(vi) body,html.gbk:lang(vi) body :where(button,input,select,textarea,label,h1,h2,h3,h4,p,span,div,b,small,summary,td,th,a,li){font-family:"Be Vietnam Pro",-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important}
+html.gbk body :where(code,pre,kbd,samp,.mono){font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace!important}
+html.gbk body{-webkit-font-smoothing:antialiased;word-break:keep-all}
+/* panels: frosted glass, sections a faint fill, 16 px corners */
+html.gbk aside,html.gbk.embed aside,html.gbk #tool-panel{background:rgba(14,16,18,.66)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border-color:var(--g-line)!important;box-shadow:none!important}
+html.gbk section{background:rgba(255,255,255,.035)!important;border:1px solid var(--g-line)!important;border-radius:16px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)!important}
+html.gbk :is(h2,h3){color:var(--g-ink)!important;font-weight:700!important;letter-spacing:-.01em}
+html.gbk h3 b{background:var(--g-acc)!important;color:var(--g-acc-ink)!important;box-shadow:0 0 12px -2px rgba(47,233,139,.7)}
+/* buttons: glass; primary / on = the emerald */
+html.gbk button{border-radius:12px!important;background:var(--g-fill)!important;border:1px solid var(--g-line-2)!important;color:var(--g-ink)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)!important;transition:background-color 150ms var(--g-ease),transform 150ms cubic-bezier(0,0,.2,1)!important}
+@media (hover:hover){html.gbk button:hover:not(:disabled){background:var(--g-fill-2)!important;border-color:var(--g-line-2)!important}}
+html.gbk button:active:not(:disabled){transform:scale(.98)}
+html.gbk :is(button.pri,button.primary,.button,label.button,#load-model-button,#action_upload){background:var(--g-acc)!important;color:var(--g-acc-ink)!important;border-color:transparent!important;box-shadow:var(--g-glow)!important;font-weight:600!important;border-radius:12px!important}
+@media (hover:hover){html.gbk :is(button.pri,button.primary,.button):hover{background:var(--g-acc-hi)!important}}
+html.gbk :is(button.on,button[aria-pressed=true]){background:rgba(47,233,139,.14)!important;color:var(--g-acc-hi)!important;border-color:rgba(47,233,139,.5)!important;box-shadow:inset 0 0 16px -8px rgba(47,233,139,.7)!important}
+html.gbk button.alpha{background:var(--g-fill-2)!important}
+/* inputs: dark, a fine line, emerald focus */
+html.gbk :is(input[type=number],input[type=text],select,textarea){background:rgba(0,0,0,.25)!important;border:1px solid var(--g-line-2)!important;border-radius:8px!important;color:var(--g-ink)!important}
+html.gbk :is(input[type=range],input[type=checkbox],input[type=radio]){accent-color:var(--g-acc)}
+html.gbk :is(button,a,input,select,summary):focus-visible{outline:2px solid var(--g-acc)!important;outline-offset:2px}
+html.gbk :is(.sm,small,.hint){color:var(--g-ink3)}
+/* 3D pages: the top menu as a glass bar, the open page in emerald */
+html.gbk nav{background:rgba(11,12,14,.62)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border-bottom:1px solid var(--g-line)!important;box-shadow:none!important}
+html.gbk nav a{color:var(--g-ink2)!important;border-radius:10px}html.gbk nav a:hover{background:var(--g-fill)!important;color:var(--g-ink)!important}
+html.gbk nav a.on,html.gbk nav a[aria-current]{background:rgba(47,233,139,.12)!important;color:var(--g-acc-hi)!important;box-shadow:inset 0 0 0 1px rgba(47,233,139,.42)}
+html.gbk :is(#logo-branding,.logo) i{background:var(--g-acc)!important;box-shadow:0 0 12px rgba(47,233,139,.7)!important}
+html.gbk :is(#vh-status,#pt-status){background:rgba(255,255,255,.05)!important;border:1px solid var(--g-line);border-radius:12px;color:var(--g-ink)}
+html.gbk *{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}
+@media (prefers-reduced-motion:reduce){html.gbk *{transition-duration:100ms!important}}
+
+/* ===== liquid glass buttons (round 40): tinted emerald glass, a white sheen on the top half, a bright top edge,
+   a green glow from inside the bottom. Primary = emerald liquid with a white highlight. ===== */
+html.gbk{--lq-fill:linear-gradient(180deg,rgba(255,255,255,.17) 0%,rgba(255,255,255,.06) 47%,rgba(255,255,255,.02) 53%,rgba(255,255,255,.05) 100%),rgba(30,33,37,.42);
+  --lq-fill-hi:linear-gradient(180deg,rgba(255,255,255,.26) 0%,rgba(255,255,255,.09) 47%,rgba(255,255,255,.04) 53%,rgba(255,255,255,.08) 100%),rgba(40,44,48,.48);
+  --lq-line:rgba(255,255,255,.3);
+  --lq-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.05),inset 0 0 14px rgba(255,255,255,.05),0 6px 16px -8px rgba(0,0,0,.55);
+  --lq-pri:linear-gradient(180deg,rgba(255,255,255,.62) 0%,rgba(255,255,255,.18) 44%,rgba(255,255,255,0) 56%,rgba(0,90,45,.14) 100%),rgba(47,233,139,.86);
+  --lq-pri-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -3px 10px rgba(0,90,45,.3),0 0 0 1px rgba(255,255,255,.35),0 6px 18px -10px rgba(47,233,139,.7);
+  --lq-on:linear-gradient(180deg,rgba(255,255,255,.3) 0%,rgba(255,255,255,.08) 47%,rgba(255,255,255,.05) 53%,rgba(47,233,139,.10) 100%),rgba(40,46,48,.52);
+  --lq-on-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -2px 8px rgba(47,233,139,.18),0 0 0 1px rgba(47,233,139,.45);
+  --lq-blur:blur(14px) saturate(170%);}
+html.gbk button{background:var(--lq-fill)!important;border:1px solid var(--lq-line)!important;color:#f6f7f8!important;box-shadow:var(--lq-shadow)!important;
+  -webkit-backdrop-filter:var(--lq-blur);backdrop-filter:var(--lq-blur);text-shadow:0 1px 1px rgba(0,30,15,.35);
+  transition:background 150ms var(--g-ease),box-shadow 150ms var(--g-ease),transform 150ms cubic-bezier(0,0,.2,1)!important}
+@media (hover:hover){html.gbk button:hover:not(:disabled){background:var(--lq-fill-hi)!important;border-color:rgba(255,255,255,.45)!important}}
+html.gbk button:active:not(:disabled){transform:scale(.97)}
+html.gbk :is(button.pri,button.primary,.button,label.button,#load-model-button,#action_upload){background:var(--lq-pri)!important;color:#03140b!important;text-shadow:0 1px 0 rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.7)!important;box-shadow:var(--lq-pri-shadow)!important}
+@media (hover:hover){html.gbk :is(button.pri,button.primary,.button):hover{background:linear-gradient(180deg,rgba(255,255,255,.72) 0%,rgba(255,255,255,.24) 44%,rgba(255,255,255,0) 56%,rgba(0,90,45,.1) 100%),rgba(95,242,168,.88)!important}}
+html.gbk :is(button.on,button[aria-pressed=true]){background:var(--lq-on)!important;color:#fff!important;border-color:rgba(255,255,255,.6)!important;box-shadow:var(--lq-on-shadow)!important}
+html.gbk button:disabled{opacity:.45;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)!important}
+/* panels: a whiter frost, a bright top edge */
+html.gbk section{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025))!important;border-color:rgba(255,255,255,.16)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)!important}
+/* sliders: a glass track, a white bead */
+html.gbk input[type=range]{accent-color:#5ff2a8}
+
+/* ===== hover glow (round 41): one short flash (≈0.6 s) that settles to a faint edge light, never a long glow ===== */
+@keyframes lq-flash{0%{filter:none}28%{filter:drop-shadow(0 0 9px rgba(190,255,225,.45)) brightness(1.08)}100%{filter:drop-shadow(0 0 2px rgba(190,255,225,.18))}}
+@media (hover:hover){html.gbk button:hover:not(:disabled){animation:lq-flash 600ms cubic-bezier(.2,.7,.2,1) forwards}}
+@media (prefers-reduced-motion:reduce){html.gbk button:hover{animation:none!important}}
+/* colour swatches keep their own colour under the glass sheen */
+html.gbk button[style*="--sw"]{background:linear-gradient(180deg,rgba(255,255,255,.38) 0%,rgba(255,255,255,.08) 48%,rgba(0,0,0,0) 55%),var(--sw)!important;border-color:rgba(255,255,255,.4)!important}
+html.gbk button[style*="--sw"].on{box-shadow:0 0 0 2px #fff,0 0 12px rgba(47,233,139,.8)!important}
+
+/* ===== round 42: neutral glass, line icons, white glass pictures ===== */
+html.gbk svg.gbi{color:rgba(236,240,243,.86)}
+html.gbk :is(button.on,button[aria-pressed=true],.gbc-it[aria-pressed=true]) svg.gbi{color:#5ff2a8}
+html.gbk :is(button.pri,button.primary,.gbc-b.pri,.btn.pri) svg.gbi{color:#03140b}
+html.gbk button.gb-tile img{filter:grayscale(1) brightness(1.32) contrast(1.06) drop-shadow(0 4px 10px rgba(0,0,0,.45))!important;opacity:.92;transition:filter 200ms cubic-bezier(.4,0,.4,1),transform 150ms cubic-bezier(0,0,.2,1)}
+html.gbk button.gb-tile.on img,html.gbk button.gb-tile.pri img{filter:grayscale(.15) brightness(1.15) drop-shadow(0 4px 12px rgba(47,233,139,.35))!important;opacity:1}
+@media (hover:hover){html.gbk button.gb-tile:hover img{filter:grayscale(.55) brightness(1.25) drop-shadow(0 4px 12px rgba(0,0,0,.4))!important}}
+
+/* ===== logo (round 44) ===== */
+html.gbk :is(#logo-branding,.logo) i{width:22px!important;height:22px!important;border-radius:0!important;background:url(data:image/webp;base64,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) center/contain no-repeat!important;box-shadow:none!important;filter:drop-shadow(0 0 7px rgba(47,233,139,.5))}
+/* ===== round 56: tidy button layout on every page (haru-ui: one grid, equal widths, clear groups) ===== */
+/* a row of only buttons = an even grid (no ragged wrapping); colour swatch rows stay small squares */
+html.gbk section .row:not(:has(> :not(button))):not(:has(> button[style*="--sw"])):has(> button + button){display:grid!important;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px!important;align-items:stretch}
+html.gbk section .row:not(:has(> :not(button))):not(:has(> button[style*="--sw"])) > button{width:100%;justify-content:center;text-align:center;min-height:38px;white-space:normal;line-height:1.2}
+html.gbk section .row:has(> button[style*="--sw"]){display:flex!important;flex-wrap:wrap;gap:8px!important;align-items:center}
+/* checkbox rows: one per line, aligned */
+html.gbk section .row:has(> label > input[type=checkbox]){display:flex!important;flex-direction:column;align-items:flex-start;gap:6px!important}
+/* label + control pairs: label on the left, control fills the rest */
+html.gbk section label.sm:has(> input[type=range]){display:grid!important;grid-template-columns:minmax(84px,auto) 1fr auto;align-items:center;gap:10px}
+html.gbk section label.sm:has(> select){display:flex;align-items:center;gap:8px}
+html.gbk section label.sm > select{flex:1;min-width:0}
+/* colour swatches: real colour, glass sheen, a clear ring when chosen */
+html.gbk button[style*="--sw"]{border-radius:10px!important;padding:0!important}
+html.gbk button[style*="--sw"]:is(.on,[aria-pressed=true]){box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(47,233,139,.7),0 0 14px rgba(47,233,139,.6)!important;transform:translateY(-1px)}
+/* group title above a tile grid */
+html.gbk .gb-grouptitle{margin:14px 0 6px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(222,232,227,.55)}
+/* the page guides (gb-base.js tour) in glass, like the cockpit guide */
+#gb-tour .gbt-hole{border-radius:14px!important;border:0!important;box-shadow:0 0 0 9999px rgba(2,6,5,.6),0 0 0 2px rgba(95,242,168,.9),0 0 26px 2px rgba(47,233,139,.5)!important}
+#gb-tour .gbt-tip{background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.03) 40%,rgba(47,233,139,.06)),rgba(12,20,17,.9)!important;-webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);
+  border:1px solid rgba(170,255,214,.24)!important;border-radius:18px!important;padding:16px 18px 14px!important;color:#eef6f2!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 0 34px -12px rgba(47,233,139,.55),0 24px 50px -20px rgba(0,0,0,.85)!important}
+#gb-tour .gbt-tip button{border-radius:12px!important;padding:8px 13px!important;border:1px solid rgba(255,255,255,.18)!important;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04)),rgba(30,34,37,.5)!important;color:#eef6f2!important}
+#gb-tour .gbt-tip .gbt-next{color:#03140b!important;border-color:rgba(255,255,255,.7)!important;background:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,.15) 45%,transparent 56%),rgba(47,233,139,.88)!important}
+</style><!--/gb-glass--></head>
 <body>
 <main>
   <div id="stage">
@@ -143,6 +249,7 @@ const DEF = {
   // countdown: just one number
   cd: { from: 10, to: 0, start: 0, x: 0.5, y: 0.45, size: 420, color: '#ffffff', stroke: '#000000', sw: 14, glow: '#ffb020', font: '900', format: 's', pop: true, ring: false, ringColor: '#ffb020', end: 'GO!', endHold: 1, warn: 3, warnColor: '#ff3d3d' },
   logo: { on: false, x: 0.7, y: 0.9, w: 0.26 },
+  logo2: { on: false, x: 0.3, y: 0.9, w: 0.2 }, logo3: { on: false, x: 0.3, y: 0.78, w: 0.2 }, logo4: { on: false, x: 0.7, y: 0.78, w: 0.2 }, // round 57: 3 extra logos
   // end card: a card that grows 0 → 100 % from `start` over `grow` s; logo, app icon, name, stars and the button pop in after it
   // simple by default: the game blurred behind, the big logo + app icon, one fat PLAY NOW! button
   ec: { start: 0.2, grow: 0.6, ease: 'back', x: 0.5, y: 0.5, w: 0.86, back: 'blur', blur: 26, panel: false, panelColor: '#ffffff', panelAlpha: 1, radius: 56, dim: 0.12, bgColor: '#000000', title: 'XP HERO', titleColor: '#ffc21a', sub: '', stars: 0, cta: 'PLAY NOW!', ctaColor: '#3cc41a', ctaText: '#ffffff', pulse: true, gap: 0.12, hold: 2 },
@@ -150,10 +257,11 @@ const DEF = {
   fx: { masks: [], sel: null, rec: false, trans: [], open: { blur: true, media: false, trans: true, vig: false }, vig: { on: false, color: '#ff0000', size: 0.42, strength: 0.85, dur: 0.6, hits: [1.5, 4], fromHp: true, low: false } },
   events: [{ t: 2, kind: 'dmg', v: 250 }, { t: 4.5, kind: 'dmg', v: 420 }, { t: 6, kind: 'heal', v: 300 }, { t: 8, kind: 'dmg', v: 600 }]
 };
+if (window.GBLY) Object.assign(DEF, GBLY.defaults()); // ⬆ upgrade cards, 🗺 minimap, 🎒 inventory (gb-layouts.js)
 // deep merge so a project saved by an older version still gets the new fields
 function merge (a, b) { for (const k in b) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k] && typeof a[k] === 'object') merge(a[k], b[k]); else a[k] = b[k]; } return a; }
 let S = (() => { try { const s = JSON.parse(localStorage.getItem('gb.hpbar') || 'null'); if (s && s.ec && s.ec.back === undefined) delete s.ec; /* the first end card design: start from the simple one */ return s ? merge(structuredClone(DEF), s) : structuredClone(DEF); } catch (e) { return structuredClone(DEF); } })();
-{ const p = (location.search.match(/[?&]page=(hp|count|fx|end)/) || [])[1]; if (p) S.page = p; }
+{ const p = (location.search.match(/[?&]page=(hp|count|fx|end|flash|up|map|inv)/) || [])[1]; if (p) S.page = p; }
 // the end card's parts (icon, logo, name, button): each with its own size, spacing, offset, anchor (gb-endcard.js)
 S.ec.layer = window.GBEC ? GBEC.fix(S.ec.layer || Object.assign(GBEC.defaults('simple'), { title: S.ec.title || 'XP HERO', cta: S.ec.cta || 'PLAY NOW!' }), 'simple') : null;
 const IMG = {}; // slot -> HTMLImageElement (kept in IndexedDB)
@@ -167,8 +275,12 @@ const SLOTS = [
   ['logo', 'Logo', 'Logo', 400, 160, 'PNG trong suốt', 'transparent PNG'],
   ['panel', 'Nền HUD (tuỳ chọn)', 'HUD backdrop (optional)', 820, 220, 'PNG, sau avatar + thanh', 'PNG, behind avatar + bars'],
   ['bossFill', 'Vân thanh máu boss', 'Boss bar fill', 930, 54, 'ảnh lặp ngang được', 'tileable horizontally'],
-  ['bossFrame', 'Khung máu boss', 'Boss bar frame', 1004, 130, 'PNG trong suốt, chừa lỗ giữa cho thanh', 'transparent PNG, hole for the bar']
+  ['bossFrame', 'Khung máu boss', 'Boss bar frame', 1004, 130, 'PNG trong suốt, chừa lỗ giữa cho thanh', 'transparent PNG, hole for the bar'],
+  ['logo2', 'Logo 2', 'Logo 2', 400, 160, 'PNG trong suốt', 'transparent PNG'],
+  ['logo3', 'Logo 3', 'Logo 3', 400, 160, 'PNG trong suốt', 'transparent PNG'],
+  ['logo4', 'Logo 4', 'Logo 4', 400, 160, 'PNG trong suốt', 'transparent PNG']
 ];
+const LOGOS = ['logo', 'logo2', 'logo3', 'logo4'];
 let W = 1080, H = 1920;
 let t = 0, playing = false, last = 0, dirty = true, busy = false;
 const cv = $('cv'), x = cv.getContext('2d'), vid0 = $('vid');
@@ -191,16 +303,30 @@ function save () { try { localStorage.setItem('gb.hpbar', JSON.stringify(S)); } 
 function idb () { return new Promise((res, rej) => { const r = indexedDB.open('gb-hpbar', 1); r.onupgradeneeded = () => r.result.createObjectStore('img'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function img_put (k, blob) { try { const db = await idb(); db.transaction('img', 'readwrite').objectStore('img').put(blob, k); } catch (e) {} }
 async function img_del (k) { try { const db = await idb(); db.transaction('img', 'readwrite').objectStore('img').delete(k); } catch (e) {} }
-async function img_load_all () {
+const STORED = new Set(); // picture keys found in IndexedDB at start
+async function img_load_all () { // resolves after the stored pictures are read (their Image loads may still be running)
   try {
     const db = await idb(); const st = db.transaction('img').objectStore('img');
-    await new Promise(res => { const c = st.openCursor(); c.onsuccess = () => { const cur = c.result; if (!cur) return res(); set_img(cur.key, cur.value, false); cur.continue(); }; c.onerror = res; });
+    await new Promise(res => { const c = st.openCursor(); c.onsuccess = () => { const cur = c.result; if (!cur) return res(); STORED.add(cur.key); set_img(cur.key, cur.value, false); cur.continue(); }; c.onerror = res; });
   } catch (e) {}
 }
 function set_img (k, blob, store = true) {
   if (String(k).startsWith('fxm_')) { fx_media_set(k, blob, store); return; }
   const im = new Image(); im.onload = () => { IMG[k] = im; dirty = true; render(); }; im.src = URL.createObjectURL(blob);
   if (store) img_put(k, blob);
+}
+
+/* 🎨 ready-made skins (Higgsfield, Unlimited): ui/skin = HP bar / boss / avatar frames + fills + logo, ui/inv = inventory items */
+const SKIN = {
+  hp: ['avatarFrame', 'barFrame', 'hpFill', 'mpFill', 'bossFrame', 'bossFill', 'logo'].map(k => [k, 'ui/skin/' + k + '.webp']),
+  inv: [['invFrame', 'ui/skin/invFrame.webp']].concat(['sword', 'shield', 'potion', 'bow', 'helmet', 'gem', 'boot', 'coin', 'heart', 'bolt'].map(k => ['inv_' + k, 'ui/inv/' + k + '.webp']))
+};
+async function load_skin (kind) {
+  let n = 0;
+  for (const [k, url] of SKIN[kind] || []) { try { const r = await fetch(url); if (!r.ok) continue; set_img(k, await r.blob()); n++; } catch (e) { /* file:// without the pictures: skip */ } }
+  if (kind === 'hp' && n) { S.logo.on = true; save(); }
+  $('hint').textContent = n ? '🎨 ' + T(`Đã gắn ${n} ảnh skin mẫu (Higgsfield). Bấm ✕ cạnh từng ảnh để bỏ.`, `${n} ready-made skin pictures added (Higgsfield). ✕ next to a picture removes it.`, `${n}개 스킨 적용`) : '⚠ ' + T('Không tải được ảnh skin mẫu.', 'Could not load the skin pictures.', '스킨 불러오기 실패');
+  dirty = true; render();
 }
 
 /* ---------------- timeline simulation ---------------- */
@@ -277,9 +403,10 @@ function paint (c, tt, bg) {
   if (S.page === 'flash') { paint_vig(c, tt); return; } // 🩸 its own layer: only the red flash (MOV alpha on top of the gameplay)
   if (S.page === 'count') { paint_count(c, tt); paint_vig(c, tt); return; }
   if (S.page === 'end') { paint_end(c, tt); return; }
+  if (LY && LY[S.page]) { LY[S.page].paint(c, tt); return; }
   if (S.boss.on) paint_boss(c, tt);
   if (S.hud.on) paint_hero(c, tt);
-  if (S.logo.on && IMG.logo) { const lw = S.logo.w * W, lh = lw * IMG.logo.height / IMG.logo.width; c.drawImage(IMG.logo, S.logo.x * W - lw / 2, S.logo.y * H - lh / 2, lw, lh); }
+  for (const k of LOGOS) { const L = S[k], im = IMG[k]; if (L && L.on && im) { const lw = L.w * W, lh = lw * im.height / im.width; c.drawImage(im, L.x * W - lw / 2, L.y * H - lh / 2, lw, lh); } }
   paint_vig(c, tt);
 }
 /* ---- 🏁 end card ---- */
@@ -433,6 +560,8 @@ function loop (now) {
     dirty = true;
   }
   if (S.page === 'fx' && playing) dirty = true;
+  if (VIG_TEST >= 0) dirty = true;
+  if (LY && LY[S.page] && LY[S.page].tick && LY[S.page].tick(dt, t)) dirty = true;
   for (const v of CLIPS) v.style.visibility = S.page === 'fx' || v !== vid ? 'hidden' : '';
   if (dirty) {
     if (!playing && S.page === 'fx') Object.values(FXV).forEach(v => { if (v.tagName === 'VIDEO' && v.paused && isFinite(v.duration) && v.duration > 0) { const m = S.fx.masks.find(q => FXV[q.id] === v); const want = (((t - ((m && m.t0) || 0)) % v.duration) + v.duration) % v.duration; if (Math.abs(v.currentTime - want) > 0.05) v.currentTime = want; } });
@@ -464,7 +593,7 @@ function draw_clips () {
 function draw_head () { const ph = $('clipph'); if (ph) ph.style.left = clamp(t / Math.max(S.dur, 0.01), 0, 1) * 100 + '%'; const on = clip_list().indexOf(vid); $('clips').querySelectorAll('[data-clip]').forEach(el => el.classList.toggle('on', +el.dataset.clip === on)); }
 /** add one more video after the others; a transition goes on the new join */
 function clip_add (file) {
-  if (!vid0.src) { vid0.src = URL.createObjectURL(file); vid0.dataset.name = file.name; vid0.style.opacity = '0.6'; vid0.onloadedmetadata = () => { S.dur = Math.round(clips_total() * 100) / 100; invalidate(); render(); }; return; }
+  if (!vid0.src) { VIG_VHITS = []; vid0.src = URL.createObjectURL(file); vid0.dataset.name = file.name; vid0.style.opacity = '0.6'; vid0.onloadedmetadata = () => { S.dur = Math.round(clips_total() * 100) / 100; invalidate(); render(); }; return; }
   const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.dataset.name = file.name; v.style.opacity = vid0.style.opacity; v.style.visibility = 'hidden';
   v.addEventListener('seeked', () => { dirty = true; }); v.addEventListener('loadeddata', () => { dirty = true; });
   const join = clips_total();
@@ -476,14 +605,19 @@ function clip_add (file) {
   };
   v.src = URL.createObjectURL(file); $('wrap').insertBefore(v, cv); CLIPS.push(v);
 }
-function clip_del (i) { const v = clip_list()[i]; if (!v) return; if (v === vid0) { for (const q of CLIPS.splice(1)) { q.pause(); q.remove(); } vid0.removeAttribute('src'); vid0.load(); } else { v.pause(); v.remove(); CLIPS.splice(CLIPS.indexOf(v), 1); } vid = vid0; vid_off = 0; if (clips_total() > 0) S.dur = Math.round(clips_total() * 100) / 100; invalidate(); render(); }
+function clip_del (i) { const v = clip_list()[i]; if (!v) return; if (v === vid0) { VIG_VHITS = []; for (const q of CLIPS.splice(1)) { q.pause(); q.remove(); } vid0.removeAttribute('src'); vid0.load(); } else { v.pause(); v.remove(); CLIPS.splice(CLIPS.indexOf(v), 1); } vid = vid0; vid_off = 0; if (clips_total() > 0) S.dur = Math.round(clips_total() * 100) / 100; invalidate(); render(); }
 $('clips').addEventListener('dragover', e => { e.preventDefault(); $('clips').classList.add('drop'); });
 $('clips').addEventListener('dragleave', () => $('clips').classList.remove('drop'));
+// 🩸 drop a video anywhere on the Red flash page: it replaces the source video and starts with no hits
+addEventListener('dragover', e => { if (S.page === 'flash' && [...(e.dataTransfer?.items || [])].some(i => i.type.startsWith('video/'))) e.preventDefault(); });
+addEventListener('drop', e => { if (S.page !== 'flash' || e.target.closest?.('#clips')) return; const f = [...(e.dataTransfer?.files || [])].find(f => f.type.startsWith('video/')); if (!f) return; e.preventDefault(); if (vig_has_vid()) clip_del(0); clip_add(f); S.fx.vig.on = true; render(); draw_marks(); });
 $('clips').addEventListener('drop', e => { e.preventDefault(); $('clips').classList.remove('drop'); for (const f of e.dataTransfer.files) if (f.type.startsWith('video/')) clip_add(f); });
 function draw_marks () {
+  if (LY && LY[S.page]) { $('marks').innerHTML = LY[S.page].marks().map(([v, col, n]) => `<i style="left:${clamp(v / S.dur, 0, 1) * 100}%;background:${col}" title="${(+v).toFixed(2)}s ${n}"></i>`).join(''); return; }
   draw_clips();
   if (S.page === 'end') { const T0 = ec_times(); $('marks').innerHTML = Object.entries(T0).map(([n, v]) => `<i style="left:${clamp(v / S.dur, 0, 1) * 100}%;background:${n === 'card' ? '#F50359' : '#ffb020'}" title="${v.toFixed(2)}s ${n}"></i>`).join(''); return; }
-  if (S.page === 'fx') { $('marks').innerHTML = [...(S.fx.trans || []).map(tr => `<i style="left:${clamp(tr.t / S.dur, 0, 1) * 100}%;background:#b07cff" title="${tr.t}s ${tr.kind}"></i>`), ...(S.fx.vig.on ? (S.fx.vig.hits || []).map(h => `<i style="left:${clamp(h / S.dur, 0, 1) * 100}%;background:#ff3d3d" title="${h}s hit"></i>`) : [])].join(''); return; }
+  if (S.page === 'flash') { $('marks').innerHTML = vig_hits().map(h => `<i style="left:${clamp(h / S.dur, 0, 1) * 100}%;background:#ff3b3b" title="${(+h).toFixed(2)}s hit"></i>`).join(''); return; }
+  if (S.page === 'fx') { $('marks').innerHTML = [...(S.fx.trans || []).map(tr => `<i style="left:${clamp(tr.t / S.dur, 0, 1) * 100}%;background:#b07cff" title="${tr.t}s ${tr.kind}"></i>`), ...(S.fx.vig.on ? vig_hits().map(h => `<i style="left:${clamp(h / S.dur, 0, 1) * 100}%;background:#ff3d3d" title="${h}s hit"></i>`) : [])].join(''); return; }
   $('marks').innerHTML = S.page === 'count' ? '' : S.events.map(e => `<i style="left:${clamp(e.t / S.dur, 0, 1) * 100}%;background:${e.who === 'boss' ? '#ffd34d' : e.kind === 'dmg' ? '#ff5d5d' : e.kind === 'heal' ? '#5dff8a' : '#4da6ff'}" title="${e.t}s ${e.kind} ${e.v}"></i>`).join('');
 }
 // drag the HUD (or the logo) on the preview
@@ -492,26 +626,29 @@ cv.addEventListener('pointerdown', e => {
   if (S.page === 'fx') { fx_down(e); return; }
   const r = cv.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
   const X = px * W, Y = py * H, b = boss_rect();
+  if (LY && LY[S.page]) { const d = LY[S.page].down(X, Y, e); if (d) { drag = d.obj ? { what: 'ly', obj: d.obj, px, py, ox: d.ox, oy: d.oy } : { what: 'lyd', d }; cv.setPointerCapture(e.pointerId); } dirty = true; return; }
   let what = 'hud';
   if (S.page === 'count') what = 'cd';
   else if (S.page === 'end') { const L = S.ec.layer, part = GBEC.hit(L, W, H, X, Y, ec_imgs()); if (part) { L.sel = part; const e2 = L.el[part]; drag = { what: 'ecpart', part, px, py, ox: e2.dx, oy: e2.dy }; cv.setPointerCapture(e.pointerId); render(); return; } what = 'ec'; }
-  else if (S.logo.on && IMG.logo && Math.abs(px - S.logo.x) < S.logo.w / 2 && Math.abs(py - S.logo.y) < 0.06) what = 'logo';
+  else if (LOGOS.slice().reverse().some(k => { const L = S[k], im = IMG[k]; if (!(L && L.on && im)) return false; const hh = L.w * W * im.height / im.width / H / 2; if (Math.abs(px - L.x) < L.w / 2 && Math.abs(py - L.y) < Math.max(0.03, hh)) { what = k; return true; } return false; })) {}
   else if (S.boss.on && X > b.x - 20 && X < b.x + b.w + 20 && Y > b.y - b.h * 1.2 && Y < b.y + b.h * 1.6) what = 'boss';
   else if (!S.hud.on && S.boss.on) what = 'boss';
-  const o = { logo: S.logo, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec.layer }[what];
+  const o = { logo: S.logo, logo2: S.logo2, logo3: S.logo3, logo4: S.logo4, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec.layer }[what];
   drag = { what, px, py, ox: o.x, oy: o.y }; cv.setPointerCapture(e.pointerId);
 });
 cv.addEventListener('pointermove', e => {
   if (S.page === 'fx') { fx_move(e); return; }
   if (!drag) return; const r = cv.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+  if (drag.what === 'lyd') { LY[S.page].move && LY[S.page].move(px * W, py * H, drag.d); dirty = true; return; }
+  if (drag.what === 'ly') { let mx = px - drag.px, my = py - drag.py; if (e.shiftKey) { if (Math.abs(mx * W) > Math.abs(my * H)) my = 0; else mx = 0; } let nx = clamp(drag.ox + mx, -0.2, 1.2), ny = clamp(drag.oy + my, -0.2, 1.2); if (!e.altKey) { if (Math.abs(nx - 0.5) < 0.012) nx = 0.5; if (Math.abs(ny - 0.5) < 0.012) ny = 0.5; } drag.obj.x = nx; drag.obj.y = ny; dirty = true; return; }
   if (drag.what === 'ecpart') { const e2 = S.ec.layer.el[drag.part], k = Math.min(W, H) / 1080; let ddx = (px - drag.px) * W / k, ddy = (py - drag.py) * H / k; if (e.shiftKey) { if (Math.abs(ddx) > Math.abs(ddy)) ddy = 0; else ddx = 0; } /* Shift: one axis, like After Effects */ let dx = drag.ox + ddx, dy = drag.oy + ddy; if (!e.altKey && Math.abs(dx) < 8) dx = 0; e2.dx = Math.round(dx); e2.dy = Math.round(dy); dirty = true; return; } // snaps to the centre line (Alt = free)
-  const o = { logo: S.logo, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec.layer }[drag.what];
+  const o = { logo: S.logo, logo2: S.logo2, logo3: S.logo3, logo4: S.logo4, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec.layer }[drag.what];
   let mx = px - drag.px, my = py - drag.py; if (e.shiftKey) { if (Math.abs(mx * W) > Math.abs(my * H)) my = 0; else mx = 0; } // Shift: one axis
   let nx = clamp(drag.ox + mx, -0.2, 1.1), ny = clamp(drag.oy + my, -0.2, 1.1);
   if (!e.altKey && (drag.what === 'cd' || drag.what === 'boss' || drag.what === 'ec')) { if (Math.abs(nx - 0.5) < 0.012) nx = 0.5; if ((drag.what === 'cd' || drag.what === 'ec') && Math.abs(ny - 0.5) < 0.012) ny = 0.5; } // snap to centre (Alt = free)
   o.x = nx; o.y = ny; dirty = true;
 });
-cv.addEventListener('pointerup', () => { if (S.page === 'fx') { fx_up(); return; } if (drag) { drag = null; save(); render(); } });
+cv.addEventListener('pointerup', () => { if (S.page === 'fx') { fx_up(); return; } if (drag && drag.what === 'lyd' && LY[S.page].up) LY[S.page].up(); if (drag) { drag = null; invalidate(); render(); } });
 // drop a picture / video on a frame of the FX page (or on the preview: the selected frame, or a new one)
 cv.addEventListener('dragover', e => e.preventDefault());
 cv.addEventListener('drop', e => {
@@ -522,12 +659,12 @@ cv.addEventListener('drop', e => {
   fx_media_set('fxm_' + m.id, f, true); S.fx.sel = m.id; save(); render(); h_soon();
 });
 /* nudge with the arrow keys: what was dragged last (or the countdown / HUD) moves 1 px, Shift = 10 px */
-function nudge (dx, dy) { const w = drag_last(); if (w === 'ec' && S.ec.layer.sel) { const e2 = S.ec.layer.el[S.ec.layer.sel]; e2.dx += dx; e2.dy += dy; dirty = true; save(); return; } const o = { logo: S.logo, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec }[w]; o.x += dx / W; o.y += dy / H; dirty = true; save(); }
+function nudge (dx, dy) { const w = drag_last(); if (w === 'ec' && S.ec.layer.sel) { const e2 = S.ec.layer.el[S.ec.layer.sel]; e2.dx += dx; e2.dy += dy; dirty = true; save(); return; } const o = { logo: S.logo, logo2: S.logo2, logo3: S.logo3, logo4: S.logo4, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec }[w]; o.x += dx / W; o.y += dy / H; dirty = true; save(); }
 let last_drag = null; const drag_last = () => S.page === 'count' ? 'cd' : S.page === 'end' ? 'ec' : (last_drag || 'hud');
 cv.addEventListener('pointerdown', () => { if (drag) last_drag = drag.what; });
 /* snap presets for the selected element */
 function place (where) {
-  const w = drag_last(), o = { logo: S.logo, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec.layer }[w];
+  const w = drag_last(), o = { logo: S.logo, logo2: S.logo2, logo3: S.logo3, logo4: S.logo4, hud: S.hud, boss: S.boss, cd: S.cd, ec: S.ec.layer }[w];
   const m = 0.04, L = layout(), hw = L.w / W, hh = L.h / H, centred = w !== 'hud';
   if (w === 'ec') { const LL = GBEC.layout(S.ec.layer, W, H, ec_imgs()), E = { cw: S.ec.layer.w * Math.min(W, H), ch: LL.total }, ew = E.cw / W / 2, eh = E.ch / H / 2; o.x = where[1] === 'l' ? m + ew : where[1] === 'r' ? 1 - m - ew : 0.5; o.y = where[0] === 't' ? m + eh : where[0] === 'b' ? 1 - m - eh : 0.5; dirty = true; save(); render(); return; }
   const P = { tl: [m, m], tc: [0.5, m], tr: [1 - m, m], ml: [m, 0.5], mc: [0.5, 0.5], mr: [1 - m, 0.5], bl: [m, 1 - m], bc: [0.5, 1 - m], br: [1 - m, 1 - m] }[where];
@@ -572,14 +709,15 @@ addEventListener('keydown', e => {
   if (/INPUT|SELECT|TEXTAREA/.test((e.target && e.target.tagName) || '')) return;
   const k = e.key.toLowerCase();
   if (k === ' ') { e.preventDefault(); set_play(!playing); return; }
+  if (LY && LY[S.page]) { if (LY[S.page].key(e, true)) e.preventDefault(); return; } // ⬆ 🗺 🎒: their own keys (WASD / arrows move the map dot, 1 2 3 pick a card)
   const ar = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] }[k];
   if (ar) { e.preventDefault(); const m = e.shiftKey ? 10 : 1; nudge(ar[0] * m, ar[1] * m); return; }
   if (S.page === 'fx') {
     if (k === 'delete' || k === 'backspace') { const m = fx_sel(); if (m) { h_begin(); S.fx.masks = S.fx.masks.filter(q => q !== m); S.fx.sel = null; invalidate(); render(); h_soon(); } }
-    if (k === 'v') { h_begin(); S.fx.vig.on = true; S.fx.vig.hits = [...(S.fx.vig.hits || []), +t.toFixed(2)].sort((p, q) => p - q); invalidate(); render(); h_soon(); }
+    if (k === 'v') { h_begin(); vig_add_hit(t); invalidate(); render(); h_soon(); }
     return;
   }
-  if (S.page === 'flash') { if (k === 'v') { h_begin(); S.fx.vig.hits = [...(S.fx.vig.hits || []), +t.toFixed(2)].sort((p, q) => p - q); invalidate(); render(); h_soon(); } return; }
+  if (S.page === 'flash') { if (k === 'v') { h_begin(); vig_add_hit(t); invalidate(); render(); h_soon(); } return; }
   if (S.page === 'count' || S.page === 'end') return;
   const add = { h: ['dmg', S.lastDmg || 200, 'hero'], j: ['heal', 200, 'hero'], m: ['mana-', 60, 'hero'], b: ['dmg', S.lastBoss || 1500, 'boss'] }[k];
   if (add) { const ev = { t: +t.toFixed(2), kind: add[0], v: add[1] }; if (add[2] === 'boss') ev.who = 'boss'; S.events.push(ev); invalidate(); render(); }
@@ -598,31 +736,71 @@ const mfull = (type, ver, flags, ...parts) => mbox(type, new Uint8Array([ver, (f
 const pstr = s => { const b = enc8.encode(s); return mcat([new Uint8Array([b.length]), b]); };
 const MATRIX = () => mcat([be32(0x00010000), be32(0), be32(0), be32(0), be32(0x00010000), be32(0), be32(0), be32(0), be32(0x40000000)]);
 /* QuickTime .mov with PNG frames: RGB + alpha that After Effects / Premiere / CapCut / DaVinci read */
-function buildMov (pngs, sizes, w, h, fps) {
-  const n = sizes.length;
+function buildMov (pngs, sizes, w, h, fps, idx) { // idx[frame] = which stored PNG it shows: equal frames share one PNG (constant frame rate, smaller file)
+  idx = idx || sizes.map((_, i) => i); const n = idx.length;
   const ftyp = mbox('ftyp', cc('qt  '), be32(0x20050300), cc('qt  '));
   const dataLen = sizes.reduce((a, b) => a + b, 0);
   const mdatHdr = mcat([be32(1), cc('mdat'), be64(16 + dataLen)]);
-  const base = ftyp.length + mdatHdr.length, offs = []; let o = base; for (const s of sizes) { offs.push(o); o += s; }
+  const base = ftyp.length + mdatHdr.length, at = []; let o = base; for (const s of sizes) { at.push(o); o += s; } const offs = idx.map(i => at[i]);
   const name = new Uint8Array(32); const nm = cc('PNG'); name[0] = nm.length; name.set(nm, 1);
   const entry = mbox('png ', new Uint8Array(6), be16(1), be16(0), be16(0), cc('appl'), be32(0), be32(1023), be16(w), be16(h), be32(72 << 16), be32(72 << 16), be32(0), be16(1), name, be16(32), be16(0xFFFF));
-  const stbl = mbox('stbl', mfull('stsd', 0, 0, be32(1), entry), mfull('stts', 0, 0, be32(1), be32(n), be32(1)), mfull('stsc', 0, 0, be32(1), be32(1), be32(1), be32(1)), mfull('stsz', 0, 0, be32(0), be32(n), ...sizes.map(be32)), mfull('co64', 0, 0, be32(n), ...offs.map(be64)));
+  const stbl = mbox('stbl', mfull('stsd', 0, 0, be32(1), entry), mfull('stts', 0, 0, be32(1), be32(n), be32(1)), mfull('stsc', 0, 0, be32(1), be32(1), be32(1), be32(1)), mfull('stsz', 0, 0, be32(0), be32(n), ...idx.map(i => be32(sizes[i]))), mfull('co64', 0, 0, be32(n), ...offs.map(be64)));
   const minf = mbox('minf', mfull('vmhd', 0, 1, be16(0x40), be16(0x8000), be16(0x8000), be16(0x8000)), mfull('hdlr', 0, 0, cc('dhlr'), cc('alis'), be32(0), be32(0), be32(0), pstr('DataHandler')), mbox('dinf', mfull('dref', 0, 0, be32(1), mfull('alis', 0, 1))), stbl);
   const mdia = mbox('mdia', mfull('mdhd', 0, 0, be32(0), be32(0), be32(fps), be32(n), be16(0), be16(0)), mfull('hdlr', 0, 0, cc('mhlr'), cc('vide'), be32(0), be32(0), be32(0), pstr('VideoHandler')), minf);
   const tkhd = mfull('tkhd', 0, 0xF, be32(0), be32(0), be32(1), be32(0), be32(n), new Uint8Array(8), be16(0), be16(0), be16(0), be16(0), MATRIX(), be32(w * 65536), be32(h * 65536));
   const mvhd = mfull('mvhd', 0, 0, be32(0), be32(0), be32(fps), be32(n), be32(0x00010000), be16(0x0100), new Uint8Array(10), MATRIX(), be32(0), be32(0), be32(0), be32(0), be32(0), be32(0), be32(2));
   return new Blob([ftyp, mdatHdr, ...pngs, mbox('moov', mvhd, mbox('trak', tkhd, mdia))], { type: 'video/quicktime' });
 }
-function download (blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 2000); }
+function download (blob, name) {
+  const url = URL.createObjectURL(blob);
+  let doc = document;
+  try { if (window.parent !== window && window.parent.document) doc = window.parent.document; } catch (_) {}
+  const a = doc.createElement('a'); a.href = url; a.download = name; a.rel = 'noopener'; a.hidden = true;
+  (doc.body || document.body).appendChild(a); a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 4000);
+}
 function prog (f, txt) { const p = $('eProg'); if (p) p.firstElementChild.style.width = (f * 100).toFixed(1) + '%'; if (txt !== undefined) msg(txt); }
 function msg (s, err) { const m = $('eMsg'); if (m) { m.textContent = s; m.className = 'msg' + (err ? ' err' : ''); } }
+/* alpha .mov, quick and sure. The AI often drives a tab nobody looks at, and a hidden tab starves three things the old loop used:
+   setTimeout (1 per second), canvas.toBlob (waits for idle time) and GPU read-back. So: (1) the loop yields through a MessageChannel;
+   (2) frames are encoded with OffscreenCanvas.convertToBlob, and when that gets slow (2 frames over 150 ms) the rest is encoded here:
+   a CPU canvas + our own PNG writer (Sub filter + CompressionStream), about 35 ms a frame whatever the tab's state;
+   (3) a frame equal to the one before is stored once (the sample table points at the same PNG): constant frame rate, smaller file. */
+const tick = () => new Promise(r => { const c = new MessageChannel(); c.port1.onmessage = () => r(); c.port2.postMessage(0); });
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32 (parts) { let c = 0xFFFFFFFF; for (const b of parts) for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+const pchunk = (type, data) => { const t = cc(type); return mcat([be32(data.length), t, data, be32(crc32([t, data]))]); };
+async function jsPng (px, w, h) { // px = RGBA bytes (not premultiplied)
+  const st = w * 4, raw = new Uint8Array((st + 1) * h);
+  for (let y = 0; y < h; y++) { const o = y * (st + 1), i0 = y * st; raw[o] = 1; raw[o + 1] = px[i0]; raw[o + 2] = px[i0 + 1]; raw[o + 3] = px[i0 + 2]; raw[o + 4] = px[i0 + 3]; for (let x = 4; x < st; x++) raw[o + 1 + x] = px[i0 + x] - px[i0 + x - 4]; }
+  const z = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
+  return new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), pchunk('IHDR', mcat([be32(w), be32(h), new Uint8Array([8, 6, 0, 0, 0])])), pchunk('IDAT', z), pchunk('IEND', new Uint8Array(0))], { type: 'image/png' });
+}
 async function export_mov () {
   if (busy) return; busy = true; set_play(false);
-  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
-  const n = Math.max(1, Math.round(S.dur * S.fps)), pngs = [], sizes = [];
+  const off = !!(window.OffscreenCanvas && OffscreenCanvas.prototype.convertToBlob);
+  let c = off ? new OffscreenCanvas(W, H) : Object.assign(document.createElement('canvas'), { width: W, height: H }), g = c.getContext('2d');
+  const n = Math.max(1, Math.round(S.dur * S.fps)), jobs = [], idx = []; const t0 = performance.now();
+  let prev = null, last = t0, slow = 0, cpu = false, run = 0, err = null, stored = 0;
   try {
-    for (let i = 0; i < n; i++) { await fx_prep(i / S.fps); paint(g, i / S.fps, 'clear'); const b = await toPng(c); pngs.push(b); sizes.push(b.size); if (i % 5 === 0) { prog(i / n, T('Đang render .mov alpha… ', 'Rendering alpha .mov… ', '알파 .mov 렌더링… ') + (i + 1) + '/' + n); await new Promise(r => setTimeout(r, 0)); } }
-    const blob = buildMov(pngs, sizes, W, H, S.fps); download(blob, fname() + W + 'x' + H + '_alpha.mov'); prog(1, T('Đã lưu .mov alpha (PNG, không nền) — kéo thẳng vào AE / Premiere / CapCut.', 'Saved alpha .mov (PNG, no background) — drop it on top of your video.', '알파 .mov 저장됨.') + ' ' + (blob.size / 1048576).toFixed(1) + ' MB');
+    for (let i = 0; i < n; i++) {
+      await fx_prep(i / S.fps); paint(g, i / S.fps, 'clear');
+      if (cpu) {
+        const d = g.getImageData(0, 0, W, H).data, u = new Uint32Array(d.buffer); let same = !!prev && prev.length === u.length;
+        if (same) for (let k = 0; k < u.length; k++) if (u[k] !== prev[k]) { same = false; break; }
+        if (!same) { prev = u; stored++; while (run >= 4) await tick(); run++; jobs.push(jsPng(d, W, H).then(b => { run--; return b; }, e => { run--; err = e; })); }
+      } else {
+        const t1 = performance.now(); const b = await (off ? c.convertToBlob({ type: 'image/png' }) : toPng(c)); const u = new Uint8Array(await b.arrayBuffer());
+        let same = !!prev && prev.length === u.length; if (same) for (let k = u.length - 1; k >= 0; k--) if (u[k] !== prev[k]) { same = false; break; }
+        if (!same) { prev = u; stored++; jobs.push(b); }
+        if (performance.now() - t1 > (window.__gbSlowMs ?? 150) && window.CompressionStream && ++slow >= 2) { cpu = true; prev = null; c = Object.assign(document.createElement('canvas'), { width: W, height: H }); g = c.getContext('2d', { willReadFrequently: true }); }
+      }
+      idx.push(stored - 1); if (err) throw err;
+      if (performance.now() - last > 80) { prog(i / n, T('Đang render .mov alpha… ', 'Rendering alpha .mov… ', '알파 .mov 렌더링… ') + (i + 1) + '/' + n); await tick(); last = performance.now(); }
+    }
+    const pngs = await Promise.all(jobs); if (err) throw err;
+    const blob = buildMov(pngs, pngs.map(b => b.size), W, H, S.fps, idx); download(blob, fname() + W + 'x' + H + '_alpha.mov');
+    prog(1, T('Đã lưu .mov alpha (PNG, không nền) — kéo thẳng vào AE / Premiere / CapCut.', 'Saved alpha .mov (PNG, no background) — drop it on top of your video.', '알파 .mov 저장됨.') + ' ' + (blob.size / 1048576).toFixed(1) + ' MB · ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s' + (pngs.length < n ? ' · ' + pngs.length + '/' + n + T(' khung khác nhau', ' distinct frames', ' 프레임') : ''));
   } catch (e) { msg(String(e.message || e), true); } finally { busy = false; }
 }
 async function export_mp4 () {
@@ -643,8 +821,8 @@ async function export_mp4 () {
           await fx_prep(i / S.fps); paint(g, i / S.fps, bg);
           const fr = new VideoFrame(c, { timestamp: Math.round(i * 1e6 / S.fps), duration: Math.round(1e6 / S.fps) });
           enc.encode(fr, { keyFrame: i % (S.fps * 2) === 0 }); fr.close();
-          if (enc.encodeQueueSize > 8) await new Promise(r => setTimeout(r, 0));
-          if (i % 10 === 0) { prog(i / n, T('Đang xuất MP4… ', 'Exporting MP4… ', 'MP4 내보내는 중… ') + (i + 1) + '/' + n); await new Promise(r => setTimeout(r, 0)); }
+          if (enc.encodeQueueSize > 8) await tick();
+          if (i % 10 === 0) { prog(i / n, T('Đang xuất MP4… ', 'Exporting MP4… ', 'MP4 내보내는 중… ') + (i + 1) + '/' + n); await tick(); }
           if (err) throw err;
         }
         await enc.flush(); enc.close(); mux.finalize();
@@ -663,12 +841,12 @@ async function export_mp4 () {
   } catch (e) { msg(String(e.message || e), true); } finally { busy = false; }
 }
 async function export_png () { const c = document.createElement('canvas'); c.width = W; c.height = H; busy = true; try { paint(c.getContext('2d'), t, 'clear'); } finally { busy = false; } download(await toPng(c), fname() + 'frame_' + t.toFixed(2) + 's.png'); }
-const fname = () => S.page === 'flash' ? 'red-flash_' : S.page === 'end' ? 'endcard_' : S.page === 'fx' ? 'video-fx_' : S.page === 'count' ? 'countdown_' : S.boss.on && !S.hud.on ? 'boss-hp_' : 'hp-bar_';
+const fname = () => LY && LY[S.page] ? LY[S.page].fname : S.page === 'flash' ? 'red-flash_' : S.page === 'end' ? 'endcard_' : S.page === 'fx' ? 'video-fx_' : S.page === 'count' ? 'countdown_' : S.boss.on && !S.hud.on ? 'boss-hp_' : 'hp-bar_';
 const cd_len = () => +(S.cd.start + Math.abs(S.cd.from - S.cd.to) + (S.cd.end ? S.cd.endHold : 0.3) + 0.2).toFixed(2);
-function set_page (p) { if (p !== 'hp' && p !== 'count' && p !== 'fx' && p !== 'end' && p !== 'flash') return; S.page = p; if (p === 'flash') S.fx.vig.on = true; if (p === 'count') S.dur = Math.max(S.dur, cd_len()); if (p === 'end') S.dur = Math.max(S.dur, ec_len()); last_drag = null; invalidate(); render(); }
+function set_page (p) { if (p !== 'hp' && p !== 'count' && p !== 'fx' && p !== 'end' && p !== 'flash' && !(LY && LY[p])) return; S.page = p; if (LY && LY[p]) S.dur = Math.max(S.dur, LY[p].len()); if (p === 'flash') S.fx.vig.on = true; if (p === 'count') S.dur = Math.max(S.dur, cd_len()); if (p === 'end') S.dur = Math.max(S.dur, ec_len()); last_drag = null; invalidate(); render(); }
 
 /* image size guide: exact pixel size of every slot at this canvas + HUD scale, and a template to generate into */
-function slot_px (s) { const u = W / 1080 * S.hud.scale; if (s[0] === 'bossFill' || s[0] === 'bossFrame') { const b = boss_rect(); return s[0] === 'bossFill' ? [Math.round(b.w), Math.round(b.h)] : [Math.round(b.w * 1.08), Math.round(b.h * 2.4)]; } const k = s[0] === 'logo' ? S.logo.w * W / 400 : u; return [Math.round(s[3] * k), Math.round(s[4] * k)]; }
+function slot_px (s) { const u = W / 1080 * S.hud.scale; if (s[0] === 'bossFill' || s[0] === 'bossFrame') { const b = boss_rect(); return s[0] === 'bossFill' ? [Math.round(b.w), Math.round(b.h)] : [Math.round(b.w * 1.08), Math.round(b.h * 2.4)]; } const k = /^logo\d?$/.test(s[0]) ? S[s[0]].w * W / 400 : u; return [Math.round(s[3] * k), Math.round(s[4] * k)]; }
 async function template (s) {
   const [w, h] = slot_px(s), W2 = w * 2, H2 = h * 2;
   const c = document.createElement('canvas'); c.width = W2; c.height = H2; const g = c.getContext('2d');
@@ -814,10 +992,20 @@ function paint_trans (c, tt) {
   }
 }
 /** red corners when the hero is hit: S.fx.vig.hits + the hits of the health bar page */
+let VIG_TEST = -1;
+/* 🩸 hits made on a dropped video live only in memory: a new video starts clean, removing it removes its flashes.
+   With no video the saved list (+ Health bar hits) is used, so the flash can still be set up and tried without one. */
+let VIG_VHITS = [];
+const vig_has_vid = () => !!(vid0 && vid0.getAttribute('src'));
+function vig_hits () { const V = S.fx.vig; if (vig_has_vid()) return VIG_VHITS; const hits = [...(V.hits || [])]; if (V.fromHp) S.events.forEach(e => { if (e.kind === 'dmg' && e.who !== 'boss') hits.push(e.t); }); return hits; }
+function vig_set_hits (list) { const l = [...list].filter(n => isFinite(n)).sort((p, q) => p - q); if (vig_has_vid()) VIG_VHITS = l; else S.fx.vig.hits = l; }
+function vig_add_hit (tt) { const V = S.fx.vig; V.on = true; vig_set_hits([...(vig_has_vid() ? VIG_VHITS : (V.hits || [])), +tt.toFixed(2)]); }
 function vig_level (tt) {
-  const V = S.fx.vig; const hits = [...(V.hits || [])]; if (V.fromHp) S.events.forEach(e => { if (e.kind === 'dmg' && e.who !== 'boss') hits.push(e.t); });
+  const V = S.fx.vig; const hits = vig_hits();
   let a = 0; for (const h of hits) { const d = tt - h; if (d < 0 || d > V.dur) continue; a = Math.max(a, d < 0.06 ? d / 0.06 : 1 - (d - 0.06) / Math.max(0.01, V.dur - 0.06)); }
   if (V.low) a = Math.max(a, 0.35 + 0.25 * Math.sin(tt * Math.PI * 2 * 1.2));
+  // 🔄 "Nháy thử": a live pulse in the preview now, whatever second the playhead is on (never in exports)
+  if (VIG_TEST >= 0 && !busy) { const d = (performance.now() - VIG_TEST) / 1000; if (d >= 0 && d <= V.dur) a = Math.max(a, d < 0.06 ? d / 0.06 : 1 - (d - 0.06) / Math.max(0.01, V.dur - 0.06)); else VIG_TEST = -1; }
   return a;
 }
 function paint_vig (c, tt) {
@@ -894,7 +1082,7 @@ async function fx_track () {
       // the look of the object drifts slowly (turns, light): the template follows a little
       cut(img, cx - pw / 2, cy - ph / 2, cur); for (let i = 0; i < tpl.length; i++) tpl[i] = tpl[i] * 0.85 + cur[i] * 0.15;
       t = tt; dirty = true; prog(tt / S.dur, T('Đang tracking… ', 'Tracking… ', '추적 중… ') + tt.toFixed(1) + ' s');
-      await new Promise(r => setTimeout(r, 0));
+      await tick();
     }
     prog(1, T(`Xong: ${m.keys.length} mốc. Kéo mask ở giây nào để sửa mốc giây đó.`, `Done: ${m.keys.length} keys. Drag the mask at any second to fix that key.`, `완료: 키 ${m.keys.length}개`));
   } finally { fx_tracking = false; save(); render(); }
@@ -913,7 +1101,7 @@ function wire_fx () {
       m[k] = v; invalidate(); if (el.tagName === 'SELECT') render();
     };
   });
-  side.querySelectorAll('[data-vig]').forEach(el => { el.onchange = () => { S.fx.vig.hits = el.value.split(/[,; ]+/).map(Number).filter(n => isFinite(n) && el.value.trim() !== ''); invalidate(); }; });
+  side.querySelectorAll('[data-vig]').forEach(el => { el.onchange = () => { vig_set_hits(el.value.trim() === '' ? [] : el.value.split(/[,; ]+/).map(Number)); invalidate(); render(); }; });
   side.querySelectorAll('[data-fxx]').forEach(b => {
     b.onclick = () => {
       const a = b.dataset.fxx, m = fx_sel();
@@ -923,7 +1111,10 @@ function wire_fx () {
       if (a === 'mediaoff' && m) { delete FXV[m.id]; img_del('fxm_' + m.id); }
       if (a === 'keyhere' && m) { const p = fx_pos(m, t); fx_key(m, t, p.x, p.y); }
       if (a === 'keysoff' && m) { const p = fx_pos(m, t); m.x = p.x; m.y = p.y; m.keys = []; }
-      if (a === 'vighere') { S.fx.vig.hits = [...(S.fx.vig.hits || []), +t.toFixed(2)].sort((p, q) => p - q); }
+      if (a === 'vighere') vig_add_hit(t);
+      if (a === 'vigclear') vig_set_hits([]);
+      if (a === 'vigtest') { S.fx.vig.on = true; VIG_TEST = performance.now(); dirty = true; return; }
+      if (a === 'reload') { save(); const u = new URL(location.href); u.searchParams.set('v', String(Date.now())); u.searchParams.set('page', S.page); location.replace(u.toString()); return; }
       invalidate(); render();
     };
   });
@@ -942,13 +1133,26 @@ function fold_sections () {
     apply();
   });
 }
+/* ⬆ upgrade cards · 🗺 minimap · 🎒 inventory (gb-layouts.js): same timeline, same .MOV alpha / MP4 export */
+var LY = window.GBLY ? GBLY.init({ T, S: () => S, W: () => W, H: () => H, t: () => t, playing: () => playing, anim: () => playing || busy, IMG,
+  changed: rer => { invalidate(); if (rer) render(); }, set_t: v => { t = v; goto(t); dirty = true; }, play: on => set_play(on),
+  flash: m => { $('hint').textContent = '⚠ ' + m; }, set_img: (k, canvas) => canvas.toBlob(b => { if (b) set_img(k, b); }, 'image/png') }) : null;
+addEventListener('keyup', e => { if (LY && LY[S.page] && !/INPUT|SELECT|TEXTAREA/.test((e.target && e.target.tagName) || '')) LY[S.page].key(e, false); });
+function wire_ly (side, P) {
+  side.querySelectorAll('[data-ly]').forEach(el => {
+    const path = el.dataset.ly.split('.');
+    const set = rer => { let o = S; for (let i = 0; i < path.length - 1; i++) o = o[path[i]]; let v = el.type === 'checkbox' ? el.checked : el.value; if (el.type === 'number' || el.type === 'range') { v = Number(v); if (el.dataset.pct) v /= 100; } o[path[path.length - 1]] = v; invalidate(); if (rer) render(); };
+    el.addEventListener('input', () => set(false)); el.addEventListener('change', () => set(el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'number'));
+  });
+  side.querySelectorAll('[data-lyx]').forEach(b => { b.onclick = () => { if (P.act(b.dataset.lyx)) { invalidate(); render(); } }; });
+}
 function render () { render_panel(); fold_sections(); }
 function render_panel () {
   const side = $('side'); const sy = side.scrollTop;
   const ev = S.events.map((e, i) => `<tr><td><input type="number" step="0.05" min="0" data-ev="${i}" data-f="t" value="${e.t}"></td>${S.boss.on ? `<td><select data-ev="${i}" data-f="who"><option value="hero">Hero</option><option value="boss"${e.who === 'boss' ? ' selected' : ''}>Boss</option></select></td>` : ''}<td><select data-ev="${i}" data-f="kind">${[['dmg', T('Bị đánh', 'Hit', '피격')], ['heal', T('Hồi máu', 'Heal', '회복')], ['set', T('Đặt HP', 'Set HP', 'HP 설정')], ['mana-', T('Mất mana', 'Use mana', '마나 사용')], ['mana+', T('Hồi mana', 'Mana +', '마나 회복')]].map(([v, l]) => `<option value="${v}"${e.kind === v ? ' selected' : ''}>${l}</option>`).join('')}</select></td><td><input type="number" step="10" data-ev="${i}" data-f="v" value="${e.v}"></td><td><button data-del="${i}" title="${T('Xoá', 'Delete', '삭제')}">✕</button></td></tr>`).join('');
   const imgrow = s => `<div class="img"><span>${T(s[1], s[2], s[2])}</span><img ${IMG[s[0]] ? `src="${IMG[s[0]].src}"` : ''} alt=""><button data-up="${s[0]}">⬆</button>${IMG[s[0]] ? `<button data-rm="${s[0]}">✕</button>` : ''}</div>`;
-  const tabs = `<div class="row" style="margin:0 0 4px"><button data-page="hp"${S.page === 'hp' ? ' class="pri"' : ''}>❤️ ${T('Thanh máu', 'Health bar', '체력 바')}</button><button data-page="count"${S.page === 'count' ? ' class="pri"' : ''}>⏱ ${T('Đếm ngược', 'Countdown', '카운트다운')}</button><button data-page="fx"${S.page === 'fx' ? ' class="pri"' : ''}>🎬 ${T('Video FX', 'Video FX', '비디오 FX')}</button><button data-page="flash"${S.page === 'flash' ? ' class="pri"' : ''}>🩸 ${T('Nháy đỏ', 'Red flash', '붉은 플래시')}</button><button data-page="end"${S.page === 'end' ? ' class="pri"' : ''}>🏁 End card</button></div>`;
-  const pos = `<div class="sm" style="margin-top:4px">${T('Căn nhanh', 'Snap to', '빠른 정렬')} (${S.page === 'count' ? T('số đếm', 'number', '숫자') : T('phần vừa kéo: ', 'last dragged: ', '마지막: ') + (({ hud: 'HUD hero', boss: 'Boss', logo: 'Logo' })[drag_last()] || (S.page === 'end' ? T('khối end card', 'end card', '엔드카드') : '–'))})</div>
+  const tabs = `<div class="row" style="margin:0 0 4px"><button data-page="hp"${S.page === 'hp' ? ' class="pri"' : ''}>❤️ ${T('Thanh máu', 'Health bar', '체력 바')}</button><button data-page="count"${S.page === 'count' ? ' class="pri"' : ''}>⏱ ${T('Đếm ngược', 'Countdown', '카운트다운')}</button><button data-page="fx"${S.page === 'fx' ? ' class="pri"' : ''}>🎬 ${T('Video FX', 'Video FX', '비디오 FX')}</button><button data-page="flash"${S.page === 'flash' ? ' class="pri"' : ''}>🩸 ${T('Nháy đỏ', 'Red flash', '붉은 플래시')}</button><button data-page="end"${S.page === 'end' ? ' class="pri"' : ''}>🏁 End card</button>${LY ? ['up', 'map', 'inv'].map(k => `<button data-page="${k}"${S.page === k ? ' class="pri"' : ''}>${LY[k].label()}</button>`).join('') : ''}</div>`;
+  const pos = `<div class="sm" style="margin-top:4px">${T('Căn nhanh', 'Snap to', '빠른 정렬')} (${S.page === 'count' ? T('số đếm', 'number', '숫자') : T('phần vừa kéo: ', 'last dragged: ', '마지막: ') + (({ hud: 'HUD hero', boss: 'Boss', logo: 'Logo', logo2: 'Logo 2', logo3: 'Logo 3', logo4: 'Logo 4' })[drag_last()] || (S.page === 'end' ? T('khối end card', 'end card', '엔드카드') : '–'))})</div>
     <div class="grid9">${['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].map(k => `<button data-place="${k}">${{ tl: '↖', tc: '↑', tr: '↗', ml: '←', mc: '•', mr: '→', bl: '↙', bc: '↓', br: '↘' }[k]}</button>`).join('')}</div>
     <div class="sm">${T('Kéo trên khung hình để đặt · phím mũi tên dịch 1 px (Shift = 10 px) · tự hít vào giữa (giữ Alt để kéo tự do)', 'Drag on the preview to place · arrow keys move 1 px (Shift = 10 px) · snaps to the centre (hold Alt to move freely)', '드래그 배치 · 방향키 1px (Shift 10px) · 가운데 스냅 (Alt 자유)')}</div>`;
   const frameSec = `<section><h3><b>1</b>${T('Khung video', 'Video frame', '비디오 프레임')}</h3>
@@ -1056,6 +1260,11 @@ function render_panel () {
     side.scrollTop = sy; $('hint').textContent = T('Bấm mask để chọn · kéo dời · Delete xoá · V thêm cú trúng đòn · Space phát / dừng', 'Click a mask to pick it · drag to move · Delete removes · V adds a hit · Space play / pause', '클릭 선택 · 드래그 · Delete · V · Space');
     wire(); wire_fx(); return;
   }
+  if (LY && LY[S.page]) {
+    const P = LY[S.page];
+    side.innerHTML = tabs + frameSec + P.side() + exportSec(4) + `<input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden>`;
+    side.scrollTop = sy; $('hint').textContent = P.hint(); wire(); wire_ly(side, P); return;
+  }
   if (S.page === 'flash') {
     const V = S.fx.vig;
     side.innerHTML = tabs + frameSec + `<section><h3><b>2</b>🩸 ${T('Nháy đỏ khi trúng đòn', 'Red flash when hit', '피격 붉은 플래시')}</h3>
@@ -1064,9 +1273,12 @@ function render_panel () {
         ${V.on ? `<label><span>${T('Màu · độ đậm', 'Colour · strength', '색 · 강도')}</span><input type="color" data-k="fx.vig.color" value="${V.color}"><input type="range" data-k="fx.vig.strength" data-pct="1" min="10" max="100" value="${Math.round(V.strength * 100)}"></label>
         <label><span>${T('Độ lấn vào', 'How far in', '범위')}</span><input type="range" data-k="fx.vig.size" data-pct="1" min="10" max="90" value="${Math.round(V.size * 100)}"></label>
         <label><span>${T('Mỗi cú kéo dài', 'Each hit lasts', '지속')}</span><input type="number" data-k="fx.vig.dur" step="0.1" min="0.1" value="${V.dur}"> s</label>
-        <label><span>${T('Các giây trúng đòn', 'Hit times (s)', '피격 시각')}</span><input type="text" data-vig="hits" value="${(V.hits || []).join(', ')}"></label>
+        <div class="sm" style="margin:2px 0 4px;color:${vig_has_vid() ? '#2fd17a' : '#9aa3ad'}">${vig_has_vid() ? '🎞 ' + T('Đang làm theo video', 'Working on the video', '영상 기준') + ' <b>' + (vid0.dataset.name || '') + '</b> — ' + T('các cú đánh không lưu; gỡ video (✕) là hết loé đỏ của video này.', 'hits are not saved; remove the video (✕) and its flashes are gone.', '저장 안 됨; 영상을 빼면 사라짐.') : T('Không có video — chỉnh loé đỏ trên timeline trống. Thả video vào khung xem trước để làm theo video.', 'No video — set the flash up on an empty timeline. Drop a video on the preview to work on it.', '영상 없음 — 빈 타임라인에서 설정. 미리보기에 영상을 놓으세요.')}</div>
+        <label><span>${T('Các giây trúng đòn', 'Hit times (s)', '피격 시각')}</span><input type="text" data-vig="hits" value="${(vig_has_vid() ? VIG_VHITS : (V.hits || [])).join(', ')}"></label>
         <div class="row"><button data-fxx="vighere">＋ ${T('Trúng đòn tại giây này (V)', 'Hit at this second (V)', '현재 피격 (V)')}</button></div>
-        <label><input type="checkbox" data-k="fx.vig.fromHp"${V.fromHp ? ' checked' : ''}> ${T('Cùng lúc hero bị đánh ở trang Thanh máu', 'Also when the hero is hit on the Health bar page', 'HP 페이지 피격 시에도')}</label>
+        <div class="row"><button data-fxx="vigclear">🗑 ${T('Xoá hết cú đánh', 'Clear all hits', '피격 모두 삭제')}</button></div>
+        <div class="row"><button data-fxx="vigtest" class="pri">🔄 ${T('Nháy thử', 'Flash now', '지금 깜빡임')}</button><button data-fxx="reload" title="${T('Tải lại trang với bản mới nhất, giữ nguyên cài đặt', 'Reload the newest page, keep the settings', '최신 페이지로 새로고침')}">↻ ${T('Làm mới (xoá cache)', 'Refresh (clear cache)', '새로고침 (캐시 삭제)')}</button></div>
+        ${vig_has_vid() ? '' : `<label><input type="checkbox" data-k="fx.vig.fromHp"${V.fromHp ? ' checked' : ''}> ${T('Cùng lúc hero bị đánh ở trang Thanh máu', 'Also when the hero is hit on the Health bar page', 'HP 페이지 피격 시에도')}</label>`}
         <label><input type="checkbox" data-k="fx.vig.low"${V.low ? ' checked' : ''}> ${T('Nhấp nháy liên tục (sắp chết)', 'Keep pulsing (low HP)', '계속 깜빡임')}</label>` : ''}
     </section>` + exportSec(3) + `<div class="sm">${T('Phím V = thêm cú trúng đòn ở giây đang xem.', 'V = a hit at this second.', 'V = 현재 피격')}</div><input type="file" id="fImg" accept="image/*" hidden><input type="file" id="fVid" accept="video/*" hidden><input type="file" id="fVid2" accept="video/*" multiple hidden><input type="file" id="fJson" accept=".json" hidden>`;
     side.scrollTop = sy; $('hint').textContent = T('V thêm cú trúng đòn · Space phát / dừng', 'V adds a hit · Space play / pause', 'V 피격 추가');
@@ -1105,6 +1317,7 @@ function render_panel () {
     <label><span>${T('Cấp', 'Level', '레벨')}</span><input type="number" data-k="hero.level" value="${S.hero.level}"><input type="checkbox" data-k="hero.showLevel"${S.hero.showLevel ? ' checked' : ''}></label>
     <label><span>${T('Dáng khung', 'Frame shape', '프레임 모양')}</span><select data-k="hero.shape">${[['circle', T('Tròn', 'Circle', '원')], ['square', T('Vuông bo', 'Rounded', '사각')], ['hex', T('Lục giác', 'Hexagon', '육각')]].map(([v, l]) => `<option value="${v}"${S.hero.shape === v ? ' selected' : ''}>${l}</option>`).join('')}</select><input type="color" data-k="hero.ring" value="${S.hero.ring}"></label>
     <label><span>${T('Cỡ HUD', 'HUD size', 'HUD 크기')}</span><input type="range" data-k="hud.scale" min="40" max="200" value="${Math.round(S.hud.scale * 100)}"></label>
+    <div class="row" style="margin:2px 0 6px"><button data-skin="hp" class="pri">🎨 ${T('Bộ skin mẫu (Higgsfield)', 'Ready-made skin (Higgsfield)', '기본 스킨')}</button></div>
     ${imgrow(SLOTS[0])}${imgrow(SLOTS[1])}${imgrow(SLOTS[6])}
   </section>
   <section><h3><b>3</b>${T('Thanh máu (HP)', 'Health bar (HP)', '체력 바 (HP)')}</h3>
@@ -1123,6 +1336,10 @@ function render_panel () {
   <section><h3><b>5</b>Logo <label style="margin:0 0 0 auto"><input type="checkbox" data-k="logo.on"${S.logo.on ? ' checked' : ''}> ${T('Bật', 'On', '켜기')}</label></h3>
     ${imgrow(SLOTS[5])}
     <label><span>${T('Cỡ logo', 'Logo size', '로고 크기')}</span><input type="range" data-k="logo.w" min="5" max="90" value="${Math.round(S.logo.w * 100)}"></label>
+    ${[2, 3, 4].map(n => `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)"><label><span><b>Logo ${n}</b></span><label style="margin:0 0 0 auto"><input type="checkbox" data-k="logo${n}.on"${S['logo' + n].on ? ' checked' : ''}> ${T('Bật', 'On', '켜기')}</label></label>
+    ${imgrow(SLOTS[8 + n - 1])}
+    <label><span>${T('Cỡ logo', 'Logo size', '로고 크기')} ${n}</span><input type="range" data-k="logo${n}.w" min="5" max="90" value="${Math.round(S['logo' + n].w * 100)}"></label></div>`).join('')}
+    <div class="sm">${T('Kéo từng logo trên khung hình để đặt vị trí.', 'Drag each logo on the preview to place it.', '각 로고를 화면에서 드래그해 배치하세요.')}</div>
   </section>
   <section><h3><b>6</b>${T('Hero bị tấn công lúc nào', 'When the hero is hit', '피격 타이밍')}</h3>
     <table><tr><th>${T('Giây', 'Second', '초')}</th>${S.boss.on ? '<th>Ai</th>' : ''}<th>${T('Loại', 'Type', '종류')}</th><th>${T('Lượng', 'Amount', '양')}</th><th></th></tr>${ev}</table>
@@ -1151,7 +1368,7 @@ function wire () {
       let v = el.type === 'checkbox' ? el.checked : el.type === 'number' || el.type === 'range' ? Number(el.value) : el.value;
       if (el.dataset.time) { v = parse_hms(el.value); if (!isFinite(v)) return; }
       if (k === 'vidop') { for (const q of CLIPS) q.style.opacity = String(v / 100); return; }
-      if (k === 'hud.scale' || k === 'logo.w' || el.dataset.pct) v = v / 100;
+      if (k === 'hud.scale' || /^logo\d?\.w$/.test(k) || el.dataset.pct) v = v / 100;
       if (el.type === 'range' && el.nextElementSibling && el.nextElementSibling.tagName === 'OUTPUT') el.nextElementSibling.textContent = v + 'px';
       if (k === 'fps') v = Number(v);
       setk(k, v);
@@ -1169,6 +1386,7 @@ function wire () {
   side.querySelectorAll('[data-x2="noglow"]').forEach(b => { b.onchange = () => { S.cd.glow = b.checked ? '' : '#ffb020'; invalidate(); render(); }; });
   side.querySelectorAll('[data-del]').forEach(b => { b.onclick = () => { S.events.splice(Number(b.dataset.del), 1); invalidate(); render(); }; });
   side.querySelectorAll('[data-up]').forEach(b => { b.onclick = () => { up_slot = b.dataset.up; $('fImg').click(); }; });
+  side.querySelectorAll('[data-skin]').forEach(b => { b.onclick = () => { void load_skin(b.dataset.skin); }; });
   side.querySelectorAll('[data-rm]').forEach(b => { b.onclick = () => { delete IMG[b.dataset.rm]; img_del(b.dataset.rm); dirty = true; render(); }; });
   side.querySelectorAll('[data-tpl]').forEach(b => { b.onclick = () => template(SLOTS.find(s => s[0] === b.dataset.tpl)); });
   side.querySelectorAll('[data-x]').forEach(b => {
@@ -1190,16 +1408,49 @@ function wire () {
       invalidate(); render();
     };
   });
-  $('fImg').onchange = e => { const f = e.target.files[0]; if (f && up_slot) { set_img(up_slot, f); if (up_slot === 'logo') S.logo.on = true; save(); } e.target.value = ''; };
-  $('fVid').onchange = e => { const f = e.target.files[0]; if (!f) return; vid0.src = URL.createObjectURL(f); vid0.dataset.name = f.name; vid0.style.opacity = '0.6'; vid0.onloadedmetadata = () => { if (clips_total() > 0) { S.dur = Math.round(clips_total() * 100) / 100; invalidate(); render(); } }; e.target.value = ''; };
+  $('fImg').onchange = e => { const f = e.target.files[0]; if (f && up_slot) { set_img(up_slot, f); if (/^logo\d?$/.test(up_slot)) S[up_slot].on = true; save(); } e.target.value = ''; };
+  $('fVid').onchange = e => { const f = e.target.files[0]; if (!f) return; VIG_VHITS = []; vid0.src = URL.createObjectURL(f); vid0.dataset.name = f.name; vid0.style.opacity = '0.6'; vid0.onloadedmetadata = () => { if (clips_total() > 0) { S.dur = Math.round(clips_total() * 100) / 100; invalidate(); render(); } }; e.target.value = ''; };
   $('fVid2').onchange = e => { for (const f of e.target.files) clip_add(f); e.target.value = ''; };
   side.querySelectorAll('[data-clipdel]').forEach(b => { b.onclick = () => clip_del(Number(b.dataset.clipdel)); });
   $('fJson').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { S = merge(structuredClone(DEF), JSON.parse(await f.text())); resize(); invalidate(); render(); } catch (err) { msg(String(err), true); } e.target.value = ''; };
 }
-resize(); render(); draw_marks(); img_load_all(); requestAnimationFrame(loop);
+resize(); render(); draw_marks(); img_load_all().then(skin_default); requestAnimationFrame(loop);
+/** 🎨 the Higgsfield skins are the default look: put them on once (a picture the user uploads or removes later stays their choice) */
+async function skin_default () {
+  let done = {}; try { done = JSON.parse(localStorage.getItem('gb.hpbar.skin') || '{}'); } catch (e) {}
+  for (const kind of ['hp', 'inv']) {
+    if (done[kind]) continue;
+    if (SKIN[kind].some(([k]) => STORED.has(k) || IMG[k])) { done[kind] = 1; continue; } // already has own / skin pictures
+    await load_skin(kind); done[kind] = 1;
+  }
+  try { localStorage.setItem('gb.hpbar.skin', JSON.stringify(done)); } catch (e) {}
+}
 window.__gbHp = { set_page, busy: () => busy, pause: () => set_play(false), state: () => S, paint: (tt) => { paint(x, tt, S.bg); }, export_mov, export_mp4,
   refresh: () => { resize(); invalidate(); render(); }, snapshot: () => { paint(x, t, S.bg === 'clear' ? 'black' : S.bg); const c = document.createElement('canvas'); const k = Math.min(1, 720 / H); c.width = Math.round(W * k); c.height = Math.round(H * k); c.getContext('2d').drawImage(cv, 0, 0, c.width, c.height); dirty = true; return c.toDataURL('image/jpeg', 0.85); } };
 })();
 </script>
-</body>
+<!--gb-icons--><script id="gb-icons">
+/* Greenbox line icons: Lucide (lucide.dev, ISC licence) in place of emoji in buttons, titles and the feature list */
+(function(){if(window.__gbIcons)return;window.__gbIcons=1;
+var I={"circle-dot":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <circle cx=\"12\" cy=\"12\" r=\"1\" />","clapperboard":"<path d=\"M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z\" /> <path d=\"m6.2 5.3 3.1 3.9\" /> <path d=\"m12.4 3.4 3.1 4\" /> <path d=\"M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z\" />","cloud-fog":"<path d=\"M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242\" /> <path d=\"M16 17H7\" /> <path d=\"M17 21H9\" />","download":"<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\" /> <polyline points=\"7 10 12 15 17 10\" /> <line x1=\"12\" x2=\"12\" y1=\"15\" y2=\"3\" />","droplet":"<path d=\"M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z\" />","feather":"<path d=\"M12.67 19a2 2 0 0 0 1.416-.588l6.154-6.172a6 6 0 0 0-8.49-8.49L5.586 9.914A2 2 0 0 0 5 11.328V18a1 1 0 0 0 1 1z\" /> <path d=\"M16 8 2 22\" /> <path d=\"M17.5 15H9\" />","film":"<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"M7 3v18\" /> <path d=\"M3 7.5h4\" /> <path d=\"M3 12h18\" /> <path d=\"M3 16.5h4\" /> <path d=\"M17 3v18\" /> <path d=\"M17 7.5h4\" /> <path d=\"M17 16.5h4\" />","flag":"<path d=\"M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z\" /> <line x1=\"4\" x2=\"4\" y1=\"22\" y2=\"15\" />","flame":"<path d=\"M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z\" />","folder-open":"<path d=\"m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2\" />","heart":"<path d=\"M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z\" />","image":"<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" ry=\"2\" /> <circle cx=\"9\" cy=\"9\" r=\"2\" /> <path d=\"m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21\" />","map":"<path d=\"M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z\" /> <path d=\"M15 5.764v15\" /> <path d=\"M9 3.236v15\" />","orbit":"<circle cx=\"12\" cy=\"12\" r=\"3\" /> <circle cx=\"19\" cy=\"5\" r=\"2\" /> <circle cx=\"5\" cy=\"19\" r=\"2\" /> <path d=\"M10.4 21.9a10 10 0 0 0 9.941-15.416\" /> <path d=\"M13.5 2.1a10 10 0 0 0-9.841 15.416\" />","palette":"<circle cx=\"13.5\" cy=\"6.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"17.5\" cy=\"10.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"8.5\" cy=\"7.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"6.5\" cy=\"12.5\" r=\".5\" fill=\"currentColor\" /> <path d=\"M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z\" />","refresh-cw":"<path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\" /> <path d=\"M21 3v5h-5\" /> <path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\" /> <path d=\"M8 16H3v5\" />","save":"<path d=\"M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z\" /> <path d=\"M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7\" /> <path d=\"M7 3v4a1 1 0 0 0 1 1h7\" />","search":"<circle cx=\"11\" cy=\"11\" r=\"8\" /> <path d=\"m21 21-4.3-4.3\" />","square":"<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" />","square-dashed":"<path d=\"M5 3a2 2 0 0 0-2 2\" /> <path d=\"M19 3a2 2 0 0 1 2 2\" /> <path d=\"M21 19a2 2 0 0 1-2 2\" /> <path d=\"M5 21a2 2 0 0 1-2-2\" /> <path d=\"M9 3h1\" /> <path d=\"M9 21h1\" /> <path d=\"M14 3h1\" /> <path d=\"M14 21h1\" /> <path d=\"M3 9v1\" /> <path d=\"M21 9v1\" /> <path d=\"M3 14v1\" /> <path d=\"M21 14v1\" />","target":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <circle cx=\"12\" cy=\"12\" r=\"6\" /> <circle cx=\"12\" cy=\"12\" r=\"2\" />","timer":"<line x1=\"10\" x2=\"14\" y1=\"2\" y2=\"2\" /> <line x1=\"12\" x2=\"15\" y1=\"14\" y2=\"11\" /> <circle cx=\"12\" cy=\"14\" r=\"8\" />","timer-reset":"<path d=\"M10 2h4\" /> <path d=\"M12 14v-4\" /> <path d=\"M4 13a8 8 0 0 1 8-7 8 8 0 1 1-5.3 14L4 17.6\" /> <path d=\"M9 17H4v5\" />","trash-2":"<path d=\"M3 6h18\" /> <path d=\"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6\" /> <path d=\"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2\" /> <line x1=\"10\" x2=\"10\" y1=\"11\" y2=\"17\" /> <line x1=\"14\" x2=\"14\" y1=\"11\" y2=\"17\" />","triangle-alert":"<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /> <path d=\"M12 9v4\" /> <path d=\"M12 17h.01\" />","tv":"<rect width=\"20\" height=\"15\" x=\"2\" y=\"7\" rx=\"2\" ry=\"2\" /> <polyline points=\"17 2 12 7 7 2\" />","upload":"<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\" /> <polyline points=\"17 8 12 3 7 8\" /> <line x1=\"12\" x2=\"12\" y1=\"3\" y2=\"15\" />","vibrate":"<path d=\"m2 8 2 2-2 2 2 2-2 2\" /> <path d=\"m22 8-2 2 2 2-2 2 2 2\" /> <rect width=\"8\" height=\"14\" x=\"8\" y=\"5\" rx=\"1\" />","wind":"<path d=\"M12.8 19.6A2 2 0 1 0 14 16H2\" /> <path d=\"M17.5 8a2.5 2.5 0 1 1 2 4H2\" /> <path d=\"M9.8 4.4A2 2 0 1 1 11 8H2\" />","zap":"<path d=\"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z\" />"},E={"🎯":"target","🖼":"image","⚠":"triangle-alert","🌀":"orbit","🎬":"clapperboard","🗑":"trash-2","⏺":"circle-dot","⚡":"zap","🔄":"refresh-cw","💧":"droplet","🔍":"search","🩸":"droplet","🎞":"film","⏹":"square","❤":"heart","🏁":"flag","💾":"save","📂":"folder-open","⏱":"timer","🌫":"cloud-fog","⏲":"timer-reset","🗺":"map","🎨":"palette","🪶":"feather","💨":"wind","📺":"tv","🫨":"vibrate","🔥":"flame","⬆":"upload","⬇":"download","⬛":"square","⬚":"square-dashed"},NS='http://www.w3.org/2000/svg';
+var K=Object.keys(E).sort(function(a,b){return b.length-a.length}).map(function(k){return k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')});
+var RE=new RegExp('('+K.join('|')+')\uFE0F?','g');
+var SEL='button,summary,label,h1,h2,h3,h4,#gbai header,#gbai-mcp-status,#gbai-pair-state,figcaption,.tags span,.gbc-it,.gbc-gt,.gbc-dh,.gbc-crumb,nav a,[role=tab],.tab,.ptabs,.ic,.gbi-ok';
+var SKIP='option,textarea,input,select,script,style,svg,canvas,[contenteditable],[data-no-gbi],.stage,#stage,.overlay-out';
+function mk(n){var s=document.createElementNS(NS,'svg');s.setAttribute('viewBox','0 0 24 24');s.setAttribute('fill','none');s.setAttribute('stroke','currentColor');s.setAttribute('stroke-width','1.8');s.setAttribute('stroke-linecap','round');s.setAttribute('stroke-linejoin','round');s.setAttribute('aria-hidden','true');s.setAttribute('class','gbi gbi-'+n);s.innerHTML=I[n];return s}
+function swap(t){var p=t.parentElement;if(!p||!p.closest(SEL)||p.closest(SKIP))return;var v=t.nodeValue;RE.lastIndex=0;if(!RE.test(v))return;RE.lastIndex=0;
+ var f=document.createDocumentFragment(),last=0,m;while((m=RE.exec(v))){if(m.index>last)f.appendChild(document.createTextNode(v.slice(last,m.index)));var k=m[1],n=E[k]||E[k.replace(/\uFE0F/g,'')];if(n)f.appendChild(mk(n));else f.appendChild(document.createTextNode(m[0]));last=m.index+m[0].length}
+ if(last<v.length)f.appendChild(document.createTextNode(v.slice(last)));
+ /* gb-i18n keeps the English source on the text node (__s): carry it over, without the emoji */
+ if(t.__s!=null){var tn=[].filter.call(f.childNodes,function(c){return c.nodeType===3});if(tn.length===1){RE.lastIndex=0;tn[0].__s=String(t.__s).replace(RE,'');tn[0].__o=tn[0].nodeValue}}
+ t.parentNode.replaceChild(f,t)}
+function run(root){if(!root)return;if(root.nodeType===3){swap(root);return}if(root.nodeType!==1&&root.nodeType!==9&&root.nodeType!==11)return;
+ var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null),a=[],t;while((t=w.nextNode()))if(t.nodeValue&&/[\u2190-\u21FF\u2300-\u23FF\u2600-\u27BF\u2B00-\u2BFF\uD83C-\uDBFF]/.test(t.nodeValue))a.push(t);a.forEach(swap)}
+var q=[],raf=0;function flush(){raf=0;var b=q;q=[];b.forEach(run)}
+function start(){run(document.body);new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==='characterData')q.push(m.target);else m.addedNodes.forEach(function(n){q.push(n)})});if(!raf){raf=1;Promise.resolve().then(flush)}}).observe(document.body,{childList:true,subtree:true,characterData:true})}
+var st=document.createElement('style');st.textContent='svg.gbi{width:1.15em;height:1.15em;vertical-align:-.2em;flex:none;display:inline-block}.gbc-it .ic svg.gbi{width:18px;height:18px}';(document.head||document.documentElement).appendChild(st);
+if(document.body)start();else document.addEventListener('DOMContentLoaded',start)})();
+</script><!--/gb-icons--><!--gb-fav--><script id="gb-fav">
+(function(){var l=document.querySelector('link[rel~=icon]');if(!l){l=document.createElement('link');l.rel='icon';document.head.appendChild(l)}l.type='image/webp';l.href="data:image/webp;base64,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"})();
+</script><!--/gb-fav--><script src="./gb-ai/embed.js?v=20261110g" defer></script></body>
 </html>

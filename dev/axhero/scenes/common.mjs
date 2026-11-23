@@ -7,7 +7,7 @@ export const UPLOAD = (sel, files) => `
 export const SKIP_TOUR = `document.querySelectorAll('button').forEach(b => { if (/^(Skip|Bỏ qua)$/.test(b.textContent.trim())) b.click(); }); return true;`
 export async function english (nav, ev) {
   await nav('Greenbox-Cockpit.html')
-  await ev(`localStorage.setItem('gbc.lang', 'en'); return true`)
+  await ev(`localStorage.setItem('gbc.lang', 'en'); localStorage.setItem('gb.tour.cockpit.v1', '1'); return true`) // no first-visit tour over the recording
 }
 // the character to rig: CHAR='[["/_tmp_shot/x.glb","x.glb"]]' picks another file (default: the Hero FBX + its texture)
 export const CHAR = process.env.CHAR ? JSON.parse(process.env.CHAR) : [['/_tmp_shot/hero.fbx', 'Hero1.fbx'], ['/_tmp_shot/Hero1.png', 'Hero1.png']]

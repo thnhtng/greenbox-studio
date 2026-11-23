@@ -1,0 +1,20 @@
+# emoji -> Lucide icon name (lucide-static, ISC). Simple text glyphs (→ ▶ ✕ ✓ ＋ …) stay as they are.
+MAP = {
+ '🦴':'bone','🧬':'dna','🔩':'nut','🎥':'video','🎯':'target','👆':'pointer','✅':'circle-check','🪄':'wand-sparkles',
+ '🧭':'compass','⛓':'link','⛓️‍💥':'unlink','🛞':'circle-dot','✋':'hand','📐':'drafting-compass','🖼':'image','🎮':'gamepad-2',
+ '⭐':'star','⚠':'triangle-alert','🔒':'lock','🌀':'orbit','⚙':'settings','🔗':'link','👁':'eye','🧍':'person-standing',
+ '🎬':'clapperboard','🖌':'paintbrush','🚗':'car','🚜':'tractor','🏎':'car-front','🪛':'wrench','🗑':'trash-2',
+ '⏺':'circle-dot','🚪':'door-open','💥':'zap','⚡':'zap','🕹':'joystick','🏀':'dribbble','🔼':'circle-arrow-up','🔽':'circle-arrow-down',
+ '🔄':'refresh-cw','🦾':'biceps-flexed','📝':'notebook-pen','📦':'package','💧':'droplet','🔎':'search','🔍':'search','🛠':'wrench',
+ '🎁':'gift','🩸':'droplet','🎞':'film','📋':'clipboard','🏗':'construction','📌':'pin','⏹':'square','🙂':'smile','🕳':'shovel',
+ '⏳':'hourglass','🪞':'flip-horizontal-2','✏':'pencil','🔊':'volume-2','❤':'heart','🏁':'flag','🧽':'eraser','🚁':'plane',
+ '🛢':'cylinder','✂':'scissors','🪣':'paint-bucket','🪝':'anchor','🧹':'brush','🪨':'mountain','💾':'save','📂':'folder-open',
+ '📁':'folder','💵':'banknote','🖐':'hand','⏱':'timer','🌫':'cloud-fog','⏲':'timer-reset','🚚':'truck','🛻':'truck','🚛':'truck',
+ '🚌':'bus','🪖':'shield','⛏':'pickaxe','🏍':'bike','🚤':'ship','🦅':'bird','🕊':'bird','📡':'satellite-dish','🥁':'drum',
+ '🪜':'list-ordered','📶':'signal','🙈':'eye-off','🌲':'tree-pine','🌳':'tree-deciduous','🌿':'leaf','🏠':'house','🗼':'tower-control',
+ '🧱':'brick-wall','🚧':'construction','🚩':'flag','🗺':'map','⛰':'mountain','🎨':'palette','🚀':'rocket','❓':'circle-help',
+ '⌨':'keyboard','🧩':'puzzle','📏':'ruler','🤚':'hand','🧤':'hand-metal','🔢':'hash','🎳':'target','🎛':'sliders-horizontal',
+ '📈':'trending-up','💰':'coins','⛽':'fuel','🃏':'layers','🛍':'shopping-bag','🧰':'briefcase','🎠':'gallery-horizontal-end',
+ '🔁':'repeat','🪶':'feather','💨':'wind','📺':'tv','🫨':'vibrate','🔥':'flame','🏆':'trophy','🤖':'bot','📷':'camera',
+ '🗂':'folder-tree','🎵':'music','🔔':'bell','💡':'lightbulb','📊':'chart-column','🧪':'flask-conical','🗃':'archive','🧠':'brain','🦶':'footprints','👣':'footprints','🧲':'magnet','🖱':'mouse','📸':'camera','🎚':'sliders-vertical','🧊':'box','🌊':'waves','☁':'cloud','🌙':'moon','☀':'sun','🛡':'shield','⚔':'swords','📱':'smartphone','⬆':'upload','⬇':'download','⬛':'square','✨':'sparkles','🎲':'dices','👤':'user','🏃':'person-standing','🕺':'person-standing','🔀':'shuffle','🔃':'refresh-ccw','📤':'upload','📥':'download','🖥':'monitor','💬':'message-circle','📜':'scroll-text','🏷':'tag','🗒':'sticky-note','🧾':'receipt','🔉':'volume-1','🔇':'volume-x','🎧':'headphones','🎤':'mic','📍':'map-pin','🌐':'globe','🪟':'app-window','🛑':'octagon-x','🚫':'ban','💎':'gem','🪙':'coins','🗝':'key-round','🔑':'key-round','🔓':'lock-open','🏹':'crosshair','🗡':'sword','💀':'skull','👑':'crown','🔌':'plug','🪵':'rectangle-horizontal','🌾':'sprout','🪚':'disc-3','⬚':'square-dashed','⚪':'circle','📎':'paperclip','➤':'send-horizontal','⇥':'panel-right-open',
+}

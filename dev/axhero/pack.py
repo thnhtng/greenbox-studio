@@ -179,25 +179,32 @@ def cockpit():
         saved[0] += len(data) - len(new)
         return 'data:image/webp;base64,' + base64.b64encode(new).decode()
     s = re.sub(r'data:(image/[a-z+]+);base64,([A-Za-z0-9+/=]+)', re_enc, s)
-    # ▶ demo clip per feature (top bar button): tiny copies of the intro recordings
-    V = ROOT / 'dev/axhero/videos'; (DST / 'demo').mkdir(exist_ok=True); demo = {}
-    for fid, src, sec in [(k, V / 'feat' / (k + '.mp4'), 6) for k in ['joy', 'evo', 'stone', 'money', 'fuel', 'hpbar', 'countdown', 'vfx', 'wheel', 'gseq', 'gpick', 'gbag', 'gchest', 'endcard', 'gcar', 'sfx']] + [('smash', V / 'smash_ba.mp4', 5)] + \
-            [('rig', V / 'chibi/rig.mp4', 8), ('clonerig', V / 'feat/croc.mp4', 8), ('playtest', V / 'chibi/playtest.mp4', 8), ('mocap', V / 'chibi/mocap.mp4', 8), ('vehicle', V / 'vehicle.mp4', 8)]:
-        if not src.exists(): continue
-        dur = float(sh(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', str(src)]).strip() or 6)
-        sp = max(1.0, dur / sec)
-        sh(['ffmpeg', '-v', 'error', '-y', '-i', str(src), '-vf', f'setpts=PTS/{sp:.3f},fps=8,scale=432:-2', '-t', str(sec), '-c:v', 'libx264', '-crf', '42', '-preset', 'veryslow', '-pix_fmt', 'yuv420p', '-an', '-movflags', '+faststart', str(DST / 'demo' / (fid + '.mp4'))])
-        demo[fid] = 'demo/' + fid + '.mp4'
-    s = s.replace('</head>', '<script>window.__GB_DEMO=' + json.dumps(demo) + '</script></head>', 1)
-    log('demo clips: %d, %d KB' % (len(demo), sum((DST / v).stat().st_size for v in demo.values()) // 1024))
+    # no demo clips (round 49): the mockup looks and works like the full tool (no ▶ demo button)
     # the mockup's 3D pages are bundled to run from file:// (classic script + embedded files): no "use the server" note
-    guard = "if(location.protocol==='file:'){ fileNote(); return; }"
+    guard = "if(location.protocol==='file:' && !/drama\\.html$/.test(page||'')){ fileNote(); return; }"
     assert guard in s, 'cockpit file:// guard not found'
     s = s.replace(guard, '')
+    # the games (Arena) are private: not in the mockup at all (no item, no unlock code)
+    s, n1 = re.subn(r"\n \{id:'fun', hold:true.*?\]\},(?=\n)", '', s, flags=re.S)
+    s, n2 = re.subn(r"/\*FUN-GATE\*/.*?/\*/FUN-GATE\*/", 'const FUN_ON=false;', s, flags=re.S)
+    assert n1 == 1 and n2 == 1, 'cockpit fun group / gate not found'
     (DST / 'Greenbox-Cockpit.html').write_text(s)
     log('cockpit pictures: %d KB smaller' % (saved[0] // 1024))
-    for f in ['hpbar.html', 'sfx-bench.html', 'gb-xp.js', 'gb-endcard.js']:  # arcade.html: Arena on hold
+    for f in ['hpbar.html', 'sfx-bench.html', 'gb-xp.js', 'gb-endcard.js', 'gb-layouts.js', 'drama.html']:  # drama.html: 🎬 AI Drama (dev/drama/build.py)  # arcade.html: Arena on hold
         shutil.copy(ROOT / f, DST / f)
+    # the same look as the full tool: the glass pictures of the feature list / top buttons (64 px copies of ui/feat)
+    (DST / 'ui/feat').mkdir(parents=True, exist_ok=True)
+    from PIL import Image
+    for p in sorted((ROOT / 'ui/feat').glob('*.webp')):
+        Image.open(p).convert('RGBA').resize((64, 64), Image.LANCZOS).save(DST / 'ui/feat' / p.name, 'WEBP', quality=80, alpha_quality=84, method=6)
+    log('feature pictures: %d KB' % (sum(f.stat().st_size for f in (DST / 'ui/feat').glob('*.webp')) // 1024))
+    # 🎨 the Higgsfield skins (HP bar / boss / avatar frames, fills, logo; inventory items) and the tool pictures
+    for d in ['ui/skin', 'ui/inv', 'ui/tools']:
+        if (ROOT / d).is_dir(): shutil.copytree(ROOT / d, DST / d, dirs_exist_ok=True)
+    # and the Greenbox AI panel (API key chat; Claude / Codex through MCP once the local bridge runs)
+    (DST / 'gb-ai').mkdir(exist_ok=True)
+    for f in ['chat.js', 'tools.js', 'bridge.js', 'tools.json', 'greenbox_mcp.py', 'install.sh', 'install.ps1', 'install_mcp.py', 'bridge_server.py', 'README.md']:
+        if (ROOT / 'gb-ai' / f).exists(): shutil.copy(ROOT / 'gb-ai' / f, DST / 'gb-ai' / f)
 
 
 README = '''GREENBOX STUDIO - service mockup (AX Hero)

@@ -1,0 +1,290 @@
+<title>Sổ tay Greenbox Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a field manual — sticky contents rail on the left, one long column of task sections; numbered steps only where order matters */
+:root{
+  --bg:#f4f7f5; --panel:#ffffff; --ink:#14201b; --mut:#53645c; --line:#d6e2dc;
+  --acc:#14935a; --acc-soft:#e1f4ea; --warn:#a86500; --warn-soft:#fff3dc; --key:#eef3f0;
+  --f-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1512;--panel:#14201b;--ink:#e6f1ec;--mut:#9cb3a8;--line:#24352d;--acc:#3ddc97;--acc-soft:#173326;--warn:#ffc35c;--warn-soft:#2f2614;--key:#1c2b24;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d1512;--panel:#14201b;--ink:#e6f1ec;--mut:#9cb3a8;--line:#24352d;--acc:#3ddc97;--acc-soft:#173326;--warn:#ffc35c;--warn-soft:#2f2614;--key:#1c2b24;color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font:15.5px/1.65 var(--f-body)}
+.shell{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:230px minmax(0,1fr);gap:40px;padding-block:28px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);align-self:start;display:flex;flex-direction:column;gap:2px;font-size:13.5px;max-height:calc(100vh - 32px);overflow:auto}
+nav.toc b{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:0 0 6px}
+nav.toc a{color:var(--ink);text-decoration:none;padding:5px 10px;border-radius:8px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--acc-soft);outline:none}
+main{min-width:0;display:flex;flex-direction:column;gap:44px}
+header.top h1{font-weight:800;font-size:clamp(28px,4vw,40px);line-height:1.15;margin:0 0 10px;text-wrap:balance;letter-spacing:-.01em}
+header.top p{margin:0;color:var(--mut);max-width:65ch}
+section{display:flex;flex-direction:column;gap:14px;scroll-margin-top:16px}
+h2{font-size:23px;font-weight:800;margin:0;text-wrap:balance}
+h3{font-size:16.5px;font-weight:700;margin:6px 0 0}
+p{margin:0;max-width:70ch}
+.where{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;font-weight:600;color:var(--acc);background:var(--acc-soft);border-radius:999px;padding:3px 11px;align-self:flex-start}
+.areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.area{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.area b{font-size:15.5px}.area span{color:var(--mut);font-size:14px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+.tw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:700}
+tr:last-child td{border-bottom:0}
+td a{color:var(--acc);font-weight:600;text-decoration:none}
+ol.steps{margin:0;padding:0;list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:10px;max-width:72ch}
+ol.steps>li{counter-increment:s;display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px}
+ol.steps>li::before{content:counter(s);width:26px;height:26px;border-radius:50%;background:var(--acc);color:var(--panel);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;max-width:70ch}
+kbd,.btn{font-family:var(--f-mono);font-size:12.5px;background:var(--key);border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap}
+.btn{font-family:var(--f-body);font-weight:600;font-size:13px}
+.note{background:var(--warn-soft);border-radius:12px;padding:12px 14px;max-width:72ch;font-size:14.5px}
+.note b{color:var(--warn)}
+.tip{background:var(--acc-soft);border-radius:12px;padding:12px 14px;max-width:72ch;font-size:14.5px}
+.faq{display:flex;flex-direction:column;gap:10px}
+.faq div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;max-width:76ch}
+.faq b{display:block;margin-bottom:3px}
+code{font-family:var(--f-mono);font-size:12.5px;background:var(--key);border-radius:5px;padding:1px 5px;word-break:break-word}
+@media (max-width:860px){.shell{grid-template-columns:1fr;gap:20px}nav.toc{position:static;flex-direction:row;flex-wrap:wrap;max-height:none}nav.toc b{width:100%}}
+</style>
+
+<div class="shell">
+<nav class="toc" aria-label="Mục lục">
+  <b>Mục lục</b>
+  <a href="#khu">Tool có những gì</a>
+  <a href="#lam-gi">Muốn làm gì → vào đâu</a>
+  <a href="#rig">Gắn xương nhân vật</a>
+  <a href="#rigged">Model đã có xương</a>
+  <a href="#xe">Rig xe cộ</a>
+  <a href="#xich">Xe bánh xích</a>
+  <a href="#play">Play test &amp; map</a>
+  <a href="#nha">Xây nhà nhiều tầng</a>
+  <a href="#xuat">Playable &amp; Unity</a>
+  <a href="#overlay">Overlay video (Cockpit)</a>
+  <a href="#mocap">Mocap từ video</a>
+  <a href="#ai">Nhờ AI làm</a>
+  <a href="#loi">Gặp lỗi thì làm gì</a>
+  <a href="#phim">Chuột &amp; phím</a>
+  <a href="#dev">Cho người sửa tool</a>
+</nav>
+
+<main>
+<header class="top">
+  <h1>Sổ tay Greenbox Studio</h1>
+  <p>Viết cho người dùng mỗi ngày: mỗi việc ghi rõ vào trang nào, bấm nút gì, theo thứ tự nào. Tên nút trong sổ ghi đúng như trên màn hình (tiếng Anh hoặc tiếng Việt tuỳ ngôn ngữ bạn chọn ở góc phải trên). Ở bất kỳ trang 3D nào, nút tròn <span class="btn">?</span> trên thanh trên cùng mở hướng dẫn từng bước của chính trang đó.</p>
+</header>
+
+<section id="khu">
+  <h2>Tool có những gì</h2>
+  <p>Mở tool bằng <code>Mo-Greenbox.command</code> (Mac) hoặc <code>Mo-Greenbox.bat</code> (Windows). Trình duyệt mở <b>Cockpit</b>; mọi thứ khác nằm bên trong nó.</p>
+  <div class="areas">
+    <div class="area"><b>Cockpit: overlay video</b><span>Cột trái "Features": joystick, thanh máu, tiền, đếm ngược, gacha, end card, vô lăng, gắn SFX… Đưa video gameplay vào, ghi thao tác, xuất video có lớp phủ.</span></div>
+    <div class="area"><b>3D: rig, xe, map</b><span>Trong Cockpit chọn <span class="btn">3D · Rigging</span>. Thanh trên có 6 trang: Explore, Use Your Model, Use Your Rigged Model, Vehicles, Play test, Video mocap.</span></div>
+    <div class="area"><b>AI</b><span>Nút <span class="btn">🤖 AI</span> góc phải dưới: chat với AI bằng API key, hoặc xem Claude / Codex đang điều khiển Greenbox qua MCP.</span></div>
+  </div>
+</section>
+
+<section id="lam-gi">
+  <h2>Muốn làm gì → vào đâu</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Bạn có</th><th>Bạn muốn</th><th>Vào</th></tr></thead>
+    <tbody>
+      <tr><td>Model 3D người / thú chưa có xương</td><td>Có xương + 178 animation, xuất GLB / FBX</td><td><a href="#rig">Use Your Model</a></td></tr>
+      <tr><td>Model đã có xương (Mixamo, Blender…)</td><td>Thêm animation, giữ xương gốc</td><td><a href="#rigged">Use Your Rigged Model</a></td></tr>
+      <tr><td>Model xe, xe ủi, máy xúc, xe tăng</td><td>Bánh lăn, xích chạy, cửa / gầu cử động + animation</td><td><a href="#xe">Vehicles</a></td></tr>
+      <tr><td>Nhân vật đã rig</td><td>Chạy nhảy thử trên map, quay video 9:16</td><td><a href="#play">Play test</a></td></tr>
+      <tr><td>Ý tưởng màn chơi</td><td>Map 3D, nhà nhiều tầng, gameplay, file playable / gói Unity</td><td><a href="#nha">Play test</a> → <a href="#xuat">xuất</a></td></tr>
+      <tr><td>Video gameplay</td><td>Thêm joystick / thanh máu / tiền / SFX, xuất MP4 hoặc .MOV trong suốt</td><td><a href="#overlay">Cockpit</a></td></tr>
+      <tr><td>Video một người đang múa / đánh</td><td>Animation 3D cho nhân vật của bạn</td><td><a href="#mocap">Video mocap</a></td></tr>
+      <tr><td>Chỉ có một câu mô tả</td><td>AI tự làm từ rig tới playable</td><td><a href="#ai">Claude / Codex qua MCP</a></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="rig">
+  <h2>Gắn xương nhân vật</h2>
+  <span class="where">3D · Use Your Model</span>
+  <ol class="steps">
+    <li><span>Bấm ô tải model (hoặc kéo thả file GLB / FBX / OBJ vào trang). Muốn thử trước: chọn model mẫu rồi <span class="btn">Load</span>. Nếu file đã có xương, sẽ hiện thanh hỏi: <span class="btn">Animate it now (keep its bones)</span> để dùng xương gốc.</span></li>
+    <li><span>Kiểm tra model quay mặt về mũi tên xanh; lệch thì bấm <span class="btn">X</span> <span class="btn">Y</span> <span class="btn">Z</span> hoặc <span class="btn">Face the arrow</span>. Chọn loại xương ở <b>Skeleton template</b> (Human cho người; Fox, Horse, Dragon… cho thú), bấm <span class="btn">Edit Skeleton</span>.</span></li>
+    <li><span>Bấm <span class="btn">🔍 Scan model &amp; place joints</span>: máy tự đặt khớp. Xem thêm góc <span class="btn">Side</span> và <span class="btn">Top</span>: khớp phải nằm giữa tay / chân, không nằm trên da.</span></li>
+    <li><span>Khớp nào lệch thì kéo nó. Kéo một khớp chỉ khớp đó đi; giữ <kbd>Ctrl</kbd> / <kbd>⌘</kbd> khi kéo (hoặc tick "Children follow the dragged joint") để cả nhánh đi theo. Kéo khung trên chỗ trống để chọn nhiều khớp (hoá cam), kéo một khớp cam để dời cả nhóm.</span></li>
+    <li><span>Bấm <span class="btn">Finish</span> (Hoàn tất): tính da và nạp 178 animation. Bấm tên animation để xem. Da bị rách: quay lại sửa khớp.</span></li>
+    <li><span>Xuất: <span class="btn">⬇ GLB</span> (Blender / web) hoặc <span class="btn">⬇ FBX</span> (Unity / Unreal). Hoặc <span class="btn">🎮 Play test this character</span> để chơi thử ngay.</span></li>
+  </ol>
+</section>
+
+<section id="rigged">
+  <h2>Model đã có xương</h2>
+  <span class="where">3D · Use Your Rigged Model</span>
+  <p>Nạp file, chọn animation trong thư viện (lọc bằng ô Filter, tick để chọn nhiều), bấm tên để xem trên nhân vật, rồi <span class="btn">Download</span>. Xương của file được giữ nguyên, không rig lại.</p>
+  <div class="tip">Model trông "không thấy gì" sau khi nạp: thường là file Blender có Armature scale 0.01. Bản hiện tại đã tự sửa; nếu vẫn bị, tải lại trang rồi nạp lại.</div>
+</section>
+
+<section id="xe">
+  <h2>Rig xe cộ</h2>
+  <span class="where">3D · Vehicles</span>
+  <p>Cột phải đi từ trên xuống theo số. Phần lớn xe chỉ cần bước 2 và 4.</p>
+  <ol class="steps">
+    <li><span><b>1 · Rig to copy</b> (không bắt buộc): chọn một xe mẫu (Car, Bulldozer, Tank…) hoặc <span class="btn">⬆ Vehicle WITH a rig</span> để chép rig của xe đó. Không cần thì bấm <span class="btn">— None</span>.</span></li>
+    <li><span><b>2 · Your vehicle</b>: <span class="btn">⬆ Upload your vehicle</span>. Mũi tên xanh phải chỉ về <b>đầu xe</b>; sai thì <span class="btn">⇅ Front / back</span>, xe nằm ngang thì <span class="btn">↻ Turn 90°</span>.</span></li>
+    <li><span><b>3 · Copy the rig</b>: chỉ khi đã chọn xe mẫu ở bước 1. Bấm <span class="btn">🧬 Copy the rig onto my vehicle</span>.</span></li>
+    <li><span><b>4 · Fix parts</b>: bấm <span class="btn">Auto cut all parts</span> để máy tự tìm bánh, xích, lưỡi ủi / gầu, tháp pháo. Hoặc <span class="btn">⚡ Auto rig + keyframes</span> để làm một lượt cả cắt lẫn animation. Bộ phận sai: xem mục "Sửa bộ phận" bên dưới.</span></li>
+    <li><span><b>5 · Try the animations &amp; export</b>: bấm tên animation để xem, rồi <span class="btn">⬇ GLB (all animations)</span> hoặc <span class="btn">⬇ FBX</span>. Chấm ★ 4–5 cho rig tốt: lần sau xe cùng dáng được làm đúng hơn.</span></li>
+  </ol>
+
+  <h3>Đọc màn hình 3D</h3>
+  <ul>
+    <li><b>Vòng màu quanh bánh</b>: mỗi vòng là một bánh máy nhận ra. Vòng nằm trên mặt phẳng bánh quay.</li>
+    <li><b>Màu trên thân xe</b> (bật "Colour the parts"): mỗi màu là một bộ phận; xám là thân.</li>
+    <li><span class="btn">🦴 Bones</span>: hiện xương. Đường xanh nối xương con với xương cha. Mắt xích của xích là chuỗi chấm trắng chạy vòng quanh xích.</li>
+    <li>Dòng trạng thái trên cùng cột phải luôn nói vừa xảy ra gì và bước tiếp theo.</li>
+  </ul>
+
+  <h3>Chỉnh một bánh (tâm, cỡ)</h3>
+  <ol class="steps">
+    <li><span>Bấm vào bánh trên model (hoặc chọn trong ô <b>Parts</b>). Khung <b>🛞 tên bánh</b> hiện ở góc trái trên khung 3D.</span></li>
+    <li><span>Trong khung đó: <span class="btn">Centre ↑ ↓ ← →</span> dời tâm từng bước; <span class="btn">Size − +</span> đổi cỡ; số <code>r</code> là bán kính hiện tại. Các nút này dùng được cả khi đang tô da.</span></li>
+    <li><span>Hoặc kéo trên khung 3D: <b>chấm màu ở giữa</b> (hoặc cả vòng) = dời tâm; <b>núm trắng trên vành</b> = đổi cỡ.</span></li>
+    <li><span>Trục quay sai (bánh quay lệch): bấm <span class="btn">X</span> <span class="btn">Y</span> <span class="btn">Z</span> trong khung 🛞, rồi <span class="btn">🔗 Group wheel + ring</span> để máy không tự đổi lại.</span></li>
+  </ol>
+  <p>Sau mỗi lần chỉnh, xương tự dựng lại. Sai thì <kbd>⌘Z</kbd> / <kbd>Ctrl+Z</kbd>.</p>
+
+  <h3>Sửa bộ phận (vùng da của mỗi phần)</h3>
+  <ul>
+    <li>Chọn bộ phận trong ô <b>Parts</b> trước, rồi mở <b>🖌 Other selection tools</b>.</li>
+    <li><span class="btn">🧩 ＋</span> bấm một mảnh rời để thêm vào bộ phận đang chọn; <span class="btn">🧩 －</span> trả mảnh đó về thân xe. <span class="btn">▭</span> kéo khung, <span class="btn">➰</span> vẽ vòng, <span class="btn">✒</span> bấm từng góc, <span class="btn">＋ Paint</span> / <span class="btn">－ Erase</span> tô bằng cọ.</li>
+    <li><span class="btn">⬚ Select 4 points</span>: bấm 4 góc quanh một phần, máy hỏi "đây là gì": bánh, cửa, nắp capo, cốp, xích, tháp pháo…</li>
+    <li>Tạo bộ phận mới: chọn loại (Door, Turret, Blade, Boom, Bucket…) ở ô cạnh <span class="btn">＋ Part</span>, bấm <span class="btn">＋ Part</span>, rồi chọn vùng.</li>
+    <li>Điểm xoay của cửa / gầu: bấm <span class="btn">🔩</span> rồi bấm lên model đúng chỗ bản lề / chốt; <span class="btn">▶ Try it</span> để xem nó mở.</li>
+  </ul>
+
+  <h3>Tô da từng điểm (khi vài chỗ đi sai xương)</h3>
+  <ol class="steps">
+    <li><span>Bấm <span class="btn">🖌 Paint weight</span>. Bảng tô hiện bên trái khung 3D.</span></li>
+    <li><span>Bấm <span class="btn">Point</span>, chọn các điểm trên model. Gõ tên xương vào <b>Find bone…</b> (vd. <code>wheel_RR</code>) và bấm chọn xương đó.</span></li>
+    <li><span><span class="btn">Selection = 100%</span>: các điểm đó đi hoàn toàn theo xương này. Xong bấm <span class="btn">✓ Done painting</span>.</span></li>
+  </ol>
+</section>
+
+<section id="xich">
+  <h2>Xe bánh xích (xe ủi, máy xúc, xe tăng)</h2>
+  <ul>
+    <li>Xích chạy được là nhờ <b>nhiều xương nhỏ</b> (mắt xích) xếp vòng quanh các bánh, mỗi bên vài chục cái. Đó là bình thường.</li>
+    <li>Vòng mắt xích đi theo <b>đường bao các bánh của bên đó</b>. Mắt xích nằm sai chỗ = bánh nằm sai chỗ: chỉnh bánh như mục trên, mắt xích tự chạy theo.</li>
+    <li>Số mắt xích: thanh <b>Track links (bones in the loop)</b> trong bước 4 (để "auto" là máy tự chọn).</li>
+    <li>Đinh tán, mâm, nắp nằm trong mặt bánh được tự giao cho bánh, nên quay theo bánh. Nếu vẫn có mảnh trượt theo xích: chọn bánh trong ô <b>Parts</b>, <span class="btn">🧩 ＋</span> bấm lên mảnh đó.</li>
+    <li>Thấy gầu / lưỡi ủi bị phủ chuỗi chấm trắng như xích: gầu đã bị nhận nhầm là xích. Chọn phần xích, <span class="btn">🧩 －</span> trả gầu về thân, rồi tạo lại gầu bằng <span class="btn">＋ Part</span> (loại Blade hoặc Bucket).</li>
+  </ul>
+</section>
+
+<section id="play">
+  <h2>Play test &amp; map</h2>
+  <span class="where">3D · Play test</span>
+  <p>Bảng phải có 4 mục:</p>
+  <ul>
+    <li><b>1 · Character</b>: <span class="btn">⬆ Load GLB / FBX</span> (nhân vật có animation thành người chơi; xe đã rig thì lái bằng WASD). Thanh <b>📏 Size</b> cho nhân vật to / nhỏ (0.1× – 5×), phím <kbd>[</kbd> <kbd>]</kbd>.</li>
+    <li><b>2 · Controls</b>: PC (WASD, Shift chạy, Space nhảy, chuột trái đánh, giữ chuột phải đỡ) hoặc Mobile (bấm xuống đất để chạy tới).</li>
+    <li><b>3 · Map</b>: <span class="btn">Add prop</span> thả model của bạn vào map, <span class="btn">✏ Edit map</span> để bấm chọn vật rồi kéo mũi tên (dời), vòng (xoay), ô vuông (co giãn) hoặc thanh 📏 Size. Bên dưới là <b>Trình sửa map</b>: map mẫu (phẳng, đồi, đảo…), nặn địa hình, tô đất, khoét hố + đổ nước, đặt vật thể.</li>
+    <li><b>4 · Camera &amp; record</b>: góc 3rd person / Top-down / Side, ô <b>🎯 Camera follows</b> để camera bám theo một nhân vật khác, <span class="btn">⏺ Record</span> quay video.</li>
+  </ul>
+</section>
+
+<section id="nha">
+  <h2>Xây nhà nhiều tầng</h2>
+  <span class="where">Play test · Trình sửa map · Vật thể</span>
+  <ol class="steps">
+    <li><span><b>Tường nhà</b>: nhấn vào một điểm lưới và kéo thành dãy thẳng (tấm 3 m). Dãy tiếp theo kéo từ cột ở góc để góc khớp. Khép kín một phòng.</span></li>
+    <li><span><b>Cửa</b> / <b>Cửa sổ</b>: rê lên một tấm tường rồi bấm, tấm đó được khoét.</span></li>
+    <li><span>Lên tầng 2: đang chọn Tường nhà, <b>rê lên bức tường có sẵn</b> là tự lên tầng trên; kéo dọc theo nó. Hoặc chọn số ở hàng <b>🏢 Tầng 1–5</b>.</span></li>
+    <li><span><b>Cầu thang</b>: chọn tầng dưới, bấm trong phòng (<kbd>Z</kbd> xoay 90°). <b>Sàn</b>: chọn tầng trên, bấm vào trong phòng. Lỗ cầu thang tự khoét.</span></li>
+    <li><span><b>Mái</b>: chọn tầng trên cùng, bấm vào trong phòng. Mái và tầng trên tự mờ khi nhân vật vào trong nhà.</span></li>
+  </ol>
+</section>
+
+<section id="xuat">
+  <h2>Playable &amp; Unity</h2>
+  <ul>
+    <li><b>Gameplay</b>: trong Trình sửa map bấm <span class="btn">2D plan → playable</span>, vẽ các khối: điểm xuất phát, nguồn đồ (cho ra tiền / gỗ), máy, quầy bán, ô $ mở khoá; nối bằng dây (mang đồ / băng chuyền / mở khoá).</li>
+    <li><span class="btn">Play playable</span> để chơi thử; <span class="btn">Playable (.html)</span> xuất một file HTML (nên dưới 5 MB cho mạng quảng cáo).</li>
+    <li><b>Unity</b>: <span class="btn">📦 Gói Unity (.unitypackage)</span>. Trong Unity: Import Package → menu <b>Greenbox ▸ Build map in scene</b>: map có màu, nước trong, có sẵn nhân vật chơi được. Màu bị trắng: <b>Greenbox ▸ Fix map colours</b>.</li>
+    <li>Khác: GLB, script Blender (.py), Unity (.cs) cho các góc camera.</li>
+  </ul>
+</section>
+
+<section id="overlay">
+  <h2>Overlay video (Cockpit)</h2>
+  <span class="where">Cockpit · cột Features</span>
+  <ol class="steps">
+    <li><span>Chọn một lớp ở cột trái: Joystick, Health bar, Money counter, Countdown, Wheel &amp; pedals, gacha, end card…</span></li>
+    <li><span>Kéo video gameplay vào ô <b>"Thả video gameplay vào đây"</b>.</span></li>
+    <li><span>Bấm <span class="btn">Ghi</span>, chơi theo video (phím / chuột như ghi ở khung bên dưới), <span class="btn">Dừng</span>. <span class="btn">Xem take</span> để xem lại.</span></li>
+    <li><span>Xuất: <span class="btn">Xuất MP4 phông xanh</span> hoặc <span class="btn">.MOV alpha (không nền)</span> để ghép trong phần mềm edit.</span></li>
+  </ol>
+  <p><b>Gắn SFX</b>: nạp video, máy tìm các cú va chạm, một nút gắn cùng một âm vào tất cả. <b>Wheel &amp; pedals</b>: AI đọc chuyển động của video lái xe và tự lái.</p>
+</section>
+
+<section id="mocap">
+  <h2>Mocap từ video</h2>
+  <span class="where">3D · Video mocap</span>
+  <ol class="steps">
+    <li><span>Nạp video: một người, thấy toàn thân, camera đứng yên.</span></li>
+    <li><span>Chọn nhân vật: ma-nơ-canh, file đã rig, hoặc gửi từ Use Your Model.</span></li>
+    <li><span><span class="btn">🎥 Analyse video</span>, rồi xuất GLB / FBX.</span></li>
+  </ol>
+</section>
+
+<section id="ai">
+  <h2>Nhờ AI làm</h2>
+  <h3>Chat trong Greenbox (cần API key)</h3>
+  <p><span class="btn">🤖 AI</span> → <span class="btn">⚙</span>: chọn nhà cung cấp, model, dán key. AI dùng được mọi công cụ Greenbox; đính kèm ảnh khung 3D bằng <span class="btn">📸</span>.</p>
+  <h3>Claude / Codex điều khiển Greenbox (không cần key)</h3>
+  <ol class="steps">
+    <li><span>Cài một lần: <span class="btn">🤖 AI</span> → <span class="btn">⚙</span> → nút <span class="btn">🔌 Claude Code</span> / <span class="btn">🔌 Codex</span> / <span class="btn">🔌 Claude Desktop</span>, rồi mở lại app AI đó.</span></li>
+    <li><span>Bật khung chat cạnh bên: <span class="btn">🤖 AI</span> → <span class="btn">🔌</span> → <span class="btn">⇥</span>. AI nhắn ở đây, bạn trả lời ở ô dưới; mọi lệnh AI chạy hiện thành dòng xanh.</span></li>
+    <li><span>Nhắn trong app AI, ví dụ: "Dùng Greenbox làm playable từ ~/Downloads/hero.glb, nhặt tiền mở khoá nhà". Trong Claude Code có sẵn lệnh <code>/mcp__greenbox__make_playable</code>.</span></li>
+  </ol>
+  <div class="note"><b>Lưu ý:</b> claude.ai trên web không nối được Greenbox (MCP chạy trên máy bạn); dùng Claude Desktop hoặc Claude Code.</div>
+</section>
+
+<section id="loi">
+  <h2>Gặp lỗi thì làm gì</h2>
+  <div class="faq">
+    <div><b>Vừa cập nhật mà không thấy tính năng mới</b>Tải lại trang (<kbd>⌘R</kbd> hoặc nút ⟳ trên thanh trên cùng).</div>
+    <div><b>Claude / Codex không tự nối vào Greenbox</b>Tắt rồi mở lại Mo-Greenbox, mở lại app AI. Bản web: nhắn AI "kết nối Greenbox", nhập mã 6 số vào 🤖 AI → ⚙.</div>
+    <div><b>Kéo / bấm trên khung 3D không ăn</b>Có thể đang bật một công cụ chọn hoặc chế độ tô da: bấm <span class="btn">✓ Done painting</span> hoặc <kbd>Esc</kbd>. Trên trang Xe cộ, các nút trong khung 🛞 luôn dùng được.</div>
+    <div><b>Làm hỏng</b><kbd>⌘Z</kbd> / <kbd>Ctrl+Z</kbd> hoàn tác, <kbd>⌘⇧Z</kbd> làm lại. Có cả nút Undo / Redo trên cột phải.</div>
+    <div><b>Map Unity bị trắng</b>Xuất lại gói Unity từ bản mới, chạy <b>Greenbox ▸ Build map in scene</b>.</div>
+    <div><b>Playable quá 5 MB</b>Bớt vật trang trí, thu nhỏ map, rồi xuất lại.</div>
+  </div>
+</section>
+
+<section id="phim">
+  <h2>Chuột &amp; phím dùng chung</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Thao tác</th><th>Làm gì</th></tr></thead>
+    <tbody>
+      <tr><td>Kéo chuột phải (trackpad: vuốt 2 ngón)</td><td>Xoay góc nhìn</td></tr>
+      <tr><td>Kéo chuột giữa / <kbd>Shift</kbd> + vuốt</td><td>Dời khung nhìn</td></tr>
+      <tr><td>Lăn chuột / chụm 2 ngón</td><td>Zoom</td></tr>
+      <tr><td><span class="btn">Front</span> <span class="btn">Side</span> <span class="btn">Top</span> <span class="btn">3D</span></td><td>Nhảy tới góc nhìn chuẩn</td></tr>
+      <tr><td><kbd>Z</kbd> / <kbd>X</kbd></td><td>Xoay vật trước khi đặt (Play test)</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Nhỏ / to: nhân vật hoặc vật đang chọn (Play test); vòng bánh (Xe cộ)</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Bỏ chọn / thoát công cụ</td></tr>
+      <tr><td><kbd>?</kbd> (nút tròn)</td><td>Hướng dẫn từng bước của trang đang mở</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="dev">
+  <h2>Cho người sửa tool</h2>
+  <ul>
+    <li>Đọc trước: <code>GREENBOX-HANDOFF.md</code> (mọi đợt sửa, file nào, đã test gì) và <code>README.md</code> (thay đổi bằng tiếng Việt).</li>
+    <li>Code 3D: <code>~/gb-build/mesh2motion-app/src/greenbox/</code>; build bằng <code>./rig3d-src/build.sh</code>.</li>
+    <li>Sau mọi thay đổi: <code>python3 dev/release.py</code> (đóng gói mockup, trang giới thiệu, bản đầy đủ và chép sang "AX Hero - nop bai").</li>
+    <li>Không chạy thêm một <code>serve.py</code> thứ hai trong thư mục tool: nó làm hỏng kết nối MCP của bản đang chạy.</li>
+  </ul>
+</section>
+</main>
+</div>

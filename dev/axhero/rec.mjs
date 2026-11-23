@@ -47,6 +47,8 @@ ws.onmessage = e => {
 }
 function send (method, params = {}) { return new Promise(r => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })) }) }
 
+// DL=<folder>: files the page saves (an export button) land there
+if (process.env.DL) await send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: process.env.DL })
 const api = {
   async nav (url) { await send('Page.navigate', { url: new URL(url, BASE).href }); await sleep(1500) },
   async ev (js) {

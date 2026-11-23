@@ -1,0 +1,184 @@
+/* ===== Emerald glass (default theme): haru-ui structure (one accent, type hierarchy, 8 px grid, 12/16/20 radii,
+   150 ms state changes) + a little Green Lantern: a dark space, frosted emerald glass panels, one soft lantern glow.
+   Pretendard for EN / KO, Be Vietnam Pro for VI. Built on html.gbk, so ◐ still switches to the other themes. ===== */
+html.gbk{
+  --g-bg:#08090a;--g-ink:#f3f5f6;--g-ink2:rgba(236,240,243,.74);--g-ink3:rgba(222,228,232,.54);
+  --g-acc:#2fe98b;--g-acc-ink:#03140b;--g-acc-hi:#5ff2a8;--g-acc-lo:#16c46c;
+  --g-glass:rgba(24,27,30,.52);--g-glass-2:rgba(32,36,40,.62);--g-fill:rgba(255,255,255,.06);--g-fill-2:rgba(255,255,255,.10);
+  --g-line:rgba(255,255,255,.13);--g-line-2:rgba(255,255,255,.24);--g-hi:inset 0 1px 0 rgba(255,255,255,.07);
+  --g-blur:blur(18px) saturate(140%);--g-glow:0 0 0 1px rgba(47,233,139,.55),0 6px 22px -6px rgba(47,233,139,.55);
+  --g-ease:cubic-bezier(.4,0,.4,1);--g-r-s:8px;--g-r-m:12px;--g-r-l:16px;--g-r-xl:20px;
+  --k-r:12px;--k-line:var(--g-line);--k-grad:var(--g-acc);--k-grad2:rgba(255,255,255,.12);--k-pink:var(--g-acc-hi);--k-magenta:var(--g-acc);--k-muted:var(--g-ink3);--k-ink:var(--g-ink)
+}
+/* type: one family per language, 4 weights */
+html.gbk body.gbc,html.gbk body.gbc :where(button,input,select,textarea,label,h1,h2,h3,h4,p,span,div,b,small,summary,td,th,a,li){font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important}
+html.gbk:lang(vi) body.gbc,html.gbk:lang(vi) body.gbc :where(button,input,select,textarea,label,h1,h2,h3,h4,p,span,div,b,small,summary,td,th,a,li){font-family:"Be Vietnam Pro",-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important}
+html.gbk body.gbc :where(code,pre,kbd,samp,.mono){font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace!important}
+html.gbk body.gbc{-webkit-font-smoothing:antialiased;word-break:keep-all;color:var(--g-ink)}
+
+/* the space: near black, one lantern glow from the top, the stars dimmed */
+html.gbk body.gbc{background:radial-gradient(900px 520px at 50% -180px,rgba(47,233,139,.06),transparent 70%),radial-gradient(700px 600px at 0% 100%,rgba(255,255,255,.025),transparent 70%),var(--g-bg)!important}
+html.gbk :is(#gbc-sky,#three-sky,#space-sky){opacity:.38}
+html.gbk .gbc-obj{opacity:.5}
+
+/* glass surfaces: top bar, feature list, panels, sections */
+html.gbk #gbc-top{background:rgba(11,12,14,.62)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border-bottom:1px solid var(--g-line)!important;box-shadow:none!important}
+html.gbk #gbc-dock{background:rgba(11,12,14,.5)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border-color:var(--g-line)!important;box-shadow:none!important}
+html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) .stagecol,html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) .panel,html.gbk body.gbc-stack :is(#appJoy,#appDrive,#appGacha) .panel,html.gbk .gbc-fh{
+  background:var(--g-glass)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid var(--g-line)!important;border-radius:var(--g-r-xl)!important;box-shadow:var(--g-hi)!important}
+html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) .sec{background:rgba(255,255,255,.035)!important;border:1px solid var(--g-line)!important;border-radius:var(--g-r-l)!important;box-shadow:none!important}
+html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha){--panel:var(--g-glass)!important;--panel-2:var(--g-fill-2)!important;--line:var(--g-line)!important;--line-2:var(--g-line-2)!important;--text:var(--g-ink)!important;--muted:var(--g-ink3)!important}
+html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) .transport{background:rgba(0,0,0,.28)!important;border:1px solid var(--g-line)!important;border-radius:var(--g-r-m)!important}
+html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) .stage{border-radius:var(--g-r-m)!important}
+
+/* hierarchy: bold titles, quiet meta */
+html.gbk .gbc-brand b{font-weight:700;letter-spacing:.14em}
+html.gbk .gbc-brand i{background:var(--g-acc)!important;border-radius:4px;box-shadow:0 0 12px rgba(47,233,139,.7)!important}
+html.gbk .gbc-brand span{color:var(--g-ink3)!important;font-weight:600;letter-spacing:.2em}
+html.gbk .gbc-crumb{color:var(--g-ink3)!important}html.gbk .gbc-crumb b{color:var(--g-ink)!important;font-weight:600}
+html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) .sec h2{color:var(--g-ink)!important;font-weight:700!important;letter-spacing:-.01em}
+html.gbk body.gbc :is(.hint,.sm,small){color:var(--g-ink3)}
+html.gbk .gbc-dh{color:var(--g-acc-hi)!important;font-weight:700;letter-spacing:.12em}
+html.gbk .gbc-gt{color:var(--g-ink3)!important;font-weight:600;letter-spacing:.12em}
+
+/* feature list: quiet items, the open one is the only accent (emerald text, glass fill, a lit edge) */
+html.gbk .gbc-it{border-radius:var(--g-r-m)!important;color:var(--g-ink2)!important;background:transparent!important;border:1px solid transparent!important;transition:background-color 150ms var(--g-ease),color 150ms var(--g-ease),transform 150ms cubic-bezier(0,0,.2,1)!important}
+@media (hover:hover){html.gbk .gbc-it:hover{background:var(--g-fill)!important;color:var(--g-ink)!important}}
+html.gbk .gbc-it:active{transform:scale(.98)}
+html.gbk .gbc-it[aria-pressed=true]{background:rgba(255,255,255,.08)!important;color:var(--g-acc-hi)!important;border-color:rgba(255,255,255,.14)!important;box-shadow:inset 2px 0 0 var(--g-acc)!important;font-weight:600}
+
+/* buttons: secondary = glass, primary = solid emerald (the one glow), rec = outline */
+html.gbk body.gbc :is(.gbc-b,#appJoy .btn,#appDrive .btn,#appGacha .btn,#gbc-jump,#gbc-theme,#gbc-xp){border-radius:var(--g-r-m)!important;background:var(--g-fill)!important;border:1px solid var(--g-line-2)!important;color:var(--g-ink)!important;box-shadow:var(--g-hi)!important;font-weight:500;transition:background-color 150ms var(--g-ease),transform 150ms cubic-bezier(0,0,.2,1)!important}
+@media (hover:hover){html.gbk body.gbc :is(.gbc-b,#appJoy .btn,#appDrive .btn,#appGacha .btn,#gbc-jump,#gbc-theme,#gbc-xp):hover{background:var(--g-fill-2)!important}}
+html.gbk body.gbc :is(.gbc-b,.btn,#gbc-jump,#gbc-theme):active{transform:scale(.98)}
+html.gbk body.gbc :is(.gbc-b.pri,.btn.pri,.btn.primary,#appJoy .btn.on,#appDrive .btn.on,#appGacha .btn.on,#gbc-jump[aria-pressed=true]){background:var(--g-acc)!important;color:var(--g-acc-ink)!important;border-color:transparent!important;box-shadow:var(--g-glow)!important;font-weight:600}
+@media (hover:hover){html.gbk body.gbc :is(.gbc-b.pri,.btn.pri,.btn.primary):hover{background:var(--g-acc-hi)!important}}
+html.gbk .gbc-b.alpha{background:var(--g-fill-2)!important;border-color:var(--g-line-2)!important;color:var(--g-ink)!important}
+html.gbk .gbc-b.rec{background:transparent!important;border-color:rgba(255,120,110,.55)!important;color:#ffb3ab!important}
+html.gbk :is(.gbc-lang,.gbc-lay){background:rgba(255,255,255,.04);border:1px solid var(--g-line)!important;border-radius:var(--g-r-m)!important}
+html.gbk :is(.gbc-lang,.gbc-lay) button{color:var(--g-ink3)!important;border-radius:9px!important}
+html.gbk :is(.gbc-lang,.gbc-lay) button[aria-pressed=true]{background:var(--g-fill-2)!important;color:var(--g-ink)!important;box-shadow:var(--g-hi)}
+
+/* inputs: no fill, a fine line; focus = emerald line only */
+html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) :is(select,input[type=text],input[type=number],textarea){background:rgba(0,0,0,.22)!important;border:1px solid var(--g-line-2)!important;border-radius:var(--g-r-s)!important;color:var(--g-ink)!important}
+html.gbk body.gbc :is(input[type=range],input[type=checkbox],input[type=radio]){accent-color:var(--g-acc)}
+html.gbk body.gbc :is(button,a,input,select,summary):focus-visible{outline:2px solid var(--g-acc)!important;outline-offset:2px;transition:none}
+html.gbk .gbc-sz,html.gbk #gbc-szpop .gbc-szb{background:var(--g-glass-2)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border-color:var(--g-line)!important;border-radius:var(--g-r-l)!important}
+html.gbk .gbc-sz td:last-child{color:var(--g-acc-hi)!important}
+
+/* the AI button: a small lantern */
+html.gbk #gbai-fab{background:rgba(20,22,25,.6)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid rgba(47,233,139,.45)!important;box-shadow:0 0 22px -6px rgba(47,233,139,.7)!important;color:var(--g-ink)!important}
+
+/* thin scrollbars */
+html.gbk body.gbc *{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}
+html.gbk body.gbc ::-webkit-scrollbar{width:8px;height:8px}html.gbk body.gbc ::-webkit-scrollbar-track{background:transparent}html.gbk body.gbc ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:999px}
+@media (prefers-reduced-motion:reduce){html.gbk body.gbc *{transition-duration:100ms!important}}
+/* list rows (slots): rounded, the selected one in emerald (the red tally stays for recording only) */
+html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) .slot{border-radius:var(--g-r-m)!important;border-color:var(--g-line)!important;transition:background-color 150ms var(--g-ease)}
+@media (hover:hover){html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) .slot:hover{background:var(--g-fill)}}
+html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) .slot[aria-selected="true"]{border-color:rgba(47,233,139,.55)!important;background:rgba(47,233,139,.08)}
+
+/* ===== liquid glass buttons (round 40): same recipe as the 3D pages ===== */
+html.gbk{--lq-fill:linear-gradient(180deg,rgba(255,255,255,.17) 0%,rgba(255,255,255,.06) 47%,rgba(255,255,255,.02) 53%,rgba(255,255,255,.05) 100%),rgba(30,33,37,.42);
+  --lq-fill-hi:linear-gradient(180deg,rgba(255,255,255,.26) 0%,rgba(255,255,255,.09) 47%,rgba(255,255,255,.04) 53%,rgba(255,255,255,.08) 100%),rgba(40,44,48,.48);
+  --lq-line:rgba(255,255,255,.3);
+  --lq-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.05),inset 0 0 14px rgba(255,255,255,.05),0 6px 16px -8px rgba(0,0,0,.55);
+  --lq-pri:linear-gradient(180deg,rgba(255,255,255,.62) 0%,rgba(255,255,255,.18) 44%,rgba(255,255,255,0) 56%,rgba(0,90,45,.14) 100%),rgba(47,233,139,.86);
+  --lq-pri-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -3px 10px rgba(0,90,45,.3),0 0 0 1px rgba(255,255,255,.35),0 6px 18px -10px rgba(47,233,139,.7);
+  --lq-on:linear-gradient(180deg,rgba(255,255,255,.3) 0%,rgba(255,255,255,.08) 47%,rgba(255,255,255,.05) 53%,rgba(47,233,139,.10) 100%),rgba(40,46,48,.52);
+  --lq-on-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -2px 8px rgba(47,233,139,.18),0 0 0 1px rgba(47,233,139,.45);
+  --lq-blur:blur(14px) saturate(170%);}
+html.gbk body.gbc :is(.gbc-b,#appJoy .btn,#appDrive .btn,#appGacha .btn,#gbc-jump,#gbc-theme,#gbc-xp){background:var(--lq-fill)!important;border:1px solid var(--lq-line)!important;color:#f6f7f8!important;box-shadow:var(--lq-shadow)!important;-webkit-backdrop-filter:var(--lq-blur);backdrop-filter:var(--lq-blur);text-shadow:0 1px 1px rgba(0,30,15,.35);transition:background 150ms var(--g-ease),box-shadow 150ms var(--g-ease),transform 150ms cubic-bezier(0,0,.2,1)!important}
+@media (hover:hover){html.gbk body.gbc :is(.gbc-b,#appJoy .btn,#appDrive .btn,#appGacha .btn,#gbc-jump,#gbc-theme,#gbc-xp):hover{background:var(--lq-fill-hi)!important;border-color:rgba(255,255,255,.45)!important}}
+html.gbk body.gbc :is(.gbc-b.pri,.btn.pri,.btn.primary,#appJoy .btn.on,#appDrive .btn.on,#appGacha .btn.on,#gbc-jump[aria-pressed=true]){background:var(--lq-pri)!important;color:#03140b!important;text-shadow:0 1px 0 rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.7)!important;box-shadow:var(--lq-pri-shadow)!important}
+html.gbk .gbc-it[aria-pressed=true]{background:var(--lq-on)!important;color:#fff!important;border-color:rgba(255,255,255,.55)!important;box-shadow:var(--lq-on-shadow)!important}
+html.gbk :is(.gbc-lang,.gbc-lay) button[aria-pressed=true]{background:var(--lq-fill-hi)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.55)!important;color:#fff!important}
+html.gbk #gbai-fab{background:var(--lq-fill)!important;border:1px solid rgba(255,255,255,.45)!important;box-shadow:var(--lq-shadow),0 0 22px -6px rgba(47,233,139,.7)!important}
+html.gbk #gbc-top,html.gbk #gbc-dock{box-shadow:inset 0 -1px 0 rgba(255,255,255,.06)!important}
+
+/* ===== hover glow (round 41): one short flash that settles, never a long glow ===== */
+@keyframes lq-flash{0%{filter:none}28%{filter:drop-shadow(0 0 9px rgba(190,255,225,.45)) brightness(1.08)}100%{filter:drop-shadow(0 0 2px rgba(190,255,225,.18))}}
+@media (hover:hover){html.gbk body.gbc :is(.gbc-b,.btn,.gbc-it,#gbc-jump,#gbc-theme,#gbc-xp,#gbai-fab):hover{animation:lq-flash 600ms cubic-bezier(.2,.7,.2,1) forwards}}
+@media (prefers-reduced-motion:reduce){html.gbk body.gbc *:hover{animation:none!important}}
+
+/* ===== round 42: neutral glass, line icons, white glass pictures ===== */
+html.gbk svg.gbi{color:rgba(236,240,243,.86)}
+html.gbk :is(button.on,button[aria-pressed=true],.gbc-it[aria-pressed=true]) svg.gbi{color:#5ff2a8}
+html.gbk :is(button.pri,button.primary,.gbc-b.pri,.btn.pri) svg.gbi{color:#03140b}
+html.gbk button.gb-tile img{filter:grayscale(1) brightness(1.32) contrast(1.06) drop-shadow(0 4px 10px rgba(0,0,0,.45))!important;opacity:.92;transition:filter 200ms cubic-bezier(.4,0,.4,1),transform 150ms cubic-bezier(0,0,.2,1)}
+html.gbk button.gb-tile.on img,html.gbk button.gb-tile.pri img{filter:grayscale(.15) brightness(1.15) drop-shadow(0 4px 12px rgba(47,233,139,.35))!important;opacity:1}
+@media (hover:hover){html.gbk button.gb-tile:hover img{filter:grayscale(.55) brightness(1.25) drop-shadow(0 4px 12px rgba(0,0,0,.4))!important}}
+
+html.gbk .gbc-it .ic{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);font-size:15px}
+html.gbk .gbc-it[aria-pressed=true] .ic{background:rgba(47,233,139,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 0 0 1px rgba(47,233,139,.35)}
+html.gbk .gbc-dh{color:var(--g-ink)!important}
+/* layout intro card: hover a feature for a moment */
+#gbc-intro{position:fixed;z-index:9000;width:300px;max-width:calc(100vw - 32px);padding:14px 16px 14px;border-radius:16px;pointer-events:none;opacity:0;transform:translateX(-6px) scale(.98);transition:opacity 160ms cubic-bezier(0,0,.2,1),transform 160ms cubic-bezier(0,0,.2,1);
+  background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.03) 40%),rgba(16,18,20,.78);-webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
+  border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 18px 40px -16px rgba(0,0,0,.7);color:#f3f5f6;font-family:inherit}
+#gbc-intro.show{opacity:1;transform:none}
+#gbc-intro .h{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+#gbc-intro .i{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:rgba(47,233,139,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 0 0 1px rgba(47,233,139,.3);color:#5ff2a8;font-size:18px;flex:none}
+#gbc-intro .i svg{width:19px;height:19px}
+#gbc-intro .g{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(222,228,232,.55)}
+#gbc-intro .n{font-size:15px;font-weight:700;letter-spacing:-.01em;line-height:1.25}
+#gbc-intro .d{font-size:13px;line-height:1.55;color:rgba(236,240,243,.78)}
+#gbc-intro .k{margin-top:10px;font-size:11.5px;color:rgba(222,228,232,.5)}
+#gbc-intro::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.10) 45%,transparent 60%);background-size:250% 100%;background-position:120% 0;pointer-events:none}
+#gbc-intro.show::before{animation:gbc-sheen 900ms cubic-bezier(.2,.7,.2,1) 1}
+@keyframes gbc-sheen{to{background-position:-60% 0}}
+@media (prefers-reduced-motion:reduce){#gbc-intro{transition:opacity 100ms}#gbc-intro.show::before{animation:none}}
+
+/* full tool: glass pictures in place of the line icons (ui/feat, not in the mockup zip) */
+html.gb-pics .gbc-it .ic.has-fi{background:none!important;box-shadow:none!important;width:32px!important;height:32px;flex:none!important;font-size:0}
+html.gb-pics .gbc-it .ic.has-fi svg.gbi,html.gb-pics .fi-slot.has-fi~svg.gbi,html.gb-pics .fi-slot.has-fi+svg.gbi{display:none}
+html.gb-pics .gbc-it .ic img.fi{width:32px;height:32px;object-fit:contain;filter:drop-shadow(0 3px 8px rgba(0,0,0,.5));transition:transform 200ms cubic-bezier(.2,.7,.2,1)}
+html.gb-pics .gbc-it:hover .ic img.fi{transform:translateY(-1px) scale(1.08)}
+html.gb-pics .gbc-it[aria-pressed=true] .ic img.fi{filter:drop-shadow(0 0 8px rgba(47,233,139,.45)) drop-shadow(0 3px 8px rgba(0,0,0,.5))}
+html.gb-pics .fi-slot{display:none}html.gb-pics .fi-slot.has-fi{display:inline-flex;vertical-align:-.35em;margin-right:4px}
+html.gb-pics .fi-slot img.fi{width:20px;height:20px;object-fit:contain}
+html.gb-pics #gbc-intro .i img.fi{width:30px;height:30px;object-fit:contain}
+html.gb-pics #gbc-intro .i:has(img.fi){background:none;box-shadow:none}
+html.gb-pics #gbc-intro .i:has(img.fi) svg{display:none}
+
+/* ===== logo (round 44): the glass box in place of the dot ===== */
+html.gbk .gbc-brand i{width:26px!important;height:26px!important;border-radius:0!important;background:url(__GB_LOGO__) center/contain no-repeat!important;box-shadow:none!important;filter:drop-shadow(0 0 8px rgba(47,233,139,.55));flex:none}
+html.gbk .gbc-brand b{background:linear-gradient(180deg,#ffffff 30%,#9ff5cb);-webkit-background-clip:text;background-clip:text;color:transparent!important;text-shadow:none}
+
+/* ===== Greenbox AI panel (round 46): emerald liquid glass like the rest ===== */
+html.gbk #gbai{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02) 30%,rgba(47,233,139,.04)),rgba(12,20,17,.78)!important;-webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+  border:1px solid rgba(170,255,214,.2)!important;border-radius:20px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 0 34px -14px rgba(47,233,139,.45),0 24px 60px -20px rgba(0,0,0,.8)!important;color:#eef6f2!important;overflow:hidden}
+html.gbk #gbai.dock{border-radius:0!important}
+html.gbk #gbai header{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02))!important;border-bottom:1px solid rgba(170,255,214,.14)!important;padding:12px 14px!important;font-size:15px;letter-spacing:-.01em}
+html.gbk #gbai header svg.gbi{color:#7dffbf;width:20px;height:20px}
+html.gbk #gbai header button{width:34px;height:34px;padding:0!important;display:inline-flex;align-items:center;justify-content:center;border-radius:11px!important}
+html.gbk #gbai header button+button{margin-left:6px}
+html.gbk #gbai .cfg{background:rgba(0,0,0,.14)!important;border-bottom:1px solid rgba(170,255,214,.12)!important;padding:12px 14px!important;gap:8px!important}
+html.gbk #gbai .cfg label{color:rgba(222,232,227,.66)!important}
+html.gbk #gbai :is(input:not([type=checkbox]),select,textarea){background:rgba(0,0,0,.28)!important;border:1px solid rgba(170,255,214,.16)!important;border-radius:10px!important;color:#eef6f2!important;padding:8px 10px!important;box-shadow:inset 0 1px 2px rgba(0,0,0,.3)}
+html.gbk #gbai :is(input:not([type=checkbox]),select,textarea):focus{outline:none;border-color:rgba(47,233,139,.6)!important;box-shadow:0 0 0 3px rgba(47,233,139,.14)!important}
+html.gbk #gbai input[type=checkbox]{accent-color:#2fe98b}
+html.gbk #gbai button{background:var(--lq-fill)!important;border:1px solid var(--lq-line)!important;color:#f3f7f5!important;border-radius:12px!important;box-shadow:var(--lq-shadow)!important;padding:7px 12px!important;display:inline-flex;align-items:center;gap:6px;
+  transition:background 150ms cubic-bezier(.4,0,.4,1),transform 150ms cubic-bezier(0,0,.2,1)!important}
+@media (hover:hover){html.gbk #gbai button:hover{background:var(--lq-fill-hi)!important;animation:lq-flash 600ms cubic-bezier(.2,.7,.2,1) forwards}}
+html.gbk #gbai button:active{transform:scale(.97)}
+html.gbk #gbai button.pri{background:var(--lq-pri)!important;color:#03140b!important;border-color:rgba(255,255,255,.7)!important;box-shadow:var(--lq-pri-shadow)!important;font-weight:600}
+html.gbk #gbai button.pri svg.gbi{color:#03140b}
+html.gbk #gbai .mcpbox{border-top-color:rgba(170,255,214,.12)!important;color:rgba(222,232,227,.7)!important}
+html.gbk #gbai .mcpbox b{color:#f3f7f5!important}
+html.gbk #gbai a{color:#7dffbf!important}
+html.gbk #gbai .m.u{background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.05) 50%),rgba(47,233,139,.32)!important;border:1px solid rgba(190,255,225,.3);color:#fff}
+html.gbk #gbai .m.a{background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.02)),rgba(30,36,34,.6)!important;border:1px solid rgba(255,255,255,.1)}
+html.gbk #gbai .m.mcp{background:rgba(47,233,139,.1)!important;color:#bff5d9!important;border:1px solid rgba(47,233,139,.25)}
+html.gbk #gbai .att span{background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.12)}
+html.gbk #gbai footer{border-top:1px solid rgba(170,255,214,.12)!important;background:rgba(0,0,0,.12);padding:12px 14px!important}
+html.gbk #gbai footer button{width:40px;height:40px;padding:0!important;justify-content:center}
+html.gbk #gbai footer button svg.gbi{width:19px;height:19px}
+html.gbk #gbai #gbai-send{width:44px;height:44px;border-radius:14px!important}
+html.gbk #gbai textarea{border-radius:14px!important}
+html.gbk #gbai *{scrollbar-width:thin;scrollbar-color:rgba(170,255,214,.25) transparent}
+html.gbk #gbai-mcp-status svg.gbi{width:14px;height:14px;margin-right:4px;color:rgba(222,232,227,.5)}
+html.gbk #gbai-mcp-status svg.gbi-circle-check{color:#5ff2a8}
+/* ===== round 56: tidy button rows in the cockpit panels (a row of only buttons = an even grid) ===== */
+html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) .sec .row:not(:has(> :not(button))):not(:has(> button[style*="background"])):has(> button + button){display:grid!important;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px!important}
+html.gbk body.gbc :is(#appJoy,#appDrive,#appGacha) .sec .row:not(:has(> :not(button))):not(:has(> button[style*="background"])) > button{width:100%;justify-content:center;text-align:center;min-height:36px;white-space:normal}

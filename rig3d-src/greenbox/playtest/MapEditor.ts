@@ -8,17 +8,25 @@
  * The terrain and objects live in the World's props, so the character walks on hills, bumps into houses
  * and climbs walls with the existing play-test physics.
  */
+import { clone_deep } from '../common/CloneDeep.ts'
 import * as THREE from 'three'
+import type { WeatherKind, DayTime } from './Weather.ts'
+import { tile, tile_grid } from '../common/Tiles.ts'
+import { BEHAVIOURS, DEFAULT_BEHAVIOURS } from './unity/Behaviours.ts'
+import { build_unitypackage, type PackageLayout, type PackObject } from './unity/UnityPackage.ts'
+import { FBXExporter } from '@comfyorg/fbx-exporter-three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { M } from '../common/lang.ts'
 import { type World } from './World.ts'
 import { load_any_buffer } from '../common/AnyLoader.ts'
-import { type CameraRig, type Shot, LOOK_UP } from './CameraRig.ts'
+import { type CameraRig, type Shot, type ShotMode, LOOK_UP } from './CameraRig.ts'
 import { type Plan, KIND_INFO } from './PlanEditor.ts'
 import { form_outline, pad_picture } from './PlanForms.ts'
 import { layout_to_map, main_colours, DEFAULT_LEGEND, KIND_LABEL, type LegendItem, type LayoutKind } from './LayoutImport.ts'
 
-export type MapTool = 'none' | 'select' | 'raise' | 'lower' | 'flatten' | 'smooth' | 'paint' | 'place' | 'erase' | 'dig' | 'pour'
+export type MapTool = 'none' | 'select' | 'raise' | 'lower' | 'flatten' | 'smooth' | 'paint' | 'place' | 'erase' | 'dig' | 'pour' | 'grab' | 'crease' | 'noise' | 'terrace'
+/** ✋ sculpt tools (Blender-like, on the terrain) */
+export const SCULPT_TOOLS: MapTool[] = ['grab', 'crease', 'noise', 'terrace']
 export const GROUND: Array<{ id: string, color: number, en: string, vi: string }> = [
   { id: 'grass', color: 0x6fa84a, en: 'Grass', vi: 'Cỏ' },
   { id: 'dirt', color: 0x8a6a45, en: 'Dirt', vi: 'Đất' },
@@ -28,6 +36,22 @@ export const GROUND: Array<{ id: string, color: number, en: string, vi: string }
   { id: 'road', color: 0x4b4b4f, en: 'Road', vi: 'Đường' },
   { id: 'mud', color: 0x5b4a36, en: 'Water bed', vi: 'Đáy nước' }
 ]
+/** objects drawn as a run (press-drag-release along the grid) */
+export const RUN_KINDS = ['fence', 'wall', 'hwall', 'door', 'window']
+/** wall pieces that close a room (a roof is fitted inside them) */
+export const HOUSE_WALLS = ['wall', 'hwall', 'door', 'window']
+/** house wall height (the castle wall is 2.2 m) */
+const HWALL_H = 2.6
+/** 🏢 one storey: a 2.6 m wall + a 0.2 m floor slab; levels 0..MAX_LEVEL-1 (shown as 1..5) */
+export const LEVEL_H = 2.8
+export const MAX_LEVEL = 5
+const SLAB = 0.2
+/** stairs: 14 steps x 0.2 m = one storey, 1 cell wide, 3 cells (4.5 m) long, rising towards local +Z */
+const STAIR_N = 14; const STAIR_W = 1.5; const STAIR_L = 4.5
+/** the storey of a placed object (0 = ground floor; old maps have none) */
+export function lv_of (o: THREE.Object3D): number { return (o.userData.map_extra as MapExtra | undefined)?.lv ?? 0 }
+/** how high above the ground an object of this kind sits on storey lv */
+function lift (kind: string, lv: number): number { return lv * LEVEL_H + (kind === 'floor' && lv === 0 ? 0.04 : 0) }
 export const OBJECTS: Array<{ id: string, icon: string, en: string, vi: string, grid: boolean }> = [
   { id: 'pine', icon: '🌲', en: 'Pine', vi: 'Thông', grid: false },
   { id: 'tree', icon: '🌳', en: 'Tree', vi: 'Cây', grid: false },
@@ -37,17 +61,28 @@ export const OBJECTS: Array<{ id: string, icon: string, en: string, vi: string, 
   { id: 'tower', icon: '🗼', en: 'Tower', vi: 'Tháp', grid: true },
   { id: 'wall', icon: '🧱', en: 'Wall', vi: 'Tường', grid: true },
   { id: 'fence', icon: '🚧', en: 'Fence', vi: 'Hàng rào', grid: true },
+  { id: 'hwall', icon: '🟫', en: 'House wall', vi: 'Tường nhà', grid: true },
+  { id: 'door', icon: '🚪', en: 'Door', vi: 'Cửa', grid: true },
+  { id: 'window', icon: '🪟', en: 'Window', vi: 'Cửa sổ', grid: true },
+  { id: 'roof', icon: '🛖', en: 'Roof', vi: 'Mái', grid: false },
+  { id: 'floor', icon: '🟨', en: 'Floor', vi: 'Sàn', grid: false },
+  { id: 'stairs', icon: '🪜', en: 'Stairs', vi: 'Cầu thang', grid: false },
   { id: 'crate', icon: '📦', en: 'Crate', vi: 'Thùng', grid: true },
   { id: 'barrel', icon: '🛢', en: 'Barrel', vi: 'Thùng tròn', grid: false },
-  { id: 'flag', icon: '🚩', en: 'Flag / spawn', vi: 'Cờ / điểm xuất phát', grid: true }
+  { id: 'flag', icon: '🚩', en: 'Flag / spawn', vi: 'Cờ / điểm xuất phát', grid: true },
+  { id: 'node', icon: '⬚', en: 'Node cell (drop zone)', vi: 'Ô node (nét đứt)', grid: true },
+  { id: 'money', icon: '💵', en: 'Money pile', vi: 'Đống tiền', grid: false },
+  { id: 'table', icon: '🪵', en: 'Table', vi: 'Bàn', grid: true },
+  { id: 'grass', icon: '🌾', en: 'Tall grass', vi: 'Bụi cỏ', grid: false },
+  { id: 'saw', icon: '🪚', en: 'Saw', vi: 'Máy cưa', grid: false }
 ]
 
 /** extra data of plan blocks / flow wires: size (w, h, d), colour, label, shape id, the 3D look, wire style */
-export interface MapExtra { pid?: string, size?: [number, number, number], color?: string, label?: string, form?: string, model?: string, mode?: string, role?: string, image?: string, price?: number, note?: string }
+export interface MapExtra { mb?: Array<{ t: string, o?: Record<string, string | number | boolean> }>, lv?: number, holes?: number[][], pid?: string, size?: [number, number, number], color?: string, label?: string, form?: string, model?: string, mode?: string, role?: string, image?: string, price?: number, note?: string }
 export interface MapObject { kind: string, p: [number, number, number], r: number, s: number, x?: MapExtra }
 /** water poured into a hole / channel: grid points under the water and its level */
 export interface Pool { level: number, cells: number[] }
-export interface MapData { version: 1, n: number, cell: number, water: number, sea?: boolean, heights: number[], types: number[], objects: MapObject[], pools?: Pool[], shots?: Shot[], plan?: Plan, wires_hidden?: boolean }
+export interface MapData { version: 1, n: number, cell: number, water: number, sea?: boolean, heights: number[], types: number[], paint?: number[], objects: MapObject[], pools?: Pool[], shots?: Shot[], plan?: Plan, wires_hidden?: boolean, weather?: [WeatherKind, DayTime] }
 const FILE_DB = 'gb-playtest-files'
 function fdb (): Promise<IDBDatabase> { return new Promise((res, rej) => { const r = indexedDB.open(FILE_DB, 1); r.onupgradeneeded = () => r.result.createObjectStore('f'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error) }) }
 
@@ -118,12 +153,100 @@ function build_wire (g: THREE.Group, x: MapExtra): void {
   }
 }
 
+/**
+ * 🎨 export: every material gets a name that says its colour — GB_rrggbb, GB_rrggbb_aa (see-through, aa = alpha %),
+ * GB_Water_rrggbb_aa, GB_Terrain (vertex colours) — on copies, so the editor's own materials are untouched.
+ * Unity's FBX import merges materials with the same name (they were all "Material" → everything white); the
+ * package builder also rebuilds the colours from these names.
+ */
+/** a playable is one small file: opaque textures go in as JPEG (the exporter writes PNG, 3-6× bigger) */
+export function jpeg_textures (root: THREE.Object3D): void {
+  root.traverse(o => {
+    const m = o as THREE.Mesh; if (m.isMesh !== true) return
+    for (const mt of (Array.isArray(m.material) ? m.material : [m.material]) as THREE.MeshStandardMaterial[]) {
+      if (mt.transparent === true || mt.alphaTest > 0) continue
+      for (const t of [mt.map, mt.normalMap, mt.roughnessMap, mt.metalnessMap, mt.aoMap, mt.emissiveMap]) if (t != null && t.userData.mimeType === undefined) t.userData.mimeType = 'image/jpeg'
+    }
+  })
+}
+export function name_materials_for_export (root: THREE.Object3D): void {
+  const cache = new Map<string, THREE.Material>()
+  root.traverse(o => {
+    const m = o as THREE.Mesh; if (m.isMesh !== true) return
+    const conv = (mt: THREE.Material): THREE.Material => {
+      const src = mt as THREE.MeshLambertMaterial
+      const vc = src.vertexColors === true && m.geometry.getAttribute('color') !== undefined
+      const water = /^(Water|Pool)/.test(o.name) || /^(Water|Pool)/.test(o.parent?.name ?? '')
+      // see-through: water keeps its opacity; other parts use their own (glass), never the editor's cut-away fade
+      const a = water ? src.opacity : ((m.userData.base_opacity as number | undefined) ?? 1)
+      const hex = (src.color ?? new THREE.Color(1, 1, 1)).getHexString()
+      const pa = Math.round(a * 100)
+      // a textured material is its own (keying by colour alone gave every white textured model the first one's picture)
+      const tex = (src as THREE.MeshStandardMaterial).map ?? null
+      const name = (vc ? 'GB_Terrain' : water ? `GB_Water_${hex}_${pa}` : pa < 100 ? `GB_${hex}_${pa}` : `GB_${hex}`) + (tex !== null ? `_${tex.uuid.slice(0, 8)}` : '') + (src.type !== 'MeshLambertMaterial' && tex !== null ? `_${src.type.replace(/^Mesh|Material$/g, '')}` : '')
+      let out = cache.get(name)
+      if (out === undefined) { out = src.clone(); out.name = name; out.opacity = a; out.transparent = a < 1; out.depthWrite = a >= 1; cache.set(name, out) }
+      return out
+    }
+    m.material = Array.isArray(m.material) ? m.material.map(conv) : conv(m.material)
+  })
+}
+
+/** a gable roof over a w x d room whose walls are h tall (pivot: the floor centre); the ridge runs along the longer side */
+function build_roof (g: THREE.Group, x: MapExtra): void {
+  const [w, h, d] = x.size ?? [6, HWALL_H, 6]
+  const o = 0.4; const along_x = w >= d
+  const short = (along_x ? d : w) + 2 * o; const long = (along_x ? w : d) + 2 * o
+  const rise = Math.max(0.8, short * 0.32)
+  const sh = new THREE.Shape(); sh.moveTo(-short / 2, 0); sh.lineTo(short / 2, 0); sh.lineTo(0, rise); sh.closePath()
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: long, bevelEnabled: false }); geo.translate(0, 0, -long / 2)
+  if (along_x) geo.rotateY(Math.PI / 2)
+  const roof = new THREE.Mesh(geo, lambert(0xa0442f)); roof.position.y = h; roof.castShadow = true; roof.receiveShadow = true
+  // the gable ends in wall colour, a hair inside the roof ends
+  const gsh = new THREE.Shape(); gsh.moveTo(-short / 2 + o, 0); gsh.lineTo(short / 2 - o, 0); gsh.lineTo(0, rise * (short - 2 * o) / short); gsh.closePath()
+  for (const sgn of [-1, 1]) {
+    const gg = new THREE.ShapeGeometry(gsh); if (along_x) gg.rotateY(Math.PI / 2)
+    const m = new THREE.Mesh(gg, lambert(0xe6dac2)); (m.material as THREE.Material).side = THREE.DoubleSide
+    const off = (long / 2 - o) * sgn; if (along_x) m.position.set(off, h, 0); else m.position.set(0, h, off)
+    g.add(m)
+  }
+  g.add(roof)
+  g.traverse(m => { m.userData.roof = true })
+}
+
+/** a floor slab w x d, top at the pivot, `t` thick, with rectangular holes [x0, z0, x1, z1] (local) for stairs */
+function build_floor (g: THREE.Group, x: MapExtra): void {
+  const [w, t, d] = x.size ?? [6, SLAB, 6]
+  const sh = new THREE.Shape(); sh.moveTo(-w / 2, -d / 2); sh.lineTo(w / 2, -d / 2); sh.lineTo(w / 2, d / 2); sh.lineTo(-w / 2, d / 2); sh.closePath()
+  for (const [x0, z0, x1, z1] of x.holes ?? []) { const hp = new THREE.Path(); hp.moveTo(x0, z0); hp.lineTo(x0, z1); hp.lineTo(x1, z1); hp.lineTo(x1, z0); hp.closePath(); sh.holes.push(hp) }
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: t, bevelEnabled: false }); geo.rotateX(Math.PI / 2) // shape y -> world z, the depth goes down
+  const m = new THREE.Mesh(geo, lambert(0xc9a77c)); m.castShadow = true; m.receiveShadow = true; g.add(m)
+}
+
+/** straight stairs: STAIR_N solid steps rising towards +Z, with two side stringers */
+function build_stairs (g: THREE.Group): void {
+  const r = LEVEL_H / STAIR_N; const T = STAIR_L / STAIR_N
+  for (let k = 0; k < STAIR_N; k++) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(STAIR_W - 0.1, (k + 1) * r, T), lambert(k % 2 === 0 ? 0xb88a5a : 0xad8052))
+    m.position.set(0, (k + 1) * r / 2, -STAIR_L / 2 + (k + 0.5) * T); m.castShadow = true; m.receiveShadow = true; g.add(m)
+  }
+  const len = Math.hypot(STAIR_L, LEVEL_H); const a = Math.atan2(LEVEL_H, STAIR_L)
+  for (const sgn of [-1, 1]) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.9, len), lambert(0x7a4a2a)); m.rotation.x = -a
+    m.position.set(sgn * (STAIR_W / 2 - 0.03), LEVEL_H / 2 + 0.5, 0); m.castShadow = true; g.add(m)
+  }
+}
+
 export function build_object (kind: string, extra?: MapExtra): THREE.Group {
   const g = new THREE.Group(); g.name = kind; g.userData.map_kind = kind
+  if (extra !== undefined) g.userData.map_extra = extra // the storey (lv) of walls, fences, props…
+  if (kind === 'roof') { g.userData.map_extra = extra ?? {}; build_roof(g, extra ?? {}); return g }
+  if (kind === 'floor') { g.userData.map_extra = extra ?? {}; build_floor(g, extra ?? {}); return g }
+  if (kind === 'stairs') { build_stairs(g); return g }
   if (kind === 'block' || kind === 'wire') { g.userData.map_extra = extra ?? {}; if (kind === 'block') build_block(g, extra ?? {}); else build_wire(g, extra ?? {}); return g }
   if (kind.startsWith('file:')) {
     const t = CUSTOM.get(kind)
-    if (t !== undefined) g.add(t.clone(true))
+    if (t !== undefined) g.add(clone_deep(t))
     else { const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0xbbbbbb, wireframe: true })); m.position.y = 0.5; g.add(m); g.userData.placeholder = true }
     return g
   }
@@ -136,12 +259,52 @@ export function build_object (kind: string, extra?: MapExtra): THREE.Group {
     case 'house': add(new THREE.BoxGeometry(4, 2.6, 3.4), 0xd9c7a3, 0, 1.3); { const roof = add(new THREE.ConeGeometry(3.2, 1.8, 4), 0xa0442f, 0, 3.5, Math.PI / 4); roof.scale.set(1, 1, 0.85) } add(new THREE.BoxGeometry(0.9, 1.6, 0.1), 0x5a3b22, 0, 0.8, 1.72); break
     case 'tower': add(new THREE.CylinderGeometry(1.4, 1.7, 6, 8), 0xa7a29a, 0, 3); add(new THREE.CylinderGeometry(1.9, 1.9, 0.6, 8), 0x8f8a83, 0, 6.3); add(new THREE.ConeGeometry(2, 2, 8), 0x3d5a8a, 0, 7.6); break
     case 'wall': add(new THREE.BoxGeometry(4, 2.2, 0.6), 0x9b968e, 0, 1.1); for (let i = -1.5; i <= 1.5; i += 1) add(new THREE.BoxGeometry(0.6, 0.5, 0.7), 0x8b867e, i, 2.45); break
-    case 'fence': for (let i = -1.5; i <= 1.5; i += 1) add(new THREE.BoxGeometry(0.15, 1.1, 0.15), 0x7a5634, i, 0.55); add(new THREE.BoxGeometry(3.4, 0.12, 0.08), 0x8a6640, 0, 0.75); add(new THREE.BoxGeometry(3.4, 0.12, 0.08), 0x8a6640, 0, 0.35); break
+    case 'fence': for (let i = -1.5; i <= 1.5; i += 1) add(new THREE.BoxGeometry(0.15, 1.1, 0.15), 0x7a5634, i, 0.55); add(new THREE.BoxGeometry(3.0, 0.12, 0.08), 0x8a6640, 0, 0.75); add(new THREE.BoxGeometry(3.0, 0.12, 0.08), 0x8a6640, 0, 0.35); break
+    // house walls: 3 m along X between two grid posts (+0.1 each end so corners close), 0.2 m thick
+    case 'hwall': add(new THREE.BoxGeometry(3.2, HWALL_H, 0.2), 0xe6dac2, 0, HWALL_H / 2); break
+    case 'door': {
+      const sw = 1.1; const side = (sgn: number): void => { add(new THREE.BoxGeometry(sw, HWALL_H, 0.2), 0xe6dac2, sgn * (1.6 - sw / 2), HWALL_H / 2) }
+      side(-1); side(1); add(new THREE.BoxGeometry(1.0, HWALL_H - 2.1, 0.2), 0xe6dac2, 0, 2.1 + (HWALL_H - 2.1) / 2)
+      add(new THREE.BoxGeometry(0.92, 2.04, 0.06), 0x7a4a2a, -0.5, 1.02, 0.5, Math.PI / 2) // the door leaf, standing open
+      break
+    }
+    case 'window': {
+      add(new THREE.BoxGeometry(3.2, 0.9, 0.2), 0xe6dac2, 0, 0.45); add(new THREE.BoxGeometry(3.2, HWALL_H - 2.0, 0.2), 0xe6dac2, 0, 2.0 + (HWALL_H - 2.0) / 2)
+      for (const sgn of [-1, 1]) add(new THREE.BoxGeometry(1.1, 1.1, 0.2), 0xe6dac2, sgn * 1.05, 1.45)
+      const gl = add(new THREE.BoxGeometry(1.0, 1.1, 0.04), 0x9fd3f0, 0, 1.45); const gm = gl.material as THREE.MeshLambertMaterial; gm.transparent = true; gm.opacity = 0.4; gl.userData.base_opacity = 0.4; gl.castShadow = false
+      add(new THREE.BoxGeometry(1.0, 0.06, 0.24), 0x8a6640, 0, 0.93)
+      break
+    }
     case 'crate': add(new THREE.BoxGeometry(1.2, 1.2, 1.2), 0xb88a4a, 0, 0.6); break
     case 'barrel': add(new THREE.CylinderGeometry(0.45, 0.45, 1.1, 10), 0x8a3d2b, 0, 0.55); break
     case 'flag': add(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), 0xdddddd, 0, 1.3); add(new THREE.BoxGeometry(0.9, 0.55, 0.04), 0xe23d3d, 0.47, 2.25); add(new THREE.CylinderGeometry(0.7, 0.8, 0.12, 12), 0xe8d36a, 0, 0.06); break
+    case 'node': { // a dashed square on the ground (2.4 m): where a stack is dropped / picked up
+      const S = 2.4; const dash = 0.34; const gap = 0.18; const w = 0.09
+      for (let side = 0; side < 4; side++) {
+        for (let t = -S / 2 + dash / 2; t < S / 2; t += dash + gap) {
+          const along_x = side % 2 === 0
+          const m = add(new THREE.BoxGeometry(dash, 0.03, w), 0xffffff, along_x ? t : (side === 1 ? S / 2 : -S / 2), 0.03, along_x ? (side === 0 ? S / 2 : -S / 2) : t, along_x ? 0 : Math.PI / 2)
+          m.castShadow = false
+        }
+      }
+      const f = add(new THREE.BoxGeometry(S - 0.1, 0.01, S - 0.1), 0x2fe98b, 0, 0.01); const fm = f.material as THREE.MeshLambertMaterial; fm.transparent = true; fm.opacity = 0.18; f.castShadow = false
+      break
+    }
+    case 'money': for (let i = 0; i < 4; i++) for (let k = 0; k < 4; k++) add(new THREE.BoxGeometry(0.62, 0.1, 0.32), k % 2 === 0 ? 0x3fae5a : 0x4cc46a, (i % 2 - 0.5) * 0.7, 0.05 + k * 0.105, (Math.floor(i / 2) - 0.5) * 0.4, (k % 2) * 0.06); break
+    case 'table': add(new THREE.BoxGeometry(2.4, 0.12, 1.4), 0xb07a46, 0, 0.9); for (const [x, z] of [[-1.05, -0.55], [1.05, -0.55], [-1.05, 0.55], [1.05, 0.55]]) add(new THREE.BoxGeometry(0.12, 0.84, 0.12), 0x8a5a32, x, 0.42, z); break
+    case 'grass': for (let i = 0; i < 11; i++) { const a = i * 2.39; const r = 0.15 + (i % 4) * 0.12; const m = add(new THREE.ConeGeometry(0.07, 0.75 + (i % 3) * 0.2, 4), i % 2 === 0 ? 0x5fb048 : 0x4e9a3c, Math.cos(a) * r, 0.38 + (i % 3) * 0.1, Math.sin(a) * r); m.rotation.z = Math.cos(a) * 0.12; m.rotation.x = Math.sin(a) * 0.12 } break
+    case 'saw': {
+      add(new THREE.BoxGeometry(0.5, 0.9, 0.4), 0x555d66, 0, 0.45)
+      const blade = new THREE.Group(); blade.name = 'blade'; blade.position.set(0, 1.3, 0); g.add(blade)
+      const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.04, 24), lambert(0xc9ced4)); disc.rotation.x = Math.PI / 2; blade.add(disc)
+      for (let i = 0; i < 16; i++) { const tth = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.16, 3), lambert(0xe2e6ea)); const a = i / 16 * Math.PI * 2; tth.position.set(Math.cos(a) * 0.8, Math.sin(a) * 0.8, 0); tth.rotation.z = a - Math.PI / 2; blade.add(tth) }
+      blade.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh === true) m.castShadow = true })
+      break
+    }
     default: add(new THREE.BoxGeometry(1, 1, 1), 0xbbbbbb, 0, 0.5)
   }
+  // 🏢 a house wall on floor 2+: a 0.2 m band under it fills the slab gap down to the wall below (no light slit)
+  if ((kind === 'hwall' || kind === 'door' || kind === 'window') && (extra?.lv ?? 0) > 0) add(new THREE.BoxGeometry(3.2, SLAB, 0.2), 0xe6dac2, 0, -SLAB / 2)
   return g
 }
 
@@ -174,6 +337,10 @@ export class MapEditor {
   private readonly ring: THREE.Mesh
   private readonly ray = new THREE.Raycaster()
   private down = false
+  /** ✋ grab: the heights and mouse height at the press */
+  private grab0: { h: Float32Array, y: number, ci: number, cj: number } | null = null
+  /** ⟶ drawing a fence / wall run: start post (on a grid point), the ghost segments, the last end point */
+  private run: { kind: string, ax: number, az: number, bx: number, bz: number, ghost: THREE.Group } | null = null
   private flatten_to = 0
   private last_ev: PointerEvent | null = null
   private raf = 0
@@ -186,11 +353,69 @@ export class MapEditor {
   public riders: (() => THREE.Object3D[]) | null = null
   /** called just before a click / drag changes the map (undo step) */
   public on_edit_start: (() => void) | null = null
+  /** ✋ a click on a placed prop while placing: the play test grabs it instead of dropping a new one (true = taken) */
+  public grab_hook: ((e: PointerEvent) => boolean) | null = null
+
+  /* ---------------- 🖌 smooth ground paint: round soft strokes on a 1024² canvas over the terrain (the grid colours stay underneath for export) ---------------- */
+  private readonly splat = document.createElement('canvas')
+  private readonly splat_tex!: THREE.CanvasTexture
+  /** every paint stroke, in map metres: x, z, radius, ground index (saved with the map, redrawn when the map size changes) */
+  private strokes: number[] = []
+  private splat_span = 0
+  private make_terrain_mat (): THREE.MeshLambertMaterial {
+    this.splat.width = this.splat.height = 1024
+    const tex = new THREE.CanvasTexture(this.splat); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4
+    ;(this as any).splat_tex = tex
+    const m = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })
+    m.onBeforeCompile = (sh) => {
+      sh.uniforms.splatMap = { value: tex }
+      sh.vertexShader = 'varying vec2 vSplatUv;\n' + sh.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n  vSplatUv = uv;')
+      sh.fragmentShader = 'uniform sampler2D splatMap;\nvarying vec2 vSplatUv;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n  vec4 sp = texture2D(splatMap, vSplatUv);\n  diffuseColor.rgb = mix(diffuseColor.rgb, sp.rgb, sp.a);')
+    }
+    m.customProgramCacheKey = () => 'gb-terrain-splat'
+    return m
+  }
+  /** one soft round dab at map (x, z), radius r metres, in ground colour g */
+  private dab (x: number, z: number, r: number, g: number): void {
+    const span = this.n * this.cell; const S = this.splat.width; const ctx = this.splat.getContext('2d'); if (ctx === null) return
+    const px = (x + span / 2) / span * S; const py = (z + span / 2) / span * S; const pr = r / span * S
+    const hx = GROUND[g]?.color ?? 0x888888; const rgb = `${(hx >> 16) & 255},${(hx >> 8) & 255},${hx & 255}` // the canvas is sRGB (THREE.Color keeps linear values)
+    const grd = ctx.createRadialGradient(px, py, pr * 0.55, px, py, pr)
+    grd.addColorStop(0, `rgba(${rgb},1)`); grd.addColorStop(1, `rgba(${rgb},0)`)
+    ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill()
+  }
+  private paint_stroke (x: number, z: number, r: number, g: number): void {
+    this.strokes.push(Math.round(x * 100) / 100, Math.round(z * 100) / 100, Math.round(r * 100) / 100, g)
+    if (this.strokes.length > 4 * 20000) this.strokes.splice(0, 4 * 2000)
+    this.dab(x, z, r, g); this.splat_tex.needsUpdate = true
+  }
+  /** redraw every stroke (after a load / a map size change) */
+  private redraw_splat (): void {
+    const ctx = this.splat.getContext('2d'); if (ctx === null) return
+    ctx.clearRect(0, 0, this.splat.width, this.splat.height)
+    for (let i = 0; i + 3 < this.strokes.length; i += 4) this.dab(this.strokes[i], this.strokes[i + 1], this.strokes[i + 2], this.strokes[i + 3])
+    this.splat_span = this.n * this.cell; this.splat_tex.needsUpdate = true
+  }
+  /** a tool that rewrites the ground types (preset, clear) forgets the paint */
+  private clear_paint (): void { this.strokes = []; this.redraw_splat() }
+  private ghost_top: THREE.Vector3 | null = null
+  /** ⇧ snap step for free objects: half a map cell (roads, props line up) */
+  public snap_step (): number { return Math.max(0.25, this.cell / 2) }
+  public grabbing = false
   public status: ((t: string, warn?: boolean) => void) | null = null
   public dig_depth = 2 // m the dig tool goes below where the stroke started
   public pool_fill = 0.9 // how full a poured hole gets (1 = to the brim)
   public rot = 0 // turn of the next placed object (Z)
   private user_rot = false
+  /** 🎲 how different each placed tree / rock / bush is (0 = identical, 1 = very varied): turn around Z's direction + size */
+  public variety = 0.7
+  /** 📏 size of the next placed object (1 = its normal size) */
+  public place_size = 1
+  /** ☁ weather + time of day (the app draws them) */
+  public wx: WeatherKind = 'clear'
+  public daytime: DayTime = 'day'
+  public on_weather: ((w: WeatherKind, t: DayTime) => void) | null = null
+  public set_weather (w: WeatherKind, t: DayTime): void { this.wx = w; this.daytime = t; this.on_weather?.(w, t); this.autosave() }
   private pools: Pool[] = []
   private readonly pool_group = new THREE.Group()
   private readonly pool_mat = new THREE.MeshLambertMaterial({ color: 0x3f8fd0, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
@@ -207,7 +432,7 @@ export class MapEditor {
   private readonly terrain_mat: THREE.Material
 
   constructor (private readonly world: World, private readonly scene: THREE.Scene, private readonly camera: () => THREE.Camera, private readonly dom: HTMLElement) {
-    this.terrain = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }))
+    this.terrain = new THREE.Mesh(new THREE.BufferGeometry(), this.make_terrain_mat())
     this.terrain.name = 'Terrain'; this.terrain.receiveShadow = true; this.terrain.userData.no_pick = true
     this.water_mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshLambertMaterial({ color: 0x3f8fd0, transparent: true, opacity: 0.72 }))
     this.water_mesh.name = 'Water'; this.water_mesh.rotation.x = -Math.PI / 2; this.water_mesh.userData.no_pick = true
@@ -261,6 +486,7 @@ export class MapEditor {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(index)
     g.computeVertexNormals(); g.computeBoundingBox(); g.computeBoundingSphere()
     this.terrain.geometry.dispose(); this.terrain.geometry = g
+    if (Math.abs(this.splat_span - n * c) > 1e-6) this.redraw_splat()
     this.water_mesh.scale.set(n * c, n * c, 1); this.water_mesh.position.y = this.water
     let wet = false; for (let k = 0; k < this.heights.length; k++) if (this.heights[k] < this.water) { wet = true; break }
     this.water_mesh.visible = wet && this.sea
@@ -353,6 +579,7 @@ export class MapEditor {
   }
 
   public preset (kind: 'flat' | 'hills' | 'island' | 'valley' | 'mountains'): void {
+    this.clear_paint()
     const n = this.n; this.heights = new Float32Array((n + 1) * (n + 1)); this.types = new Uint8Array((n + 1) * (n + 1))
     const nz = noise2(Math.floor(Math.random() * 1000))
     for (let j = 0; j <= n; j++) {
@@ -376,9 +603,27 @@ export class MapEditor {
 
   private brush (hit: THREE.Vector3, first: boolean): void {
     const n = this.n; const c = this.cell; const H = this.half()
+    if (this.tool === 'paint') this.paint_stroke(hit.x, hit.z, Math.max(0.5, this.radius * c), this.ground)
     const ci = (hit.x + H) / c; const cj = (hit.z + H) / c; const R = this.radius
     if (first && (this.tool === 'flatten' || this.tool === 'dig')) this.flatten_to = this.height_at(hit.x, hit.z)
     const old = this.tool === 'smooth' ? Float32Array.from(this.heights) : null
+    // ✋ grab: the area under the first press follows the mouse up / down (from the heights at the press)
+    if (this.tool === 'grab') {
+      const ev = this.last_ev
+      if (first || this.grab0 === null) this.grab0 = { h: Float32Array.from(this.heights), y: ev?.clientY ?? 0, ci, cj }
+      const g = this.grab0; const dy = ((g.y - (ev?.clientY ?? g.y)) * 0.03) * (0.4 + this.strength)
+      const was0 = this.world.props.children.filter(o => o !== this.terrain && o !== this.objects)
+      for (let j = Math.max(0, Math.floor(g.cj - R)); j <= Math.min(n, Math.ceil(g.cj + R)); j++) {
+        for (let i = Math.max(0, Math.floor(g.ci - R)); i <= Math.min(n, Math.ceil(g.ci + R)); i++) {
+          const d = Math.hypot(i - g.ci, j - g.cj) / R; if (d > 1) continue
+          const k = this.idx(i, j); const f = 1 - d * d; this.heights[k] = g.h[k] + dy * f * (2 - f)
+        }
+      }
+      void was0
+      this.rebuild()
+      for (const o of this.objects.children) o.position.y = this.height_at(o.position.x, o.position.z)
+      return
+    }
     // what stands on the ground (props, the character) moves with it instead of being buried / left floating
     const movers = this.tool === 'paint' ? [] : [...this.world.props.children.filter(o => o !== this.terrain && o !== this.objects), ...(this.riders?.() ?? [])]
     const was = movers.map(o => this.height_at(o.position.x, o.position.z))
@@ -399,7 +644,18 @@ export class MapEditor {
           const want = Math.min(this.heights[k], bottom * w + this.heights[k] * (1 - w))
           this.heights[k] += (want - this.heights[k]) * Math.min(1, 0.35 + this.strength)
           if (d < 0.9 && this.types[k] !== 6) this.types[k] = 1
-        } else if (this.tool === 'paint' && d < 0.95) this.types[k] = this.ground
+        } else if (this.tool === 'crease') {
+          // a sharp ridge: steep falloff, so the middle rises much more than the sides
+          const sharp = Math.pow(1 - d, 3); this.heights[k] += sharp * this.strength * 0.9
+        } else if (this.tool === 'noise') {
+          // rough ground: value noise at two sizes, more in the middle of the brush
+          const nv = (Math.sin(i * 12.9898 + j * 78.233) * 43758.5453) % 1; const nv2 = (Math.sin(Math.floor(i / 3) * 39.3 + Math.floor(j / 3) * 11.7) * 9631.17) % 1
+          this.heights[k] += (nv * 0.6 + nv2 * 0.4) * f * 0.35
+        } else if (this.tool === 'terrace') {
+          // steps of 0.5 m: each point moves toward its step level
+          const step = 0.5; const want = Math.round(this.heights[k] / step) * step
+          this.heights[k] += (want - this.heights[k]) * Math.min(1, f * 1.2)
+        } else if (this.tool === 'paint' && d < 0.6) this.types[k] = this.ground
       }
     }
     // a pool whose hole was changed: keep only what is still under its level
@@ -417,9 +673,13 @@ export class MapEditor {
     const o = build_object(kind, extra)
     const info = OBJECTS.find(q => q.id === kind)
     if (info?.grid === true) { x = Math.round(x / this.cell) * this.cell; z = Math.round(z / this.cell) * this.cell }
-    o.position.set(x, this.height_at(x, z), z); o.rotation.y = r; o.scale.setScalar(s)
-    const k = this.objects.children.filter(c => c.userData.map_kind === kind).length + 1
-    o.name = `${kind.replace(/^file:/, '').replace(/\.[^.]+$/, '')}_${k}`
+    o.position.set(x, this.height_at(x, z) + lift(kind, extra?.lv ?? 0), z); o.rotation.y = r; o.scale.setScalar(s)
+    // 🧩 Unity behaviours this kind gets by default (the user can change them on the selected object)
+    { const ex = (o.userData.map_extra ?? {}) as MapExtra; const dk = kind === 'block' && extra?.role !== undefined && DEFAULT_BEHAVIOURS['role:' + extra.role] !== undefined ? 'role:' + extra.role : kind; if (ex.mb === undefined && DEFAULT_BEHAVIOURS[dk] !== undefined) o.userData.map_extra = { ...ex, mb: DEFAULT_BEHAVIOURS[dk].map(t => ({ t, o: Object.fromEntries((BEHAVIOURS.find(b => b.type === t)?.options ?? []).map(op => [op.key, op.def])) })) } }
+    // a unique name per object (Unity / the package builder find objects by name): wall_1, wall_2…
+    const base = kind.replace(/^file:/, '').replace(/\.[^.]+$/, '')
+    const taken = new Set(this.placed().map(c => c.name)); let k = 1; while (taken.has(`${base}_${k}`)) k++
+    o.name = `${base}_${k}`
     if (kind === 'block' && (extra?.label ?? '') !== '') o.name = extra!.label!
     if (kind === 'wire') o.name = `flow_${k}`
     this.objects.add(o); this.world.props.add(o) // in the world props so it is solid / walkable
@@ -444,10 +704,220 @@ export class MapEditor {
   public set_tool (t: MapTool): void { this.tool = t; if (t !== 'place') this.hide_ghost(); this.refresh_panel() }
 
   /** Z: turn the object about to be placed (Shift = the other way, Alt = 90°) */
-  public turn_next (step: number): void { this.rot = Math.atan2(Math.sin(this.rot + step), Math.cos(this.rot + step)); this.user_rot = true; if (this.ghost !== null) this.ghost.rotation.y = this.rot }
+  public turn_next (step: number): void { const square = this.object === 'stairs' || RUN_KINDS.includes(this.object) || (OBJECTS.find(q => q.id === this.object)?.grid ?? false); if (square && this.tool === 'place') { step = Math.sign(step) * Math.PI / 2; this.rot = Math.round(this.rot / (Math.PI / 2)) * (Math.PI / 2) } this.rot = Math.atan2(Math.sin(this.rot + step), Math.cos(this.rot + step)); this.user_rot = true; if (this.ghost !== null) { if (this.ghost_at !== null && this.ghost.visible) this.show_ghost(this.ghost_at); else this.ghost.rotation.y = this.rot } }
+
+  /* ---------------- house: roof over a closed room, see-through walls / roofs ---------------- */
+  /**
+   * 🛖 the room around (x, z): grid cells reachable without crossing a wall piece (flood fill).
+   * Closed -> a gable roof over the room's bounding box (an old roof there is replaced). Open -> a message.
+   */
+  /**
+   * 🛖 the closed room around (x, z) on storey lv: grid cells reachable without crossing a wall piece of that storey
+   * (flood fill; edge keys h:i:j / v:i:j). null = open (more than 1600 cells). h = the walls' height.
+   */
+  private room_at (x: number, z: number, lv: number): { x0: number, x1: number, z0: number, z1: number, h: number, rect: boolean } | null {
+    const c = this.cell; const blocked = new Set<string>(); let h = 0
+    for (const o of this.placed()) {
+      const k = o.userData.map_kind as string; if (!HOUSE_WALLS.includes(k) || lv_of(o) !== lv) continue
+      const along_x = Math.abs(Math.sin(o.rotation.y)) < 0.5
+      const s0 = Math.round(((along_x ? o.position.x : o.position.z) - 1.5 * o.scale.x) / c); const n = Math.max(1, Math.round(3 * o.scale.x / c))
+      const line = Math.round((along_x ? o.position.z : o.position.x) / c)
+      for (let i = 0; i < n; i++) blocked.add(along_x ? `h:${s0 + i}:${line}` : `v:${line}:${s0 + i}`)
+      h = Math.max(h, (k === 'wall' ? 2.2 : HWALL_H) * o.scale.y)
+    }
+    const i0 = Math.floor(x / c); const j0 = Math.floor(z / c)
+    const seen = new Set<string>([`${i0}:${j0}`]); const todo: Array<[number, number]> = [[i0, j0]]
+    let mi = i0; let Mi = i0; let mj = j0; let Mj = j0
+    while (todo.length > 0) {
+      const [i, j] = todo.pop()!
+      mi = Math.min(mi, i); Mi = Math.max(Mi, i); mj = Math.min(mj, j); Mj = Math.max(Mj, j)
+      const go = (ni: number, nj: number, edge: string): void => { const key = `${ni}:${nj}`; if (blocked.has(edge) || seen.has(key)) return; seen.add(key); todo.push([ni, nj]) }
+      go(i + 1, j, `v:${i + 1}:${j}`); go(i - 1, j, `v:${i}:${j}`); go(i, j + 1, `h:${i}:${j + 1}`); go(i, j - 1, `h:${i}:${j}`)
+      if (seen.size > 1600) return null
+    }
+    return { x0: mi * c, x1: (Mi + 1) * c, z0: mj * c, z1: (Mj + 1) * c, h, rect: seen.size === (Mi - mi + 1) * (Mj - mj + 1) }
+  }
+
+  /** the house wall piece under the cursor: its storey and the point on its wall line (null = none) */
+  private wall_under (e: { clientX: number, clientY: number }): { lv: number, x: number, z: number, dist: number, o: THREE.Object3D } | null {
+    const r = this.dom.getBoundingClientRect()
+    this.ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.camera())
+    const walls = this.placed().filter(o => HOUSE_WALLS.includes(o.userData.map_kind as string))
+    if (walls.length === 0) return null
+    const h = this.ray.intersectObjects(walls, true)[0]; if (h === undefined) return null
+    let o: THREE.Object3D = h.object; while (o.parent !== null && o.parent !== this.world.props) o = o.parent
+    // the point on the wall's centre line (the hit is on its face, 0.1 m off)
+    const along_x = Math.abs(Math.sin(o.rotation.y)) < 0.5
+    return { lv: lv_of(o), x: along_x ? h.point.x : o.position.x, z: along_x ? o.position.z : h.point.z, dist: h.distance, o }
+  }
+
+  /**
+   * 🏢 placing wall pieces: hovering an existing house wall builds on the floor above it (floor 2 on a floor-1 wall,
+   * floor 3 on a floor-2 wall…); hovering the ground goes back to the floor picked with the buttons.
+   */
+  private auto_level (e: { clientX: number, clientY: number }): void {
+    if (this.tool !== 'place' || !HOUSE_WALLS.includes(this.object)) return
+    const w = this.wall_under(e)
+    // 🚪 a door / window goes INTO the wall under the cursor (same floor); a wall piece goes on top of it
+    const opening = this.object === 'door' || this.object === 'window'
+    this.hover_piece = opening && w !== null && w.o.userData.map_kind !== this.object ? w.o : null
+    const lv = w !== null ? (opening ? w.lv : Math.min(MAX_LEVEL - 1, w.lv + 1)) : this.base_level
+    if (lv === this.level) return
+    this.level = lv; this.refresh_panel()
+    this.status?.(w !== null && opening ? M(`Floor ${lv + 1}: click to put the ${this.object} into this wall piece.`, `Tầng ${lv + 1}: bấm để khoét ${this.object === 'door' ? 'cửa' : 'cửa sổ'} vào tấm tường này.`, `${lv + 1}층`) : w !== null ? M(`Floor ${lv + 1}: on top of the wall under the cursor. Press and drag along it.`, `Tầng ${lv + 1}: xây lên trên bức tường dưới chuột. Nhấn và kéo dọc theo tường.`, `${lv + 1}층`) : M(`Floor ${lv + 1}.`, `Tầng ${lv + 1}.`, `${lv + 1}층`), false)
+  }
+
+  /** 🚪 the wall piece a door / window would replace (hovered) */
+  private hover_piece: THREE.Object3D | null = null
+
+  /** 🚪 put a door / window in place of a wall piece: same spot, direction and floor */
+  public swap_piece (o: THREE.Object3D, kind: string): THREE.Object3D {
+    const x = o.position.x; const z = o.position.z; const r = o.rotation.y; const lv = lv_of(o); const y = o.position.y
+    if (this.world.selected === o) this.world.select(null)
+    this.remove_object(o)
+    const n = this.add_object(kind, x, z, r, 1, lv > 0 ? { lv } : undefined); n.position.y = y
+    this.status?.(M(`${kind === 'door' ? 'Door' : 'Window'} put into the wall (floor ${lv + 1}).`, `Đã khoét ${kind === 'door' ? 'cửa' : 'cửa sổ'} vào tường (tầng ${lv + 1}).`, '교체'), false)
+    return n
+  }
+
+  /** the floor picked with the 🏢 buttons (hovering a wall raises `level` above it for a while) */
+  private base_level = 0
+
+  /** extra for an object placed on the current storey */
+  private lvx (): MapExtra | undefined { return this.level > 0 ? { lv: this.level } : undefined }
+
+  /** 🛖 a gable roof over the closed room at (x, z) on storey lv (the current one); an old roof there is replaced */
+  public add_roof_at (x: number, z: number, lv = this.level): THREE.Object3D | null {
+    const R = this.room_at(x, z, lv)
+    if (R === null) {
+      this.status?.(M(`No closed room here on floor ${lv + 1}: close the walls all around (doors and windows count as walls), then click inside.`, `Chỗ này chưa phải phòng kín ở tầng ${lv + 1}: dựng tường khép kín xung quanh (cửa và cửa sổ cũng tính là tường), rồi bấm vào bên trong.`, '닫힌 방이 아닙니다'), true)
+      return null
+    }
+    const cx = (R.x0 + R.x1) / 2; const cz = (R.z0 + R.z1) / 2
+    for (const o of this.placed()) if (o.userData.map_kind === 'roof' && lv_of(o) === lv && Math.abs(o.position.x - cx) < 0.05 && Math.abs(o.position.z - cz) < 0.05) this.remove_object(o)
+    const r = this.add_object('roof', cx, cz, 0, 1, { size: [R.x1 - R.x0, R.h, R.z1 - R.z0], ...(lv > 0 ? { lv } : {}) })
+    this.status?.(M(`Roof placed on floor ${lv + 1} (${(R.x1 - R.x0).toFixed(1)} × ${(R.z1 - R.z0).toFixed(1)} m).${R.rect ? '' : ' The room is not a rectangle: the roof covers its bounding box.'} It turns see-through when the character is inside.`,
+      `Đã gắn mái trên tầng ${lv + 1} (${(R.x1 - R.x0).toFixed(1)} × ${(R.z1 - R.z0).toFixed(1)} m).${R.rect ? '' : ' Phòng không phải hình chữ nhật: mái phủ theo khung bao ngoài.'} Mái tự mờ đi khi nhân vật vào trong nhà.`, '지붕 배치'), false)
+    return r
+  }
+
+  /**
+   * 🟨 a floor over the closed room at (x, z). Floor 1: a thin wooden floor on the ground. Floor 2+: a 0.2 m slab on
+   * top of the walls of the floor below (its room), with holes over the stairs that come up through it.
+   */
+  public add_floor_at (x: number, z: number, lv = this.level): THREE.Object3D | null {
+    const R = lv > 0 ? (this.room_at(x, z, lv - 1) ?? this.room_at(x, z, lv)) : this.room_at(x, z, 0)
+    if (R === null) {
+      this.status?.(M(lv > 0 ? `No closed room under this spot: close the walls of floor ${lv} first, then click inside on floor ${lv + 1}.` : 'No closed room here: close the walls first, then click inside.', lv > 0 ? `Dưới chỗ này chưa có phòng kín: dựng tường khép kín ở tầng ${lv} trước, rồi bấm vào bên trong ở tầng ${lv + 1}.` : 'Chỗ này chưa phải phòng kín: dựng tường khép kín trước rồi bấm vào bên trong.', '닫힌 방이 아닙니다'), true)
+      return null
+    }
+    const cx = (R.x0 + R.x1) / 2; const cz = (R.z0 + R.z1) / 2; const pad = lv > 0 ? 0.09 : -0.1 // a slab covers the wall tops (just inside the band under the upper walls), a ground floor stays inside
+    for (const o of this.placed()) if (o.userData.map_kind === 'floor' && lv_of(o) === lv && Math.abs(o.position.x - cx) < 0.05 && Math.abs(o.position.z - cz) < 0.05) this.remove_object(o)
+    const f = this.add_object('floor', cx, cz, 0, 1, { size: [R.x1 - R.x0 + 2 * pad, lv > 0 ? SLAB : 0.04, R.z1 - R.z0 + 2 * pad], holes: [], ...(lv > 0 ? { lv } : {}) })
+    this.refresh_holes()
+    this.status?.(M(`Floor placed on floor ${lv + 1}.${lv > 0 ? ' Put stairs on the floor below to walk up.' : ''}`, `Đã đặt sàn ở tầng ${lv + 1}.${lv > 0 ? ' Đặt cầu thang ở tầng dưới để đi bộ lên.' : ''}`, '바닥 배치'), false)
+    return f
+  }
+
+  /** where stairs go for the cursor at (x, z): 1 x 3 cells on the grid, turned in 90° steps (Z) */
+  private stairs_spot (x: number, z: number): { x: number, z: number, r: number } {
+    const c = this.cell; const q = ((Math.round(this.rot / (Math.PI / 2)) % 4) + 4) % 4; const long_x = q % 2 === 1
+    const sx = (Math.floor(x / c) + 0.5) * c; const sz = (Math.floor(z / c) + 0.5) * c
+    const lx = (Math.round(x / c - 1.5) + 1.5) * c; const lz = (Math.round(z / c - 1.5) + 1.5) * c
+    return long_x ? { x: lx, z: sz, r: q * Math.PI / 2 } : { x: sx, z: lz, r: q * Math.PI / 2 }
+  }
+
+  /** 🪜 stairs from the current floor up to the next one; the slab above gets a hole */
+  public add_stairs_at (x: number, z: number, lv = this.level): THREE.Object3D {
+    const q = this.stairs_spot(x, z)
+    const o = this.add_object('stairs', q.x, q.z, q.r, 1, lv > 0 ? { lv } : undefined)
+    this.refresh_holes()
+    const up = this.placed().some(f => f.userData.map_kind === 'floor' && lv_of(f) === lv + 1)
+    this.status?.(M(`Stairs placed from floor ${lv + 1} to floor ${lv + 2} (they go up the way the ghost shows; Z turns them 90°).${up ? '' : ' Now add a Floor on floor ' + (lv + 2) + ' over this room.'}`, `Đã đặt cầu thang từ tầng ${lv + 1} lên tầng ${lv + 2} (hướng đi lên như bóng mờ; Z xoay 90°).${up ? '' : ' Giờ đặt Sàn ở tầng ' + (lv + 2) + ' phủ phòng này.'}`, '계단 배치'), false)
+    return o
+  }
+
+  /** every floor slab gets a hole over each stairs coming up through it (stairs of the floor below) */
+  private refresh_holes (): void {
+    const stairs = this.placed().filter(o => o.userData.map_kind === 'stairs')
+    for (const f of this.placed()) {
+      if (f.userData.map_kind !== 'floor') continue
+      const ex = f.userData.map_extra as MapExtra; const lv = lv_of(f); if (lv === 0) continue
+      const [w, , d] = ex.size ?? [6, SLAB, 6]; const e = 0.02
+      const holes: number[][] = []
+      for (const st of stairs) {
+        if (lv_of(st) !== lv - 1) continue
+        const long_x = Math.abs(Math.sin(st.rotation.y)) > 0.5; const hx = (long_x ? STAIR_L : STAIR_W) / 2; const hz = (long_x ? STAIR_W : STAIR_L) / 2
+        const x0 = Math.max(-w / 2 + e, st.position.x - hx - f.position.x); const x1 = Math.min(w / 2 - e, st.position.x + hx - f.position.x)
+        const z0 = Math.max(-d / 2 + e, st.position.z - hz - f.position.z); const z1 = Math.min(d / 2 - e, st.position.z + hz - f.position.z)
+        if (x1 - x0 > 0.1 && z1 - z0 > 0.1) holes.push([x0, z0, x1, z1].map(v => Math.round(v * 1000) / 1000))
+      }
+      if (JSON.stringify(holes) === JSON.stringify(ex.holes ?? [])) continue
+      ex.holes = holes
+      f.clear(); build_floor(f as THREE.Group, ex); this.faded.delete(f)
+    }
+    this.world.refresh(); this.autosave()
+  }
+
+  /** what is faded now (object -> opacity) */
+  private readonly faded = new Map<THREE.Object3D, number>()
+  /** 🏢 the storey being built (0 = floor 1) */
+  public level = 0
+  private fade (o: THREE.Object3D, a: number): void {
+    if ((this.faded.get(o) ?? 1) === a) return
+    if (a >= 1) this.faded.delete(o); else this.faded.set(o, a)
+    o.traverse(q => {
+      const m = q as THREE.Mesh; if (m.isMesh !== true) return
+      const mt = m.material as THREE.MeshLambertMaterial; const base = (m.userData.base_opacity as number | undefined) ?? 1
+      mt.opacity = Math.min(base, a); mt.transparent = mt.opacity < 1; mt.depthWrite = mt.opacity >= 1; mt.needsUpdate = true
+    })
+  }
+
+  /**
+   * every frame: a roof over the character (or every roof while you build a house) and the wall pieces
+   * between the camera and the character turn see-through, so you can always see inside.
+   */
+  public cutaway (target: THREE.Vector3 | null, cam: THREE.Vector3): void {
+    const house_tool = this.tool === 'place' && (HOUSE_WALLS.includes(this.object) || ['roof', 'floor', 'stairs'].includes(this.object))
+    // building / erasing on a storey: everything above it turns see-through (and can't be clicked)
+    const by_level = this.tool === 'place' || this.tool === 'erase'
+    const from = target ?? cam; const ray = new THREE.Ray(from.clone(), cam.clone().sub(from)); const dist = cam.distanceTo(from); ray.direction.normalize()
+    const hit = new THREE.Vector3()
+    // the character's storey, and is it under a roof / a floor (inside a house)?
+    const tl = target === null ? 0 : Math.max(0, Math.floor((target.y - this.height_at(target.x, target.z) - 0.5) / LEVEL_H))
+    const over = (o: THREE.Object3D, p: THREE.Vector3): boolean => { const [w, , d] = (o.userData.map_extra as MapExtra | undefined)?.size ?? [6, 0, 6]; return Math.abs(p.x - o.position.x) < w / 2 + 0.3 && Math.abs(p.z - o.position.z) < d / 2 + 0.3 }
+    const placed = this.placed()
+    const indoor = target !== null && placed.some(o => (o.userData.map_kind === 'roof' || (o.userData.map_kind === 'floor' && lv_of(o) > tl)) && over(o, target))
+    for (const o of placed) {
+      const k = o.userData.map_kind as string; const lv = lv_of(o); let a = 1
+      if (by_level && lv > this.level) a = 0.12
+      if (indoor && lv > tl) a = Math.min(a, 0.12)
+      if (k === 'roof' && (house_tool || (target !== null && over(o, target)))) a = Math.min(a, 0.12)
+      else if (HOUSE_WALLS.includes(k) && target !== null && a === 1) {
+        let b = o.userData.cut_box as THREE.Box3 | undefined; const key = `${o.position.x},${o.position.y},${o.position.z},${o.rotation.y},${o.scale.x}`
+        if (b === undefined || o.userData.cut_key !== key) { b = new THREE.Box3().setFromObject(o).expandByScalar(0.05); o.userData.cut_box = b; o.userData.cut_key = key }
+        const p = ray.intersectBox(b, hit)
+        if (p !== null && p.distanceTo(target) < dist && !b.containsPoint(target)) a = 0.25
+      }
+      this.fade(o, a)
+    }
+  }
 
   /* ---------------- ghost of the object about to be placed ---------------- */
   private show_ghost (p: THREE.Vector3): void {
+    if (this.object === 'stairs') {
+      if (this.ghost === null || this.ghost_kind !== 'stairs') { this.hide_ghost(); const g = build_object('stairs'); g.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh === true) { const mt = (m.material as THREE.Material).clone() as THREE.MeshLambertMaterial; mt.transparent = true; mt.opacity = 0.5; mt.depthWrite = false; m.material = mt; m.castShadow = false; m.raycast = () => {} } }); this.ghost = g; this.ghost_kind = 'stairs'; this.scene.add(g) }
+      const q = this.stairs_spot(p.x, p.z); this.ghost.position.set(q.x, this.height_at(q.x, q.z) + this.level * LEVEL_H, q.z); this.ghost.rotation.y = q.r; this.ghost.visible = true; this.ghost_at = p.clone(); return
+    }
+    if ((this.object === 'door' || this.object === 'window') && this.hover_piece !== null && this.hover_piece.parent !== null) {
+      if (this.ghost === null || this.ghost_kind !== this.object) {
+        this.hide_ghost(); const g = build_object(this.object); g.userData.map_kind = undefined
+        g.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh === true) { const mt = (m.material as THREE.Material).clone() as THREE.MeshLambertMaterial; mt.transparent = true; mt.opacity = 0.6; mt.depthWrite = false; m.material = mt; m.castShadow = false; m.raycast = () => {} } })
+        this.ghost = g; this.ghost_kind = this.object; this.scene.add(g)
+      }
+      const hp = this.hover_piece; this.ghost.position.copy(hp.position).y += 0.01; this.ghost.rotation.y = hp.rotation.y; this.ghost.visible = true; this.ghost_at = p.clone(); return
+    }
+    if (this.object === 'roof' || this.object === 'floor') { this.hide_ghost(); this.ring.visible = true; this.ring.scale.set(0.8, 0.8, 1); this.ring.position.set(p.x, p.y + 0.08, p.z); return }
     if (this.ghost === null || this.ghost_kind !== this.object) {
       this.hide_ghost()
       const g = build_object(this.object); g.userData.map_kind = undefined
@@ -456,9 +926,18 @@ export class MapEditor {
     }
     let x = p.x; let z = p.z
     if (OBJECTS.find(q => q.id === this.object)?.grid === true) { x = Math.round(x / this.cell) * this.cell; z = Math.round(z / this.cell) * this.cell }
-    this.ghost.position.set(x, this.height_at(x, z), z); this.ghost.rotation.y = this.rot; this.ghost.visible = true
+    let r = this.rot
+    if (RUN_KINDS.includes(this.object)) {
+      // fence / wall: the ghost starts with its end post on the grid point (where a click / a run puts it), along X or Z
+      const v = Math.abs(Math.sin(this.rot)) > 0.5
+      if (v) { z += this.cell; r = Math.PI / 2 } else { x += this.cell; r = 0 }
+    }
+    this.ghost.position.set(x, this.height_at(x, z) + this.level * LEVEL_H, z); this.ghost.rotation.y = r; this.ghost.visible = true; if (!(OBJECTS.find(q => q.id === this.object)?.grid ?? false)) this.ghost.scale.setScalar(this.place_size)
+    if (this.ghost_top !== null) this.world.set_bottom(this.ghost, this.ghost_top.y)
+    this.ghost_at = p.clone()
   }
 
+  private ghost_at: THREE.Vector3 | null = null
   private hide_ghost (): void { if (this.ghost !== null) { this.ghost.removeFromParent(); this.ghost = null; this.ghost_kind = '' } }
 
   /* ---------------- your own 3D files in the object palette ---------------- */
@@ -512,7 +991,17 @@ export class MapEditor {
   private hit (e: { clientX: number, clientY: number }): THREE.Intersection | null {
     const r = this.dom.getBoundingClientRect()
     this.ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.camera())
-    return this.ray.intersectObject(this.terrain, false)[0] ?? null
+    // 🏢 wall pieces over an existing wall of the floor below: snap onto that wall's line
+    if (this.tool === 'place' && HOUSE_WALLS.includes(this.object)) {
+      const w = this.wall_under(e)
+      if (w !== null && w.lv + 1 === this.level) return { distance: w.dist, point: new THREE.Vector3(w.x, this.height_at(w.x, w.z) + this.level * LEVEL_H, w.z), object: this.terrain } as THREE.Intersection
+    }
+    const t = this.ray.intersectObject(this.terrain, false)[0] ?? null
+    if (t === null || this.tool !== 'place' || this.level === 0) return t
+    // 🏢 building upstairs: the point on the storey's floor plane under the cursor (not the ground far behind it)
+    let y = t.point.y + this.level * LEVEL_H; const p = new THREE.Vector3()
+    for (let i = 0; i < 2; i++) { if (this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y), p) === null) return t; y = this.height_at(p.x, p.z) + this.level * LEVEL_H }
+    return { ...t, point: p.clone(), distance: this.ray.ray.origin.distanceTo(p) }
   }
 
   /** eraser: the prop under the cursor and every prop inside the brush; a click on poured water drains it */
@@ -520,12 +1009,13 @@ export class MapEditor {
     const r = this.dom.getBoundingClientRect()
     this.ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.camera())
     const gone = new Set<THREE.Object3D>()
-    const h = this.ray.intersectObjects(this.erasable(), true)[0]
-    if (h !== undefined) { let o: THREE.Object3D = h.object; while (o.parent !== null && o.parent !== this.world.props) o = o.parent; gone.add(o) }
+    const root = (q: THREE.Object3D): THREE.Object3D => { let o = q; while (o.parent !== null && o.parent !== this.world.props) o = o.parent; return o }
+    const h = this.ray.intersectObjects(this.erasable(), true).find(i => lv_of(root(i.object)) <= this.level) // storeys above are see-through: not hit
+    if (h !== undefined) gone.add(root(h.object))
     const t = this.hit(e)
     if (t !== null) {
       const R = Math.max(0.6, this.radius * this.cell * 0.5)
-      for (const o of this.erasable()) { const dx = o.position.x - t.point.x; const dz = o.position.z - t.point.z; if (dx * dx + dz * dz < R * R) gone.add(o) }
+      for (const o of this.erasable()) { const dx = o.position.x - t.point.x; const dz = o.position.z - t.point.z; if (dx * dx + dz * dz < R * R && lv_of(o) === this.level) gone.add(o) }
       if (gone.size === 0 && this.pools.length > 0) {
         const k = this.idx(Math.round((t.point.x + this.half()) / this.cell), Math.round((t.point.z + this.half()) / this.cell))
         const before = this.pools.length; this.pools = this.pools.filter(p => !p.cells.includes(k))
@@ -533,32 +1023,68 @@ export class MapEditor {
       }
     }
     for (const o of gone) { if (this.world.selected === o) this.world.select(null); if (o.userData.map_kind !== undefined) this.remove_object(o); else this.world.remove(o) }
+    if ([...gone].some(o => o.userData.map_kind === 'stairs' || o.userData.map_kind === 'floor')) this.refresh_holes()
     if (gone.size > 0) this.autosave()
   }
 
   private on_down (e: PointerEvent): void {
     if (this.tool === 'none' || this.tool === 'select' || e.button !== 0) return
     this.on_edit_start?.()
+    if (this.tool === 'place' && (this.object === 'floor' || this.object === 'stairs')) {
+      const h = this.hit(e); if (h !== null) { e.stopImmediatePropagation(); e.preventDefault(); if (this.object === 'floor') this.add_floor_at(h.point.x, h.point.z); else this.add_stairs_at(h.point.x, h.point.z) }
+      return
+    }
+    if (this.tool === 'place' && this.object === 'roof') { const h = this.hit(e); if (h !== null) { e.stopImmediatePropagation(); e.preventDefault(); this.add_roof_at(h.point.x, h.point.z) } return }
+    if (this.tool === 'place' && !RUN_KINDS.includes(this.object) && e.altKey && this.grab_hook?.(e) === true) { if (this.ghost !== null) this.ghost.visible = false; e.stopImmediatePropagation(); e.preventDefault(); return }
+    if (this.tool === 'place' && (this.object === 'door' || this.object === 'window')) {
+      const w = this.wall_under(e)
+      if (w !== null && w.o.userData.map_kind !== this.object) { e.stopImmediatePropagation(); e.preventDefault(); this.hide_ghost(); this.swap_piece(w.o, this.object); return }
+    }
     if (this.tool === 'erase') { this.erasing = true; this.erase_at(e); e.stopImmediatePropagation(); e.preventDefault(); return }
     const h = this.hit(e); if (h === null) return
     e.stopImmediatePropagation(); e.preventDefault()
     if (this.tool === 'pour') { this.pour(h.point.x, h.point.z); return }
-    if (this.tool === 'place') {
-      const nature = !(OBJECTS.find(q => q.id === this.object)?.grid ?? false) && !this.object.startsWith('file:')
-      const r = nature && !this.user_rot ? Math.random() * Math.PI * 2 : this.rot
-      this.add_object(this.object, h.point.x, h.point.z, r, nature ? 0.8 + Math.random() * 0.45 : 1)
+    if (this.tool === 'place' && RUN_KINDS.includes(this.object)) {
+      // fence / wall: press = the first post on the nearest grid point; drag = a straight run; release = place it
+      const c = this.cell; const ax = Math.round(h.point.x / c) * c; const az = Math.round(h.point.z / c) * c
+      const g = new THREE.Group(); this.scene.add(g)
+      this.run = { kind: this.object, ax, az, bx: ax, bz: az, ghost: g }
+      this.hide_ghost()
       return
     }
-    this.down = true; this.brush(h.point, true)
+    if (this.tool === 'place') {
+      const nature = !(OBJECTS.find(q => q.id === this.object)?.grid ?? false) && !this.object.startsWith('file:')
+      // nature: Z / X set the main direction, every copy still turns and sizes a little differently (🎲 variety)
+      const v = this.variety
+      const r = nature ? (this.user_rot ? this.rot + (Math.random() * 2 - 1) * Math.PI * 0.5 * v : (v > 0 ? Math.random() * Math.PI * 2 * v : 0)) : this.rot
+      const sz = (nature ? 1 + (Math.random() * 2 - 1) * 0.3 * v : 1) * this.place_size
+      const grid = OBJECTS.find(q => q.id === this.object)?.grid ?? false
+      // 📚 the cursor on top of a prop (a table, a crate): the new object stands on it
+      const top = grid ? null : this.world.prop_top(this.ray.ray)
+      let px = top?.x ?? h.point.x; let pz = top?.z ?? h.point.z
+      if (e.shiftKey && !grid) { const g = this.snap_step(); px = Math.round(px / g) * g; pz = Math.round(pz / g) * g } // ⇧ = on the grid
+      const o = this.add_object(this.object, px, pz, e.shiftKey ? Math.round(r / (Math.PI / 12)) * (Math.PI / 12) : r, sz, this.lvx())
+      if (top !== null) { this.world.set_bottom(o, top.y); this.world.refresh(); this.autosave() }
+      return
+    }
+    this.last_ev = e; this.grab0 = null; this.down = true; this.brush(h.point, true)
   }
 
   private on_move (e: PointerEvent): void {
+    if (this.grabbing) { this.ring.visible = false; if (this.ghost !== null) this.ghost.visible = false; return }
+    if (this.run === null) this.auto_level(e)
+    if (this.run !== null) {
+      e.stopImmediatePropagation()
+      const h = this.hit(e)
+      if (h !== null) { const c = this.cell; this.run.bx = Math.round(h.point.x / c) * c; this.run.bz = Math.round(h.point.z / c) * c; this.draw_run() }
+      return
+    }
     const brushy = this.tool !== 'none' && this.tool !== 'select'
     if (brushy && e.target === this.dom) {
       const h = this.hit(e)
       this.ring.visible = h !== null && this.tool !== 'place'
       if (h !== null) { const R = this.tool === 'erase' ? Math.max(0.6, this.radius * this.cell * 0.5) : this.tool === 'pour' ? 0.8 : this.radius * this.cell; this.ring.scale.set(R, R, 1); this.ring.position.set(h.point.x, h.point.y + 0.08, h.point.z); (this.ring.material as THREE.MeshBasicMaterial).color.set(this.tool === 'erase' ? 0xff6b6b : this.tool === 'pour' ? 0x4da6ff : 0xffffff) }
-      if (this.tool === 'place' && h !== null) this.show_ghost(h.point); else if (this.ghost !== null) this.ghost.visible = false
+      if (this.tool === 'place' && h !== null) { this.ghost_top = (OBJECTS.find(q => q.id === this.object)?.grid ?? false) ? null : this.world.prop_top(this.ray.ray, this.ghost); this.show_ghost(this.ghost_top ?? h.point) } else if (this.ghost !== null) this.ghost.visible = false
     } else if (!this.down) { this.ring.visible = false; if (this.ghost !== null && e.target !== this.dom) this.ghost.visible = false }
     if (this.erasing) { e.stopImmediatePropagation(); this.erase_at(e); return }
     if (!this.down) return
@@ -567,13 +1093,58 @@ export class MapEditor {
     if (this.raf === 0) this.raf = requestAnimationFrame(() => { this.raf = 0; const ev = this.last_ev; if (ev === null) return; const h = this.hit(ev); if (h !== null) this.brush(h.point, false) })
   }
 
-  private on_up (e: PointerEvent): void { this.erasing = false; if (this.down) { this.down = false; this.last_ev = null; e.stopImmediatePropagation() } }
+  /** the run from its start post to the grid point under the cursor: along X or Z (the longer way), whole segments */
+  private run_segments (): Array<{ x: number, z: number, r: number }> {
+    const R = this.run; if (R === null) return []
+    const seg = 2 * this.cell // a fence is post-to-post 2 cells long
+    const dx = R.bx - R.ax; const dz = R.bz - R.az
+    const along_x = Math.abs(dx) >= Math.abs(dz)
+    const d = along_x ? dx : dz; const n = Math.round(Math.abs(d) / seg); const sg = Math.sign(d) || 1
+    const out: Array<{ x: number, z: number, r: number }> = []
+    for (let i = 0; i < n; i++) {
+      const m = (i + 0.5) * seg * sg
+      out.push(along_x ? { x: R.ax + m, z: R.az, r: 0 } : { x: R.ax, z: R.az + m, r: Math.PI / 2 })
+    }
+    return out
+  }
+
+  private draw_run (): void {
+    const R = this.run; if (R === null) return
+    R.ghost.clear()
+    for (const sgm of this.run_segments()) {
+      const g = build_object(R.kind); g.userData.map_kind = undefined
+      g.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh === true) { const mt = (m.material as THREE.Material).clone() as THREE.MeshLambertMaterial; mt.transparent = true; mt.opacity = 0.55; mt.depthWrite = false; m.material = mt; m.castShadow = false; m.raycast = () => {} } })
+      g.position.set(sgm.x, this.height_at(sgm.x, sgm.z) + this.level * LEVEL_H, sgm.z); g.rotation.y = sgm.r; R.ghost.add(g)
+    }
+  }
+
+  /** place the run (a segment that is already there, same place and direction, is skipped) */
+  private end_run (): void {
+    const R = this.run; if (R === null) return
+    let segs = this.run_segments() // before `run` is cleared: the segments are read from it
+    this.run = null; R.ghost.removeFromParent()
+    if (segs.length === 0) { // a click: one segment from this grid point, turned by Z (along X or along Z)
+      const v = Math.abs(Math.sin(this.rot)) > 0.5
+      segs = [{ x: R.ax + (v ? 0 : this.cell), z: R.az + (v ? this.cell : 0), r: v ? Math.PI / 2 : 0 }]
+    }
+    const at = (o: THREE.Object3D, q: { x: number, z: number, r: number }): boolean => lv_of(o) === this.level && Math.abs(o.position.x - q.x) < 0.05 && Math.abs(o.position.z - q.z) < 0.05 && Math.abs(Math.sin(o.rotation.y - q.r)) < 0.05
+    const same = (o: THREE.Object3D, q: { x: number, z: number, r: number }): boolean => o.userData.map_kind === R.kind && at(o, q)
+    segs = segs.filter(q => !this.placed().some(o => same(o, q)))
+    // a door / window / wall piece dropped on another wall piece swaps it
+    if (HOUSE_WALLS.includes(R.kind)) for (const q of segs) for (const o of this.placed()) if (o.userData.map_kind !== R.kind && HOUSE_WALLS.includes(o.userData.map_kind as string) && at(o, q)) this.remove_object(o)
+    for (const q of segs) this.add_object(R.kind, q.x, q.z, q.r, 1, this.lvx())
+    this.status?.(M(`${segs.length} ${R.kind} segment(s) placed: start the next run from a corner post for a clean corner.`, `Đã đặt ${segs.length} đoạn: kéo đoạn tiếp theo từ cột ở góc để góc khớp.`, `${segs.length}개 배치`), false)
+  }
+
+  private on_up (e: PointerEvent): void { if (this.run !== null) { this.end_run(); e.stopImmediatePropagation(); return } this.erasing = false; if (this.down) { this.down = false; this.last_ev = null; e.stopImmediatePropagation() } }
 
   /* ---------------- save / load / export ---------------- */
   public data (): MapData {
     return {
       version: 1, n: this.n, cell: this.cell, water: this.water, sea: this.sea,
       heights: Array.from(this.heights, h => Math.round(h * 1000) / 1000), types: Array.from(this.types),
+      ...(this.strokes.length > 0 ? { paint: this.strokes.slice() } : {}),
+      ...(this.wx !== 'clear' || this.daytime !== 'day' ? { weather: [this.wx, this.daytime] as [WeatherKind, DayTime] } : {}),
       objects: this.placed().map(o => ({ kind: o.userData.map_kind as string, p: [o.position.x, o.position.y, o.position.z].map(v => Math.round(v * 1000) / 1000) as [number, number, number], r: Math.round(o.rotation.y * 1000) / 1000, s: Math.round(o.scale.x * 1000) / 1000, ...(o.userData.map_extra !== undefined ? { x: o.userData.map_extra as MapExtra } : {}) })),
       pools: this.pools,
       ...(this.plan !== null ? { plan: this.plan } : {}),
@@ -587,11 +1158,14 @@ export class MapEditor {
   public load (d: MapData): void {
     this.n = d.n; this.cell = d.cell; this.water = d.water; this.sea = d.sea !== false
     this.heights = Float32Array.from(d.heights); this.types = Uint8Array.from(d.types)
+    this.strokes = Array.isArray(d.paint) ? d.paint.slice() : []; this.splat_span = -1
+    this.wx = d.weather?.[0] ?? 'clear'; this.daytime = d.weather?.[1] ?? 'day'; this.on_weather?.(this.wx, this.daytime)
     this.pools = Array.isArray(d.pools) ? d.pools : []
     for (const o of this.placed()) this.remove_object(o)
     if (d.shots !== undefined) { if (this.rig !== null) this.rig.set(d.shots); else this.pending_shots = d.shots }
     this.rebuild()
     for (const o of d.objects) { const ob = this.add_object(o.kind, o.p[0], o.p[2], o.r, o.s, o.x); ob.position.y = o.p[1] }
+    this.refresh_holes()
     this.plan = d.plan ?? null; this.on_plan?.(this.plan)
     this.wires_visible = d.wires_hidden !== true; if (!this.wires_visible) this.show_wires(false)
     this.refresh_panel()
@@ -603,13 +1177,42 @@ export class MapEditor {
   /** the 3D object of a plan shape */
   public plan_object (pid: string): THREE.Object3D | null { return this.placed().find(o => (o.userData.map_extra as MapExtra | undefined)?.pid === pid) ?? null }
 
+  /**
+   * a plan block (ore, skip, $ pad, a model on a block…) moved / turned / resized in 3D → written back into the 2D plan,
+   * else the next ▶ Play / Build rebuilds it from the plan and it jumps back. Returns true when the plan changed.
+   */
+  public sync_plan_from_3d (only?: THREE.Object3D | null): boolean {
+    if (this.plan === null) return false
+    const byid = new Map(this.plan.shapes.map(s => [s.id, s])); let changed = false
+    const x1 = new THREE.Vector3()
+    const near = (a: number, b: number): boolean => Math.abs(a - b) < 1e-3
+    for (const o of this.placed()) {
+      if (only != null && o !== only) continue
+      const ex = o.userData.map_extra as MapExtra | undefined; if (ex?.pid === undefined || o.userData.map_kind !== 'block') continue
+      const s = byid.get(ex.pid); if (s === undefined) continue
+      x1.set(1, 0, 0).applyQuaternion(o.quaternion); const yaw = Math.atan2(-x1.z, x1.x)
+      const size = ex.size ?? [s.w, s.height, s.d]
+      const nx = +o.position.x.toFixed(3); const nz = +o.position.z.toFixed(3); const nr = +(-yaw).toFixed(4)
+      const nw = +(size[0] * Math.abs(o.scale.x)).toFixed(3); const nd = +(size[2] * Math.abs(o.scale.z)).toFixed(3)
+      const nh = Math.abs(o.scale.y - 1) > 1e-3 ? +(size[1] * Math.abs(o.scale.y)).toFixed(3) : s.height // the build clamps tiny heights: only a real scale changes it
+      if (near(s.x, nx) && near(s.z, nz) && near(Math.atan2(Math.sin(s.r - nr), Math.cos(s.r - nr)), 0) && near(s.w, nw) && near(s.d, nd) && near(s.height, nh)) continue
+      s.x = nx; s.z = nz; s.r = nr; s.w = nw; s.d = nd; s.height = nh
+      changed = true
+    }
+    if (changed) { this.on_plan?.(this.plan); this.autosave_now() }
+    return changed
+  }
+
   /** every shape -> a block, every wire -> a flow path on the ground (the previous plan build is replaced) */
   public build_plan (plan: Plan): void {
     this.plan = JSON.parse(JSON.stringify(plan))
-    for (const o of this.placed()) if (o.userData.map_kind === 'block' || o.userData.map_kind === 'wire') this.remove_object(o)
+    // the selected plan block is rebuilt: the handles follow the new one (not the removed one)
+    const sel = this.world.selected; const sel_pid = sel !== null && sel.userData.map_kind === 'block' ? (sel.userData.map_extra as MapExtra | undefined)?.pid : undefined
+    for (const o of this.placed()) if (o.userData.map_kind === 'block' || o.userData.map_kind === 'wire') { if (this.world.selected === o) this.world.select(null); this.remove_object(o) }
     const byid = new Map(plan.shapes.map(s => [s.id, s]))
     // big zones first (floors), then what stands on them
     for (const s of [...plan.shapes].sort((a, b) => b.w * b.d - a.w * a.d)) {
+      if (s.kind === 'camera') continue // a 🎥 camera is a shot, not a block (below)
       const h = s.kind === 'player' ? 0.03 : Math.max(0.02, s.height ?? KIND_INFO[s.kind].height)
       this.add_object('block', s.x, s.z, -s.r, 1, { pid: s.id, size: [s.w, h, s.d], color: s.color, label: s.kind === 'zone' || s.kind === 'player' ? (s.label !== '' ? s.label : '') : s.label, form: s.form, model: s.model, role: s.kind, image: s.image, price: s.price ?? (s.kind === 'unlock' ? 50 : undefined), note: s.note })
     }
@@ -622,6 +1225,35 @@ export class MapEditor {
       const wo = this.add_object('wire', mx, mz, Math.atan2(-dz, dx), 1, { pid: w.id, size: [u1 - u0, 0.1, 0.8], mode: w.mode }); wo.visible = this.wires_visible
     }
     this.world.refresh(); this.autosave()
+    if (sel_pid !== undefined && this.world.gizmo.enabled) { const n = this.plan_object(sel_pid); if (n !== null) this.world.select(n) }
+    this.plan_shots(plan)
+  }
+
+  /** every 🎥 camera of the plan -> a shot (in plan order, one after another); the ones of the previous build are replaced */
+  private plan_shots (plan: Plan): void {
+    const rig = this.rig; if (rig === null) return
+    const cams = plan.shapes.filter(s => s.kind === 'camera')
+    const own = rig.shots.filter(s => s.pid === undefined)
+    if (cams.length === 0 && own.length === rig.shots.length) return
+    const player = plan.shapes.find(s => s.kind === 'player')
+    let t = own.reduce((m, s) => Math.max(m, s.t + s.dur), 0)
+    const made: Shot[] = cams.map(c => {
+      const h = Math.max(0.3, c.height ?? 3); const tr = c.track ?? ''
+      const obj = tr === '' || tr === 'player' ? null : this.plan_object(tr)
+      const tp = tr === 'player' ? (player !== undefined ? new THREE.Vector3(player.x, LOOK_UP, player.z) : new THREE.Vector3(0, LOOK_UP, 0))
+        : obj !== null ? obj.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, LOOK_UP, 0)) : null
+      // straight ahead: the plan's turn handle points the way the camera looks (screen up = -Z at 0°)
+      const ahead = new THREE.Vector3(c.x + Math.sin(c.r) * 8, Math.max(0.8, h * 0.35), c.z - Math.cos(c.r) * 8)
+      const target = tp ?? ahead
+      const mode: ShotMode = tr === '' ? 'fixed' : c.cmode === 'follow' ? 'follow' : 'look'
+      const follow = tr === 'player' ? 'player' : obj?.name ?? 'player'
+      const base = tp !== null ? tp.clone().sub(new THREE.Vector3(0, LOOK_UP, 0)) : ahead
+      const dur = Math.max(0.5, c.time ?? 3)
+      const s: Shot = { name: c.label !== '' ? c.label : 'Cam', t, dur, mode, pos: [c.x, h, c.z], target: [target.x, target.y, target.z], fov: c.fov ?? 50, follow, offset: [c.x - base.x, h - base.y, c.z - base.z], blend: 0, pid: c.id }
+      t += dur
+      return s
+    })
+    rig.set([...own, ...made]); rig.on_change?.()
   }
 
   private autosave (): void {
@@ -635,15 +1267,72 @@ export class MapEditor {
   }
 
   /** the map as a GLB: terrain, water, objects (hidden flow wires are left out), camera shots */
-  public async glb_buffer (cameras = true): Promise<ArrayBuffer> {
+  public async glb_buffer (cameras = true, playable = false): Promise<ArrayBuffer> {
     const sc = new THREE.Scene(); const g = new THREE.Group(); g.name = 'Greenbox Map'
     const ter = this.terrain.clone(); ter.material = this.terrain_mat; g.add(ter); if (this.water_mesh.visible) g.add(this.water_mesh.clone())
     for (const p of this.pool_group.children) g.add(p.clone())
-    for (const o of this.placed()) if (o.visible) g.add(o.clone())
+    // a playable takes every plan block, also the ones hidden behind a $ pad while it plays (the game shows them), never the plan wires
+    for (const o of this.placed()) {
+      const pid = (o.userData.map_extra as MapExtra | undefined)?.pid
+      if (playable && (o.userData.map_kind === 'wire' || /^flow_/.test(o.name))) continue
+      if (o.visible || (playable && pid !== undefined)) { const c = clone_deep(o); c.traverse(q => { if (playable) q.visible = true; if (q.userData.clips !== undefined) { q.userData = { ...q.userData }; delete q.userData.clips } }); g.add(c) } // clips are not glTF extras
+    }
     // camera shots as glTF cameras (Unity / Blender / Godot import them)
     if (cameras) for (const c of this.shot_cameras()) g.add(c)
-    sc.add(g)
+    sc.add(g); name_materials_for_export(g)
+    if (playable) jpeg_textures(g)
     return await new GLTFExporter().parseAsync(sc, { binary: true }) as ArrayBuffer
+  }
+
+  /** 📦 Unity package: the map as FBX + the picked MonoBehaviours + a builder (Greenbox ▸ Build map in scene) */
+  public async export_unitypackage (layout: PackageLayout): Promise<string[]> {
+    const sc = new THREE.Scene(); const g = new THREE.Group(); g.name = 'Greenbox Map'
+    const ter = this.terrain.clone(); ter.material = this.terrain_mat; ter.name = 'Terrain'; g.add(ter)
+    const objects: PackObject[] = []
+    const water: THREE.Object3D[] = []
+    if (this.water_mesh.visible) { const w = this.water_mesh.clone(); w.name = 'Water'; g.add(w); water.push(w) }
+    this.pool_group.children.forEach((p, i) => { const c = p.clone(); c.name = `Pool_${i + 1}`; g.add(c); water.push(c) })
+    for (const w of water) objects.push({ name: w.name, behaviours: [{ type: 'WaterSplash', options: { drops: 40 } }] })
+    for (const o of this.placed()) {
+      if (!o.visible || o.userData.map_kind === 'wire') continue
+      g.add(o.clone())
+      const mb = (o.userData.map_extra as MapExtra | undefined)?.mb ?? []
+      objects.push({ name: o.name, behaviours: mb.map(m => ({ type: m.t, options: m.o ?? {} })) })
+    }
+    sc.add(g); sc.updateMatrixWorld(true)
+    name_materials_for_export(g) // 🎨 colours survive Unity's import (unique material names)
+    const fbx = await new FBXExporter().parseAsync(sc, { preset: 'unity' as any, onlyVisible: false, embedTextures: true } as any) as unknown
+    const { blob, files } = await build_unitypackage(layout, fbx instanceof Uint8Array ? fbx : new Uint8Array(fbx as ArrayBuffer), JSON.stringify(this.data()), objects, await this.terrain_png())
+    this.download(blob, 'GreenboxMap.unitypackage')
+    return files
+  }
+
+  /**
+   * 🎨 the terrain's colours as a picture laid on its uv (u = i / n, v = 1 - j / n), in sRGB: for engines whose
+   * default shader ignores vertex colours (Unity URP / Lit). Bilinear between the grid points, like the vertex colours.
+   */
+  public async terrain_png (): Promise<Uint8Array> {
+    const col = this.terrain.geometry.getAttribute('color'); const n = this.n
+    const res = Math.min(1024, Math.max(64, n * 8))
+    const cv = document.createElement('canvas'); cv.width = cv.height = res
+    const cx = cv.getContext('2d')!; const img = cx.createImageData(res, res)
+    const s = (x: number): number => Math.round(255 * Math.min(1, Math.max(0, x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055)))
+    for (let py = 0; py < res; py++) {
+      const fj = (py + 0.5) / res * n; const j = Math.min(n - 1, Math.floor(fj)); const v = fj - j
+      for (let px = 0; px < res; px++) {
+        const fi = (px + 0.5) / res * n; const i = Math.min(n - 1, Math.floor(fi)); const u = fi - i
+        const a = this.idx(i, j); const b = this.idx(i + 1, j); const c = this.idx(i, j + 1); const d = this.idx(i + 1, j + 1)
+        const o = (py * res + px) * 4
+        for (let ch = 0; ch < 3; ch++) {
+          const val = (col.getComponent(a, ch) * (1 - u) + col.getComponent(b, ch) * u) * (1 - v) + (col.getComponent(c, ch) * (1 - u) + col.getComponent(d, ch) * u) * v
+          img.data[o + ch] = s(val)
+        }
+        img.data[o + 3] = 255
+      }
+    }
+    cx.putImageData(img, 0, 0)
+    const blob = await new Promise<Blob>((resolve, reject) => cv.toBlob(b => { if (b !== null) resolve(b); else reject(new Error('png')) }, 'image/png'))
+    return new Uint8Array(await blob.arrayBuffer())
   }
 
   public async export_glb (): Promise<void> {
@@ -782,7 +1471,25 @@ def build(kind, x, y, z, r, s, name, ex={}):
     elif kind == "wall":
         parts += [add("Stone", "cube", s, P(0, 1.1, 0), (0.61, 0.59, 0.56), (2, 0.3, 1.1), rot=r)]
     elif kind == "fence":
-        parts += [add("Wood", "cube", s, P(0, 0.55, 0), (0.48, 0.34, 0.2), (1.7, 0.06, 0.55), rot=r)]
+        parts += [add("Wood", "cube", s, P(0, 0.55, 0), (0.48, 0.34, 0.2), (1.5, 0.06, 0.55), rot=r)]
+    elif kind == "hwall" or kind == "door" or kind == "window":
+        parts += [add("Wall", "cube", s, P(0, 1.3, 0), (0.9, 0.85, 0.76), (1.6, 0.1, 1.3), rot=r)]
+    elif kind == "roof":
+        w, hh, d = ex.get("size", [6, 2.6, 6]); o = 0.4
+        ax = w >= d; sh = (d if ax else w) + 2 * o; ln = (w if ax else d) + 2 * o; rise = max(0.8, sh * 0.32)
+        hs = sh / 2; hl = ln / 2
+        vv = [(-hl, -hs, 0), (hl, -hs, 0), (hl, hs, 0), (-hl, hs, 0), (-hl, 0, rise), (hl, 0, rise)] if ax else [(-hs, -hl, 0), (hs, -hl, 0), (hs, hl, 0), (-hs, hl, 0), (0, -hl, rise), (0, hl, rise)]
+        vv = [(x + a, y - b, z + hh + c) for a, b, c in vv]
+        ff = [(0, 1, 2, 3), (0, 1, 5, 4), (3, 2, 5, 4), (0, 3, 4), (1, 2, 5)] if ax else [(0, 1, 2, 3), (0, 3, 5, 4), (1, 2, 5, 4), (0, 1, 4), (3, 2, 5)]
+        rm = bpy.data.meshes.new(name); rm.from_pydata(vv, [], ff); rm.update(); ro = bpy.data.objects.new(name, rm); col.objects.link(ro)
+        rm.materials.append(mat("Roof", (0.63, 0.27, 0.18))); parts += [ro]
+    elif kind == "floor":
+        w, t, d = ex.get("size", [6, 0.2, 6])
+        parts += [add("Floor", "cube", 1, P(0, -t / 2, 0), (0.79, 0.65, 0.49), (w / 2, d / 2, t / 2), rot=r)]
+    elif kind == "stairs":
+        T = 4.5 / 14
+        for k in range(14):
+            parts += [add("Step", "cube", 1, P(0, (k + 1) * 0.1, -2.25 + (k + 0.5) * T), (0.72, 0.54, 0.35), (0.7, T / 2, (k + 1) * 0.1), rot=r)]
     elif kind == "crate":
         parts += [add("Wood", "cube", s, P(0, 0.6, 0), (0.72, 0.54, 0.29), (0.6, 0.6, 0.6), rot=r)]
     elif kind == "barrel":
@@ -1033,15 +1740,22 @@ ${rows}
       <div class="row">${tb('none', M('🎮 Play', '🎮 Chơi', '🎮 플레이'), '')}${tb('select', '👆 ' + M('Select / move', 'Chọn / kéo', '선택/이동'), M('Click a house, tree, file… to get the move / turn / scale handles. Z turns it 15° (Shift+Z back, Alt+Z 90°). Delete removes it.', 'Bấm vào nhà, cây, file… để hiện tay kéo di chuyển / xoay / phóng to. Z xoay 15° (Shift+Z ngược, Alt+Z 90°). Delete để xoá.', '클릭해 이동/회전/크기 핸들 표시. Z 회전.'))}${tb('erase', '🧽 ' + M('Eraser', 'Gôm', '지우개'), M('Erase objects / files / boxes under the brush (drag). Click poured water to drain it.', 'Gôm vật thể / file / hộp dưới cọ (kéo được). Bấm vào nước đã đổ để rút nước.', '브러시 아래 오브젝트 삭제'))}</div>
       <div class="row">${tb('raise', '⛰ ' + M('Raise', 'Nâng', '올리기'), '')}${tb('lower', '⬇ ' + M('Lower', 'Hạ', '내리기'), '')}${tb('flatten', '▭ ' + M('Flatten', 'San phẳng', '평탄화'), '')}</div>
       <div class="row">${tb('smooth', '〰 ' + M('Smooth', 'Làm mịn', '부드럽게'), '')}${tb('paint', '🖌 ' + M('Paint', 'Tô đất', '칠하기'), '')}</div>
+      <div class="row" data-sculpt>${tb('grab', '✋ ' + M('Grab', 'Kéo đất', '잡아끌기'), M('Press and drag up / down: the ground under the brush follows the mouse', 'Giữ chuột rồi kéo lên / xuống: cả vùng đất trong cọ đi theo chuột', '눌러서 위아래로 끌기'))}${tb('crease', '⛰ ' + M('Ridge', 'Sống núi', '능선'), M('A sharp ridge: the middle rises much more than the sides', 'Đắp gờ nhọn: giữa nhô cao hơn hẳn hai bên', '날카로운 능선'))}${tb('noise', '🎲 ' + M('Rough', 'Gồ ghề', '거칠게'), M('Natural bumps', 'Làm mặt đất sần tự nhiên', '자연스러운 요철'))}${tb('terrace', '🪜 ' + M('Terraces', 'Bậc thang', '계단식'), M('Cuts the slope into 0.5 m steps', 'Cắt sườn thành bậc 0.5 m', '0.5 m 계단'))}</div>
       <div class="row">${tb('dig', '🕳 ' + M('Dig hole / trench', 'Khoét hố / rãnh', '구덩이 파기'), M('Carves a flat-bottomed hole; drag to draw a channel / river bed', 'Khoét hố đáy phẳng; kéo để kẻ rãnh / lòng sông', '바닥이 평평한 구덩이'))}${tb('pour', '💧 ' + M('Pour water', 'Đổ nước', '물 붓기'), M('Click inside a dug hole / channel: it fills up to its rim', 'Bấm vào trong hố / rãnh đã khoét: nước dâng tới miệng', '구덩이를 클릭하면 물이 찹니다'))}</div>
       <label class="sm">${M('Dig depth', 'Độ sâu khoét', '파기 깊이')} <input type="range" data-k="dig" min="3" max="80" value="${this.dig_depth * 10}"></label>
       <label class="sm">${M('Water fill', 'Nước đầy', '물 채움')} <input type="range" data-k="fill" min="30" max="100" value="${this.pool_fill * 100}"></label>
-      <div class="row" data-grounds>${GROUND.map((g, i) => `<button data-gr="${i}" title="${L(g)}" style="flex:none;width:30px;height:26px;padding:0;background:#${g.color.toString(16).padStart(6, '0')}"></button>`).join('')}</div>
+      <div class="row" data-grounds>${GROUND.map((g, i) => `<button data-gr="${i}" title="${L(g)}" style="flex:none;width:30px;height:26px;padding:0;--sw:#${g.color.toString(16).padStart(6, '0')};background:var(--sw)"></button>`).join('')}</div>
+      <div class="row" data-levels style="align-items:center;gap:4px;flex-wrap:wrap" title="${M('The floor you build on: walls, doors, windows, floors, stairs and objects go on this floor; the floors above turn see-through', 'Tầng đang xây: tường, cửa, cửa sổ, sàn, cầu thang và vật thể được đặt lên tầng này; các tầng phía trên tự mờ đi', '짓는 층')}"><span class="sm">🏢 ${M('Floor', 'Tầng', '층')}</span>${Array.from({ length: MAX_LEVEL }, (_, i) => `<button data-lv="${i}" style="flex:none;min-width:30px;padding:4px 8px">${i + 1}</button>`).join('')}</div>
       <div class="row" data-objs style="flex-wrap:wrap">${OBJECTS.map(o => `<button data-ob="${o.id}" title="${L(o)}" style="flex:none;padding:4px 6px">${o.icon}</button>`).join('')}</div>
       <div class="row" data-cobjs style="flex-wrap:wrap"></div>
       <div class="row"><button data-x="addfile" title="${M('Your own GLB / FBX / OBJ: it joins the palette, then click to place as many as you want (Z turns it before placing)', 'GLB / FBX / OBJ của bạn: vào bảng vật thể, rồi bấm để đặt bao nhiêu cái cũng được (Z xoay trước khi đặt)', '내 3D 파일을 팔레트에 추가')}">＋ ${M('3D file to the palette…', 'File 3D vào bảng vật…', '3D 파일 추가…')}</button></div>
       <input type="file" data-k="cfile" accept=".glb,.gltf,.fbx,.obj,.dae,.stl,.ply,.3mf,.zip" multiple hidden>
-      <div class="sm">${M('Placing: Z turns the object 15° one way, X the other way (Alt = 90°).', 'Đang đặt: Z xoay vật 15° một chiều, X xoay ngược lại (giữ Alt = 90°).', '배치 중: Z/X로 회전.')}</div>
+      <div class="sm">${M('Placing: Z / X turn the object. Fences, walls, house pieces: 90° (they stay on the grid). Trees, rocks, bushes: 15°, and every copy still differs (🎲 below).', 'Đang đặt: Z / X xoay vật. Hàng rào, tường, nhà: 90° (luôn khớp lưới). Cây, đá, bụi: 15°, mỗi cây vẫn khác nhau một chút (🎲 bên dưới).', '배치 중: Z/X 회전. 울타리·벽 90°, 나무·바위 15° + 변화.')}</div>
+      <label class="sm" title="${M('0 = every copy the same, 100 = each one turned and sized differently', '0 = mọi bản giống hệt, 100 = mỗi bản xoay và to nhỏ khác nhau', '0 = 동일, 100 = 다양')}">🎲 ${M('Variety (trees, rocks, bushes)', 'Độ đa dạng (cây, đá, bụi)', '다양성')} <input type="range" data-k="variety" min="0" max="100" value="${Math.round(this.variety * 100)}"></label>
+      <label class="sm" title="${M('Size of the object you place next (also: select a placed one in Edit map and use the size buttons / S handles)', 'Kích thước vật sắp đặt (vật đã đặt: chọn trong Sửa map rồi dùng nút kích thước / tay kéo S)', '배치할 크기')}">📏 ${M('Size', 'Kích thước', '크기')} <input type="range" data-k="psize" min="20" max="400" step="5" value="${Math.round(this.place_size * 100)}"> <span data-psizev>${Math.round(this.place_size * 100)}%</span></label>
+      <div class="row" style="gap:6px"><label class="sm" style="flex:1">☁ ${M('Weather', 'Thời tiết', '날씨')} <select data-wx>${([['clear', 'Clear', 'Nắng'], ['cloudy', 'Cloudy', 'Nhiều mây'], ['rain', 'Rain', 'Mưa'], ['storm', 'Storm', 'Giông bão'], ['snow', 'Snow', 'Tuyết'], ['fog', 'Fog', 'Sương mù']] as const).map(([v, en, vi]) => `<option value="${v}"${this.wx === v ? ' selected' : ''}>${M(en, vi, en)}</option>`).join('')}</select></label>
+      <label class="sm" style="flex:1">🕒 ${M('Time', 'Giờ', '시간')} <select data-daytime>${([['day', 'Day', 'Ban ngày'], ['sunset', 'Sunset', 'Hoàng hôn'], ['night', 'Night', 'Ban đêm']] as const).map(([v, en, vi]) => `<option value="${v}"${this.daytime === v ? ' selected' : ''}>${M(en, vi, en)}</option>`).join('')}</select></label></div>
+      <div class="sm mut" style="font-size:11.5px;opacity:.75">${M('Click on a table / crate = put it on top · Alt+click = pick a placed object up · ⇧ = snap to the grid', 'Bấm lên bàn / thùng = đặt lên trên · Alt+bấm = nhấc vật đã đặt · ⇧ Shift = căn theo lưới', '위에 놓기 · Alt = 집기 · ⇧ = 격자')}</div>
       <label class="sm" title="${M('The whole ground square: bigger adds flat ground around it, smaller cuts it to the middle (Ctrl+Z brings it back)', 'Cả ô đất vuông: lớn hơn thì thêm đất phẳng xung quanh, nhỏ hơn thì cắt lấy phần giữa (Ctrl+Z để lấy lại)', '전체 바닥 크기')}">⬛ ${M('Map size', 'Cỡ map tổng', '맵 크기')} <input type="range" data-k="msize" min="24" max="300" step="6" value="${Math.round(this.n * this.cell)}"> <span data-msizev>${Math.round(this.n * this.cell)} m</span></label>
       <label class="sm">${M('Brush size', 'Cỡ cọ', '브러시 크기')} <input type="range" data-k="radius" min="1" max="12" value="${this.radius}"></label>
       <label class="sm">${M('Strength', 'Lực', '강도')} <input type="range" data-k="strength" min="5" max="100" value="${this.strength * 100}"></label>
@@ -1050,6 +1764,7 @@ ${rows}
       <div class="row"><select data-k="preset" style="flex:1"><option value="">${M('New map…', 'Map mới…', '새 맵…')}</option><option value="flat">${M('Flat', 'Phẳng', '평지')}</option><option value="hills">${M('Hills', 'Đồi', '언덕')}</option><option value="island">${M('Island', 'Đảo', '섬')}</option><option value="valley">${M('Valley', 'Thung lũng', '계곡')}</option><option value="mountains">${M('Mountains', 'Núi', '산')}</option></select></div>
       <div class="row"><button data-x="save">💾 ${M('Save .json', 'Lưu .json', '저장')}</button><button data-x="load">📂 ${M('Open', 'Mở', '열기')}</button></div>
       <div class="row"><button data-x="glb" title="${M('Map + camera shots as glTF cameras (Unity, Godot, Blender)', 'Map + các shot camera (camera glTF cho Unity, Godot, Blender)', '맵 + 카메라')}">⬇ GLB</button><button data-x="blend" title="${M('A Python script that rebuilds this map in Blender, with the cameras and the markers that switch them', 'Script Python dựng lại map trong Blender, kèm camera và marker đổi camera', '블렌더 스크립트')}">⬇ Blender (.py)</button><button data-x="unity" title="${M('C# script: plays the camera shots in Unity (import the GLB first)', 'Script C#: phát các shot camera trong Unity (import GLB trước)', '유니티 C#')}">⬇ Unity (.cs)</button></div>
+      <div class="row"><button data-x="unitypkg" class="pri" title="${M('A .unitypackage for the devs: the map (FBX), the MonoBehaviours you picked on the objects, and a builder (menu Greenbox ▸ Build map in scene). You choose the folders.', 'Gói .unitypackage cho dev: map (FBX), các MonoBehaviour bạn đã gắn vào vật, và script dựng map (menu Greenbox ▸ Build map in scene). Bạn chọn thư mục.', 'Unity 패키지')}">📦 ${M('Unity package (.unitypackage)', 'Gói Unity (.unitypackage)', 'Unity 패키지')}</button></div>
       <input type="file" data-k="file" accept=".json" hidden>
       <details data-layout style="margin-top:6px"><summary style="cursor:pointer;font-weight:600">🖼 ${M('2D layout picture → 3D map', 'Ảnh layout 2D → map 3D', '2D 레이아웃 → 3D 맵')}</summary>
         <div class="sm">${M('A top-down plan where colours mean things. Each colour blob is measured (place, size, direction) and becomes ground, water, mountains, houses, walls, forests…', 'Bản vẽ nhìn từ trên xuống, mỗi màu là một thứ. Từng mảng màu được đo (vị trí, kích thước, hướng) rồi thành đất, nước, núi, nhà, tường, rừng…', '색으로 그린 평면도를 3D 맵으로')}</div>
@@ -1067,17 +1782,47 @@ ${rows}
         <div class="sm" data-lnote></div>
       </details>
       <div class="sm">${M('Click / drag on the ground with a tool. Objects: pick one, click to place (houses snap to the grid). Right-drag turns the camera. Blender: Scripting › Open the .py › Run Script.', 'Bấm / kéo trên mặt đất với công cụ. Vật thể: chọn rồi bấm để đặt (nhà tự khớp lưới). Kéo chuột phải để xoay camera. Blender: Scripting › Open file .py › Run Script.', '도구로 지면을 클릭/드래그하세요.')}</div>`
+    // picture tiles instead of emoji buttons: the tools, then the objects
+    tile_grid([...sec.querySelectorAll<HTMLElement>('[data-mt]')].filter(b => !SCULPT_TOOLS.includes(b.dataset.mt as MapTool)), b => 'tool-' + (b.dataset.mt ?? ''))
+    { // ✋ sculpt: its own group with a title, under the terrain tools
+      const sb = [...sec.querySelectorAll<HTMLElement>('[data-mt]')].filter(b => SCULPT_TOOLS.includes(b.dataset.mt as MapTool))
+      const g = tile_grid(sb, b => 'tool-' + (b.dataset.mt ?? ''))
+      const t = document.createElement('div'); t.className = 'gb-grouptitle'; t.textContent = M('Sculpt (like Blender)', 'Điêu khắc địa hình (như Blender)', '스컬프트'); g.before(t)
+    }
+    tile_grid(['addfile', 'save', 'load', 'clear'].map(k => sec.querySelector<HTMLElement>(`[data-x="${k}"]`)).filter((b): b is HTMLElement => b !== null), b => 'x-' + (b.dataset.x ?? ''), true)
+    const objs = sec.querySelector<HTMLElement>('[data-objs]')
+    if (objs !== null) { objs.className = 'gb-tiles'; objs.removeAttribute('style'); objs.querySelectorAll<HTMLElement>('[data-ob]').forEach(b => { const o = OBJECTS.find(q => q.id === b.dataset.ob); tile(b, 'obj-' + (b.dataset.ob ?? ''), o !== undefined ? L(o) : undefined) }) }
     sec.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest('button'); if (b === null) return
       if (b.dataset.mt !== undefined) this.tool = b.dataset.mt as MapTool
       if (b.dataset.gr !== undefined) { this.ground = Number(b.dataset.gr); this.tool = 'paint' }
-      if (b.dataset.ob !== undefined) { this.object = b.dataset.ob; this.tool = 'place'; this.user_rot = false; this.rot = 0 }
+      if (b.dataset.ob !== undefined) {
+        this.object = b.dataset.ob; this.tool = 'place'; this.user_rot = false; this.rot = 0
+        // 🏠 building a house: how the pieces go together
+        if (this.object === 'hwall') this.status?.(M('House wall: press on a grid point and drag a straight run (3 m pieces); start the next run from a corner post. Close the room, then add doors, windows and a roof.', 'Tường nhà: nhấn vào một điểm lưới rồi kéo thành dãy thẳng (mỗi tấm 3 m); kéo dãy tiếp theo từ cột ở góc. Khép kín phòng rồi gắn cửa, cửa sổ và mái.', '집 벽: 드래그로 배치'), false)
+        else if (this.object === 'door' || this.object === 'window') this.status?.(M('Click a wall piece (where its run starts) to swap it, or drag a run. Z turns it to go along Z.', 'Bấm vào đầu một tấm tường để thay nó, hoặc kéo thành dãy. Z để xoay sang trục dọc.', '벽 조각을 클릭해 교체'), false)
+        else if (this.object === 'floor') this.status?.(M('Floor: pick the floor number above, then click inside a closed room. Floor 2+ = a slab on top of the walls of the floor below (holes are cut over stairs).', 'Sàn: chọn số tầng ở trên, rồi bấm vào trong một phòng kín. Tầng 2 trở lên = tấm sàn đặt trên tường tầng dưới (tự khoét lỗ chỗ cầu thang).', '바닥: 닫힌 방 안 클릭'), false)
+        else if (this.object === 'stairs') this.status?.(M('Stairs: go from the floor you are building on to the next one (4.5 m long, 1.5 m wide). Z turns them 90°; the ghost shows the way up. Leave room at the top end.', 'Cầu thang: đi từ tầng đang xây lên tầng kế (dài 4.5 m, rộng 1.5 m). Z xoay 90°; bóng mờ cho thấy hướng đi lên. Chừa chỗ trống ở đầu trên.', '계단: Z로 90° 회전'), false)
+        else if (this.object === 'roof') this.status?.(M('Roof: click inside a closed room (walls, doors and windows all around). The roof fits the room and turns see-through when the character is inside.', 'Mái: bấm vào bên trong một phòng đã khép kín (tường, cửa, cửa sổ bao quanh). Mái tự khớp theo phòng và mờ đi khi nhân vật ở trong nhà.', '지붕: 닫힌 방 안을 클릭'), false)
+      }
+      if (b.dataset.lv !== undefined) {
+        this.level = Number(b.dataset.lv); this.base_level = this.level; this.hide_ghost()
+        this.status?.(M(`Building on floor ${this.level + 1}. Floors above it turn see-through while you build.${this.level > 0 ? ' Walls go on top of the walls below; then a Floor over the room below, and Stairs on the floor below to walk up.' : ''}`, `Đang xây tầng ${this.level + 1}. Các tầng phía trên mờ đi khi đang xây.${this.level > 0 ? ' Tường đặt lên trên tường tầng dưới; rồi đặt Sàn phủ phòng bên dưới, và Cầu thang ở tầng dưới để đi lên.' : ''}`, `${this.level + 1}층`), false)
+      }
       if (b.dataset.rmf !== undefined) { void this.remove_custom(b.dataset.rmf); return }
       if (b.dataset.lx !== undefined || b.dataset.ldel !== undefined) return
       if (this.tool !== 'place') this.hide_ghost()
       const x = b.dataset.x
       if (x === 'addfile') { (sec.querySelector('[data-k="cfile"]') as HTMLInputElement).click(); return }
       if (x === 'unity') this.export_unity()
+      if (x === 'unitypkg') {
+        void (async () => {
+          const { ask_layout } = await import('./unity/BehaviourPanel.ts')
+          const L = await ask_layout(); if (L === null) return
+          this.status?.(M('Building the Unity package…', 'Đang tạo gói Unity…', 'Unity 패키지 만드는 중…'), false)
+          try { const files = await this.export_unitypackage(L); this.status?.(M(`GreenboxMap.unitypackage saved (${files.length} files). In Unity: Assets › Import Package › Custom Package, then menu Greenbox › Build map in scene.`, `Đã lưu GreenboxMap.unitypackage (${files.length} file). Trong Unity: Assets › Import Package › Custom Package, rồi menu Greenbox › Build map in scene.`, 'Unity 패키지 저장됨'), false) } catch (err) { this.status?.(String(err), true) }
+        })()
+      }
       if (x === 'clear' && confirm(M('Clear the whole map? (Ctrl+Z / Cmd+Z brings it back)', 'Xoá hết map? (Ctrl+Z / Cmd+Z để lấy lại)', '맵을 모두 지울까요?'))) this.clear_all()
       if (x === 'save') this.save_file()
       else if (x === 'load') (sec.querySelector('[data-k="file"]') as HTMLInputElement).click()
@@ -1090,6 +1835,8 @@ ${rows}
       const el = e.target as HTMLInputElement; const k = el.dataset.k
       if (k === 'radius') this.radius = Number(el.value)
       else if (k === 'strength') this.strength = Number(el.value) / 100
+      else if (k === 'variety') this.variety = Number(el.value) / 100
+      else if (k === 'psize') { this.place_size = Number(el.value) / 100; const o = this.panel?.querySelector("[data-psizev]"); if (o) o.textContent = el.value + '%'; if (this.ghost) this.ghost.scale.setScalar(this.place_size) }
       else if (k === 'water') { this.water = Number(el.value) / 10; this.rebuild() }
       else if (k === 'sea') { this.sea = el.checked; this.rebuild() }
       else if (k === 'dig') this.dig_depth = Number(el.value) / 10
@@ -1099,6 +1846,7 @@ ${rows}
     sec.addEventListener('change', (e) => {
       const el = e.target as HTMLInputElement | HTMLSelectElement; const k = el.dataset.k
       if (k === 'msize') this.resize(Number(el.value))
+      if (el.dataset.wx !== undefined || el.dataset.daytime !== undefined) { const q = (x: string): string => (sec.querySelector(x) as HTMLSelectElement).value; this.set_weather(q('[data-wx]') as WeatherKind, q('[data-daytime]') as DayTime) }
       if (k === 'preset' && el.value !== '') { if (confirm(M('Replace the current map?', 'Thay map hiện tại?', '현재 맵을 바꿀까요?'))) this.preset(el.value as any); el.value = '' }
       if (k === 'file') { const f = (el as HTMLInputElement).files?.[0]; if (f !== undefined) void f.text().then(t => this.load(JSON.parse(t) as MapData)); (el as HTMLInputElement).value = '' }
       if (k === 'cfile') {
@@ -1117,6 +1865,7 @@ ${rows}
     const sea = p.querySelector<HTMLInputElement>('[data-k="sea"]'); if (sea !== null) sea.checked = this.sea
     p.querySelectorAll<HTMLElement>('[data-gr]').forEach(b => { b.style.outline = this.tool === 'paint' && Number(b.dataset.gr) === this.ground ? '2px solid #fff' : 'none' })
     p.querySelectorAll<HTMLElement>('[data-ob]').forEach(b => b.classList.toggle('on', this.tool === 'place' && b.dataset.ob === this.object))
+    p.querySelectorAll<HTMLElement>('[data-lv]').forEach(b => b.classList.toggle('on', Number(b.dataset.lv) === this.level))
     const ms = p.querySelector<HTMLInputElement>('[data-k="msize"]'); const mv = p.querySelector('[data-msizev]'); const sz = Math.round(this.n * this.cell); if (ms !== null && document.activeElement !== ms) ms.value = String(sz); if (mv !== null) mv.textContent = `${sz} m`
     if (this.tool === 'none') this.ring.visible = false
   }

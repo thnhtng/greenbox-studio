@@ -24,7 +24,7 @@ export class CloneRigWizard {
   private preview: THREE.Group | null = null
   private mixer: THREE.AnimationMixer | null = null
   private raf = 0
-  private timer = new THREE.Timer()
+  private clock = new THREE.Timer()
   private busy = false
   private done = false
   private model_name = ''
@@ -265,8 +265,8 @@ export class CloneRigWizard {
 
   private loop (): void {
     this.raf = requestAnimationFrame(() => this.loop())
-    this.timer.update()
-    const dt = this.timer.getDelta()
+    this.clock.update()
+    const dt = this.clock.getDelta()
     if (this.mixer !== null) this.mixer.update(dt)
     // step 2 → 3 happens inside the rig page: keep the cards in sync
     // the ready rigs appear as soon as a dropped model is in, whatever step number

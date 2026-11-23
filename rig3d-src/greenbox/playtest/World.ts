@@ -8,6 +8,7 @@
  *   ledge   = a wall whose top is at most CLIMB_MAX above the feet -> the character climbs it
  */
 import { load_any_buffer } from '../common/AnyLoader.ts'
+import { clone_deep } from '../common/CloneDeep.ts'
 import * as THREE from 'three'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -23,7 +24,7 @@ export class World {
   public readonly props = new THREE.Group() // everything walkable / solid
   public selected: THREE.Object3D | null = null
   public on_change: (() => void) | null = null
-  private readonly gizmo: TransformControls
+  public readonly gizmo: TransformControls
   private readonly ray = new THREE.Raycaster()
   private solids: THREE.Mesh[] = []
 
@@ -46,6 +47,7 @@ export class World {
     this.solids = []
     this.props.updateMatrixWorld(true)
     this.props.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh === true && m.visible) this.solids.push(m) })
+    if (this.selected !== null) { let p: THREE.Object3D | null = this.selected; while (p !== null && p !== this.props) p = p.parent; if (p === null) this.select(null) } // the selected prop was rebuilt / removed: no handles on a ghost
     this.on_change?.()
   }
 
@@ -79,7 +81,7 @@ export class World {
   }
 
   public duplicate (o: THREE.Object3D): THREE.Object3D {
-    const c = o.clone(true)
+    const c = clone_deep(o)
     c.position.x += 1.5
     this.props.add(c); this.refresh()
     return c
@@ -98,20 +100,154 @@ export class World {
 
   public set_mode (m: EditMode): void { this.gizmo.setMode(m) }
 
+  public on_select: ((o: THREE.Object3D | null) => void) | null = null
   public select (o: THREE.Object3D | null): void {
-    this.selected = o
+    this.selected = o; this.on_select?.(o)
     if (o === null) this.gizmo.detach(); else this.gizmo.attach(o)
   }
 
-  /** the top-level prop under a screen point */
+  /* ---------------- ✋ grab: hold a prop and slide it over the map, a liquid glass halo under it ---------------- */
+  public held: THREE.Object3D | null = null
+  private readonly grab_off = new THREE.Vector2()
+  private grab_moved = false
+  private halo: THREE.Group | null = null
+  private halo_t = 0
+
+  /** emerald glass disc + a white rim + a soft green glow ring (drawn over the ground, never picked) */
+  private make_halo (): THREE.Group {
+    const g = new THREE.Group(); g.name = 'grab halo'
+    const glass = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshPhysicalMaterial({
+      color: 0x8dffc8, transparent: true, opacity: 0.34, roughness: 0.05, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05,
+      sheen: 1, sheenColor: new THREE.Color(0xffffff), emissive: 0x2fe98b, emissiveIntensity: 0.22, depthWrite: false
+    }))
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.035, 12, 96), new THREE.MeshPhysicalMaterial({
+      color: 0xffffff, emissive: 0xe9fff4, emissiveIntensity: 0.6, roughness: 0.1, clearcoat: 1, transparent: true, opacity: 0.92, depthWrite: false
+    }))
+    const glow = new THREE.Mesh(new THREE.RingGeometry(1.02, 1.32, 96), new THREE.MeshBasicMaterial({ color: 0x2fe98b, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }))
+    const hi = new THREE.Mesh(new THREE.RingGeometry(0.6, 0.68, 64, 1, Math.PI * 0.15, Math.PI * 0.55), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false }))
+    for (const m of [glass, rim, glow, hi]) { m.rotation.x = -Math.PI / 2; m.userData.no_pick = true; m.renderOrder = 10; g.add(m) }
+    g.visible = false
+    this.scene.add(g)
+    return g
+  }
+
+  private place_halo (o: THREE.Object3D): void {
+    if (this.halo === null) this.halo = this.make_halo()
+    const b = new THREE.Box3().setFromObject(o); const s = b.getSize(new THREE.Vector3())
+    this.halo.scale.setScalar(Math.max(0.6, Math.hypot(s.x, s.z) * 0.58))
+    this.halo.position.set((b.min.x + b.max.x) / 2, b.min.y + 0.05, (b.min.z + b.max.z) / 2)
+    this.halo.visible = true
+  }
+
+  /** where the cursor ray meets the map (ground / other props), skipping the held prop; the y = 0 plane as a fallback */
+  private grab_point (ndc: THREE.Vector2, camera: THREE.Camera, skip: THREE.Object3D): THREE.Vector3 | null {
+    this.ray.setFromCamera(ndc, camera)
+    const inside = (m: THREE.Object3D): boolean => { let p: THREE.Object3D | null = m; while (p !== null) { if (p === skip) return true; p = p.parent } return false }
+    const h = this.ray.intersectObjects(this.solids.filter(m => !inside(m) && m.userData.no_pick !== true), false)[0]
+    this.grab_top = h !== undefined && this.faces_up(h) ? h.point.y : null
+    if (h !== undefined) return h.point.clone()
+    return this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3())
+  }
+
+  /** the top of another prop under the cursor while holding one (a keyboard over a table) — null over the ground */
+  private grab_top: number | null = null
+  private faces_up (h: THREE.Intersection): boolean { return h.face != null && h.face.normal.clone().transformDirection(h.object.matrixWorld).y > 0.5 }
+
+  /** 📚 the up-facing top of a prop under this ray (to put a new object ON a table, a crate…), or null */
+  public prop_top (ray: THREE.Ray, skip?: THREE.Object3D | null): THREE.Vector3 | null {
+    this.ray.set(ray.origin, ray.direction)
+    const inside = (m: THREE.Object3D): boolean => { let p: THREE.Object3D | null = m; while (p !== null) { if (p === skip) return true; p = p.parent } return false }
+    const h = this.ray.intersectObjects(this.solids.filter(m => m.userData.no_pick !== true && !inside(m)), false)[0]
+    return h !== undefined && this.faces_up(h) ? h.point.clone() : null
+  }
+
+  /** put o's bottom at height y (stacking) */
+  public set_bottom (o: THREE.Object3D, y: number): void { o.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(o); o.position.y += y - b.min.y; o.updateMatrixWorld(true) }
+
+  public grab_start (o: THREE.Object3D, ndc: THREE.Vector2, camera: THREE.Camera): void {
+    const p = this.grab_point(ndc, camera, o)
+    this.held = o; this.grab_moved = false
+    ;((this.gizmo as any).getHelper?.() ?? this.gizmo).visible = false // the arrows would only get in the way while holding
+    this.grab_off.set(p === null ? 0 : o.position.x - p.x, p === null ? 0 : o.position.z - p.z)
+    this.place_halo(o)
+  }
+
+  public grab_move (ndc: THREE.Vector2, camera: THREE.Camera): void {
+    const o = this.held; if (o === null) return
+    const p = this.grab_point(ndc, camera, o); if (p === null) return
+    o.position.x = p.x + this.grab_off.x; o.position.z = p.z + this.grab_off.y
+    if (this.grid_step > 0 && this.shift) { o.position.x = Math.round(o.position.x / this.grid_step) * this.grid_step; o.position.z = Math.round(o.position.z / this.grid_step) * this.grid_step }
+    if (this.snap && this.grab_top !== null) this.set_bottom(o, this.grab_top); else if (this.snap) this.drop_to_ground(o); else o.position.y = p.y
+    o.updateMatrixWorld(true)
+    this.grab_moved = true
+    this.place_halo(o)
+  }
+
+  /** true when the prop really moved (worth an autosave) */
+  public grab_end (): boolean {
+    const moved = this.grab_moved
+    this.held = null; this.grab_moved = false
+    if (this.halo !== null) this.halo.visible = false
+    ;((this.gizmo as any).getHelper?.() ?? this.gizmo).visible = true
+    if (moved) this.refresh()
+    return moved
+  }
+
+  /** the halo breathes a little while held (every frame) */
+  public tick_halo (dt: number): void {
+    if (this.halo === null || !this.halo.visible) return
+    this.halo_t += dt
+    const k = 0.5 + 0.5 * Math.sin(this.halo_t * 4)
+    ;((this.halo.children[2] as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.2 + 0.25 * k
+    this.halo.children[3].rotation.z = this.halo_t * 0.9
+  }
+
+  /**
+   * the top-level prop under a screen point. A thin model (a sword, a fence, a plant) is easy to miss by a few pixels, and the click
+   * then landed on whatever stood behind it (a plan block, a see-through placeholder): the handles jumped there and "the model stayed".
+   * So: see-through wireframes never win over something real, and a smaller prop whose box the ray enters first wins over the big thing behind.
+   */
   public pick (ndc: THREE.Vector2, camera: THREE.Camera): THREE.Object3D | null {
     this.ray.setFromCamera(ndc, camera)
-    const h = this.ray.intersectObjects(this.solids, false).find(i => i.object.userData.no_pick !== true)
-    if (h === undefined) return null
-    let o: THREE.Object3D = h.object
-    while (o.parent !== null && o.parent !== this.props) o = o.parent
-    return o.parent === this.props ? o : null
+    const top = (q: THREE.Object3D): THREE.Object3D | null => { let o = q; while (o.parent !== null && o.parent !== this.props) o = o.parent; return o.parent === this.props ? o : null }
+    const wire = (m: THREE.Material): boolean => (m as any).wireframe === true || m.visible === false || (m.transparent && m.opacity < 0.08)
+    const real = (q: THREE.Object3D): boolean => {
+      if (q.userData.no_pick === true) return false
+      const mat = (q as THREE.Mesh).material; if (mat !== undefined && (Array.isArray(mat) ? mat.every(wire) : wire(mat))) return false
+      for (let p: THREE.Object3D | null = q; p !== null; p = p.parent) if (!p.visible) return false
+      return true
+    }
+    const hits = this.ray.intersectObjects(this.solids, false)
+    const ground = hits.find(i => i.object.userData.no_pick === true)?.distance ?? Infinity // nothing behind the terrain is picked through it
+    const h = hits.find(i => i.distance <= ground + 0.05 && real(i.object)) ?? hits.find(i => i.distance <= ground + 0.05 && i.object.userData.no_pick !== true)
+    const under = h !== undefined ? top(h.object) : null
+    const near = this.pick_box(h !== undefined ? h.distance : ground + 0.05, under)
+    return near ?? under
   }
+
+  /**
+   * a click in the gaps of a sparse prop (grass tuft, coin pile, fence) still picks it: the nearest prop box on the ray, in front of `max`.
+   * With a real hit `under` behind it, only a clearly smaller prop wins (a sword in front of a block: yes; a house around a chair: no).
+   */
+  private pick_box (max = Infinity, under: THREE.Object3D | null = null): THREE.Object3D | null {
+    let best: THREE.Object3D | null = null; let bd = max; const v = new THREE.Vector3(); const s = new THREE.Vector3()
+    const vol = (o: THREE.Object3D): number => { const q = new THREE.Box3().setFromObject(o).getSize(s); return Math.max(q.x, 0.05) * Math.max(q.y, 0.05) * Math.max(q.z, 0.05) }
+    const limit = under !== null ? vol(under) * 0.6 : Infinity
+    for (const o of this.props.children) {
+      if (o === under || !o.visible || o.userData.no_pick === true) continue
+      const b = new THREE.Box3().setFromObject(o); if (b.isEmpty()) continue
+      b.getSize(s); if (Math.max(s.x, s.z) > 30) continue // terrain-size things (a map file) need a real hit
+      if (Math.max(s.x, 0.05) * Math.max(s.y, 0.05) * Math.max(s.z, 0.05) > limit) continue
+      b.expandByScalar(0.12)
+      if (b.containsPoint(this.ray.ray.origin)) continue // the camera stands inside it
+      if (this.ray.ray.intersectBox(b, v) !== null) { const d = v.distanceTo(this.ray.ray.origin); if (d < bd) { bd = d; best = o } }
+    }
+    return best
+  }
+
+  /** ⇧ held while dragging: snap to this grid step (m); set by the app */
+  public grid_step = 1
+  public shift = false
 
   /** put a prop on whatever is under it (ground or another prop) */
   public drop_to_ground (o: THREE.Object3D | null): void {

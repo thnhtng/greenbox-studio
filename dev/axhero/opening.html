@@ -1,0 +1,52 @@
+<!-- ===== 🎬 opening: a Greenbox crystal box cracks open, light bursts out, the camera flies in to the page (once per visit) ===== -->
+<style>
+#gbopen{position:fixed;inset:0;z-index:9999;background:radial-gradient(120% 90% at 50% 45%,#0d2a1d 0%,#050807 62%,#020303 100%);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;transition:opacity .45s ease}
+#gbopen.out{opacity:0;pointer-events:none}
+#gbopen .stage{position:relative;width:340px;height:420px;display:flex;flex-direction:column;align-items:center;transform-origin:50% 42%}
+#gbopen .half{position:absolute;left:0;top:0;width:340px;height:300px;display:flex;align-items:center;justify-content:center;perspective:900px}
+#gbopen .hl{clip-path:polygon(0 0,50% 0,46% 22%,54% 38%,47% 53%,55% 68%,48% 84%,52% 100%,0 100%)}
+#gbopen .hr{clip-path:polygon(50% 0,100% 0,100% 100%,52% 100%,48% 84%,55% 68%,47% 53%,54% 38%,46% 22%)}
+#gbopen .cube{position:relative;width:150px;height:150px;transform-style:preserve-3d;animation:gbspin 3.4s cubic-bezier(.3,.1,.3,1) forwards}
+#gbopen .f{position:absolute;inset:0;border:2px solid rgba(214,255,234,.85);border-radius:10px;background:linear-gradient(135deg,rgba(190,255,224,.42),rgba(47,233,139,.14) 55%,rgba(10,80,48,.38));box-shadow:inset 0 0 38px rgba(47,233,139,.55),0 0 26px rgba(47,233,139,.35);backface-visibility:visible}
+#gbopen .f1{transform:translateZ(75px)}#gbopen .f2{transform:rotateY(180deg) translateZ(75px)}#gbopen .f3{transform:rotateY(90deg) translateZ(75px)}
+#gbopen .f4{transform:rotateY(-90deg) translateZ(75px)}#gbopen .f5{transform:rotateX(90deg) translateZ(75px)}#gbopen .f6{transform:rotateX(-90deg) translateZ(75px)}
+#gbopen .core{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;border-radius:50%;background:radial-gradient(circle,#fff 0%,#b9ffd9 30%,rgba(47,233,139,.55) 60%,rgba(47,233,139,0) 75%);animation:gbcore 3.4s ease-in forwards}
+@keyframes gbspin{0%{transform:rotateX(-22deg) rotateY(-30deg) translateY(10px)}35%{transform:rotateX(-22deg) rotateY(25deg) translateY(-6px)}46%{transform:rotateX(-22deg) rotateY(38deg)}48%{transform:rotateX(-22deg) rotateY(36deg) translateX(-3px)}50%{transform:rotateX(-22deg) rotateY(40deg) translateX(3px)}52%,100%{transform:rotateX(-22deg) rotateY(38deg)}}
+@keyframes gbcore{0%,30%{transform:scale(.6);opacity:.55}50%{transform:scale(1.25);opacity:1}100%{transform:scale(1.5);opacity:1}}
+#gbopen .hl{animation:gbleft 3.4s cubic-bezier(.5,0,.2,1) forwards}#gbopen .hr{animation:gbright 3.4s cubic-bezier(.5,0,.2,1) forwards}
+@keyframes gbleft{0%,52%{transform:none}72%,100%{transform:translate(-120px,18px) rotate(-14deg);opacity:.95}}
+@keyframes gbright{0%,52%{transform:none}72%,100%{transform:translate(120px,18px) rotate(14deg);opacity:.95}}
+#gbopen svg.crack{position:absolute;left:0;top:0;width:340px;height:300px;overflow:visible;pointer-events:none}
+#gbopen svg.crack polyline{fill:none;stroke:#eafff3;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px #2fe98b) drop-shadow(0 0 14px #2fe98b);stroke-dasharray:420;stroke-dashoffset:420;animation:gbcrack 3.4s ease-out forwards}
+@keyframes gbcrack{0%,28%{stroke-dashoffset:420;opacity:1}46%{stroke-dashoffset:0;opacity:1}54%,100%{stroke-dashoffset:0;opacity:0}}
+#gbopen .burst{position:absolute;left:50%;top:150px;width:60px;height:60px;margin:-30px 0 0 -30px;border-radius:50%;background:radial-gradient(circle,#fff 0%,#d9ffe9 25%,rgba(47,233,139,.75) 55%,rgba(47,233,139,0) 72%);transform:scale(0);animation:gbburst 3.4s cubic-bezier(.6,0,.3,1) forwards}
+@keyframes gbburst{0%,50%{transform:scale(0)}70%{transform:scale(5)}100%{transform:scale(40)}}
+#gbopen .logo{position:absolute;top:300px;width:250px;opacity:0;transform:translateY(12px);animation:gblogo 3.4s ease forwards}
+@keyframes gblogo{0%,6%{opacity:0;transform:translateY(12px)}22%,55%{opacity:1;transform:none}70%,100%{opacity:0;transform:translateY(30px)}}
+#gbopen .stage{animation:gbcam 3.4s cubic-bezier(.7,0,.6,1) forwards}
+@keyframes gbcam{0%,58%{transform:scale(1)}100%{transform:scale(5.5)}}
+#gbopen .skip{position:absolute;right:18px;bottom:16px;color:rgba(230,255,240,.7);font:600 13px/1 system-ui,sans-serif;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:8px 14px}
+@media (prefers-reduced-motion:reduce){#gbopen{display:none}}
+</style>
+<div id="gbopen" aria-hidden="true">
+  <div class="stage">
+    <div class="half hl"><div class="cube"><div class="f f1"></div><div class="f f2"></div><div class="f f3"></div><div class="f f4"></div><div class="f f5"></div><div class="f f6"></div><div class="core"></div></div></div>
+    <div class="half hr"><div class="cube"><div class="f f1"></div><div class="f f2"></div><div class="f f3"></div><div class="f f4"></div><div class="f f5"></div><div class="f f6"></div><div class="core"></div></div></div>
+    <svg class="crack" viewBox="0 0 340 300"><polyline points="170,40 156,92 184,140 160,178 187,214 163,252 177,290"/><polyline points="184,140 214,128" style="stroke-width:2"/><polyline points="160,178 128,190" style="stroke-width:2"/></svg>
+    <div class="burst"></div>
+    <img class="logo" src="{{gb_logo.webp}}" alt="Greenbox">
+  </div>
+  <div class="skip">Bỏ qua ›</div>
+</div>
+<script>
+(function () {
+  const el = document.getElementById('gbopen'); if (!el) return;
+  let seen = false; try { seen = sessionStorage.getItem('gb.open') === '1'; sessionStorage.setItem('gb.open', '1'); } catch (e) {}
+  const done = () => { if (!el.parentNode) return; el.classList.add('out'); setTimeout(() => el.remove(), 480); document.documentElement.style.overflow = ''; };
+  if (seen || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.remove(); return; }
+  document.documentElement.style.overflow = 'hidden';
+  setTimeout(done, 3300);
+  el.addEventListener('click', done); addEventListener('keydown', done, { once: true });
+})();
+</script>
+<!-- ===== end opening ===== -->

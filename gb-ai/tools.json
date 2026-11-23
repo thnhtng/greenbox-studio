@@ -38,7 +38,8 @@
       "playtest",
       "mocap",
       "smash",
-      "explore"
+      "explore",
+      "drama"
      ]
     }
    },
@@ -235,7 +236,7 @@
  },
  {
   "name": "gb_smash",
-  "description": "SMASH DOWN blockout (a shooting ad: a wall of cans / boxes on a table, a gun in the middle). Actions: status (ammo, knocked, blocks, layout), preset {name: wall | pyramid | towers | checker | random}, reset (rebuild the stack), shoot {x, y} (0..1 of the 9:16 view), auto {on} (auto shoot), record (start recording the 9:16 view), stop (stop and save the blockout video), prompt (the Seedance video-to-video prompt for the chosen theme). base {name: table | pedestal | steps | float | spin (turntable) | slide (moves side to side), speed? 0–3, color? \"#rrggbb\"} (what the stack stands on). hit {mode: knock | break} (a hit knocks pieces over, or breaks them into bits), build_base {shape?: box | round, thick? m (0.02–0.8), width? ×(0.5–2.2), depth? ×(0.5–4), legs?: pole | two | four | solid | none} (your own base).",
+  "description": "SMASH DOWN blockout (a shooting ad: a wall of cans / boxes on a table, a gun in the middle). Actions: status (ammo, knocked, blocks, layout), preset {name: wall | pyramid | towers | checker | random}, reset (rebuild the stack), shoot {x, y} (0..1 of the 9:16 view), auto {on} (auto shoot), record (start recording the 9:16 view), stop (stop and save the blockout video), prompt (the Seedance video-to-video prompt for the chosen theme), base {name: table | pedestal | steps | float | spin (turntable) | slide (moves side to side), speed? 0–3, color? \"#rrggbb\"} (what the stack stands on), hit {mode: knock | break} (a hit knocks pieces over, or breaks them into bits), build_base {shape?: box | round, thick? m (0.02–0.8), width? ×(0.5–2.2), depth? ×(0.5–4), legs?: pole | two | four | solid | none} (your own base).",
   "input_schema": {
    "type": "object",
    "properties": {
@@ -390,7 +391,7 @@
  },
  {
   "name": "gb_map",
-  "description": "Play-test map editor (terrain + objects, RTS-style). Actions: preset {preset: flat|hills|island|valley|mountains}, add {object: pine|tree|bush|rock|house|tower|wall|fence|crate|barrel|flag, x, z, rot?, scale?}, sculpt {tool: raise|lower|flatten|smooth|paint, x, z, radius?, strength?, ground?: 0 grass 1 dirt 2 sand 3 rock 4 snow 5 road 6 water bed}, water {level}, export_blender (Python script that rebuilds the map in Blender), export_glb, get (map JSON summary). Also: dig {x, z, radius?, depth?} carves a flat-bottomed hole; pour {x, z, fill?: 0.3..1} fills the hole / channel at (x, z) with water up to its rim; sea {on: bool}; erase {x, z, radius?} removes props there; shot_add {mode?: fixed|look|follow, follow?: \"player\"|object name, t?, dur?, fov?} saves the current camera view as a shot; shots (list); shots_play; layout {image_b64, legend?: [{color:\"#rrggbb\", kind}]} builds the map from a top-down colour plan (kinds: background grass water sand road dirt mountain snow forest tree house tower wall fence rock flag); export_unity (C# script that plays the shots); plan {plan: {shapes: [{id, kind: zone|block|source|machine|stack|counter|unlock|player, form: rect|ellipse, x, z, w, d, r, label, color, height, gives?, takes?, time?, price?, model?}], wires: [{id, from, to, mode: carry|belt|unlock}]}, play?: bool} builds a 2D plan as a 3D playable (and plays it); clear (empty map).",
+  "description": "Play-test map editor (terrain + objects, RTS-style). Actions: preset {preset: flat|hills|island|valley|mountains}, add {object: pine|tree|bush|rock|house|tower|wall|fence|hwall|door|window|crate|barrel|flag|roof|floor|stairs, x, z, rot?, scale?, level?} (level: storey 0..4, 2.8 m each; hwall / door / window: one 3 m house-wall piece centred at x, z, rot 0 = along X, pi/2 = along Z, ends on grid points every 1.5 m; roof: x, z = a point inside closed walls on that level, the roof fits the room; floor: x, z inside a closed room, level 0 = wooden floor, level 1+ = slab over the walls of level-1 with holes over stairs; stairs: 1.5 x 4.5 m from level to level+1, rot in 90 degree steps, rising towards +z when rot 0), sculpt {tool: raise|lower|flatten|smooth|paint, x, z, radius?, strength?, ground?: 0 grass 1 dirt 2 sand 3 rock 4 snow 5 road 6 water bed}, water {level}, export_blender (Python script that rebuilds the map in Blender), export_glb, get (map JSON summary). Also: dig {x, z, radius?, depth?} carves a flat-bottomed hole; pour {x, z, fill?: 0.3..1} fills the hole / channel at (x, z) with water up to its rim; sea {on: bool}; erase {x, z, radius?} removes props there; shot_add {mode?: fixed|look|follow, follow?: \"player\"|object name, t?, dur?, fov?} saves the current camera view as a shot; shots (list); shots_play; layout {image_b64, legend?: [{color:\"#rrggbb\", kind}]} builds the map from a top-down colour plan (kinds: background grass water sand road dirt mountain snow forest tree house tower wall fence rock flag); export_unity (C# script that plays the shots); export_playable {cta?: store / landing link, title?: game name on the loading screen + end card, limit?: seconds of play before the end card (0 = when every upgrade is bought)} = the playable ad as one HTML file (map + the Play test player + the 2D plan gameplay; build the plan first); plan {plan: {shapes: [{id, kind: zone|block|source|machine|stack|counter|unlock|player, form: rect|ellipse, x, z, w, d, r, label, color, height, gives?, takes?, time?, price?, model?}], wires: [{id, from, to, mode: carry|belt|unlock}]}, play?: bool} builds a 2D plan as a 3D playable (and plays it); clear (empty map).",
   "input_schema": {
    "type": "object",
    "properties": {
@@ -413,6 +414,7 @@
       "export_blender",
       "export_glb",
       "export_unity",
+      "export_playable",
       "plan",
       "clear"
      ]
@@ -456,6 +458,18 @@
       "type": "object"
      }
     },
+    "level": {
+     "type": "number"
+    },
+    "cta": {
+     "type": "string"
+    },
+    "title": {
+     "type": "string"
+    },
+    "limit": {
+     "type": "number"
+    },
     "preset": {
      "type": "string"
     },
@@ -485,9 +499,6 @@
     },
     "ground": {
      "type": "number"
-    },
-    "level": {
-     "type": "number"
     }
    },
    "required": [
@@ -497,7 +508,7 @@
  },
  {
   "name": "gb_hpbar",
-  "description": "HP-bar / HUD video layer (its own page, exported separately: green MP4 for Keylight or alpha .MOV). Actions: get, set {settings: partial state, e.g. {hero:{name,level}, hp:{max,start}, mp:{on,max}, dur, fps, size:\"1080x1920\", bg:\"green\"|\"black\"|\"clear\"}}, events {events:[{t: seconds, kind: dmg|heal|set|mana-|mana+, v: amount}]} (replaces the list: when the hero is hit), export_mov, export_mp4. Boss bar: set {settings:{boss:{on:true, name, max, start, layers, w, h, x, y}}} and events with who:\"boss\". Hero bar size: hp:{w, h, round, drain, hold}, hud:{flip, on, x, y}. Countdown: page {page:\"count\"} then set {settings:{cd:{from, to, start, format: s|mmss|dec|dec2, size, x, y, color, stroke, sw, ring, end, endHold, warn}}} and export like the HP bar.",
+  "description": "HP-bar / HUD video layer (its own page, exported separately: green MP4 for Keylight or alpha .MOV). Actions: get, set {settings: partial state, e.g. {hero:{name,level}, hp:{max,start}, mp:{on,max}, dur, fps, size:\"1080x1920\", bg:\"green\"|\"black\"|\"clear\"}}, events {events:[{t: seconds, kind: dmg|heal|set|mana-|mana+, v: amount}]} (replaces the list: when the hero is hit), export_mov, export_mp4 (run in the background: then call export_status every ~5 s until state is \"done\"; it gives the saved file path under Greenbox/exports/hud), export_status. Boss bar: set {settings:{boss:{on:true, name, max, start, layers, w, h, x, y}}} and events with who:\"boss\". Hero bar size: hp:{w, h, round, drain, hold}, hud:{flip, on, x, y}. Countdown: page {page:\"count\"} then set {settings:{cd:{from, to, start, format: s|mmss|dec|dec2, size, x, y, color, stroke, sw, ring, end, endHold, warn}}} and export like the HP bar.",
   "input_schema": {
    "type": "object",
    "properties": {
@@ -509,7 +520,8 @@
       "events",
       "page",
       "export_mov",
-      "export_mp4"
+      "export_mp4",
+      "export_status"
      ]
     },
     "page": {
@@ -536,7 +548,7 @@
  },
  {
   "name": "gb_drive",
-  "description": "Driving overlay (Lái xe → Vô lăng & bàn đạp): a steering wheel + 2 pedals that follow a driving video, no hands. Actions: layout (a picture of the wheel / pedals / dash / speedo layout + their positions: SHOW IT TO THE USER and agree the changes first), set_layout {items, confirmed: true} (only after the user said OK), status, load {video_b64, name} (MCP: {path}), auto (the AI reads the video: the scenery sliding sideways = steering, how fast the picture changes = gas / brake; makes the take), export {mode: \"video\" = the gameplay video with the wheel + pedals on it (finished MP4), \"green\" = green screen, \"black\"}.",
+  "description": "Driving overlay (Lái xe → Vô lăng & bàn đạp): steering wheel + 2 pedals, or the excavator kit: ONE joystick lever (slot lever: A/D tilts it, W pushes, S pulls) + a W A S D key cluster that lights up (slot keys) + a console picture (slot dash). Actions: layout (a picture of the layout + positions: SHOW IT TO THE USER and agree the changes first), set_layout {items, confirmed: true} (only after the user said OK; ids dash|pad|lever|keys|wheel|brake|gas|gear|speedo, hidden:true/false switches a part off/on), image {slot: dash|pad|lever|wheel|brake|gas, path | url} (a picture for that part, PNG with transparent background is best), status, load {path} (the video), auto (the AI reads the video: scenery sliding sideways = steering, how fast the picture changes = gas / brake; makes the take), export {mode: \"mov\" = transparent .MOV (RGB + alpha, PNG frames) of the overlay only, for After Effects / Premiere; \"green\" / \"black\" = keyed backgrounds; \"video\" = finished MP4 with the gameplay}. Export runs in the background: call status until state is \"done\" (it gives the saved file path) or \"error\".",
   "input_schema": {
    "type": "object",
    "properties": {
@@ -548,11 +560,31 @@
       "auto",
       "export",
       "layout",
-      "set_layout"
+      "set_layout",
+      "image"
      ]
     },
     "video_b64": {
      "type": "string"
+    },
+    "path": {
+     "type": "string",
+     "description": "load: the video file on this computer; image: the picture file"
+    },
+    "url": {
+     "type": "string",
+     "description": "image / load: a link to the picture or video (Higgsfield result…); it is downloaded on this computer"
+    },
+    "slot": {
+     "type": "string",
+     "enum": [
+      "dash",
+      "pad",
+      "lever",
+      "wheel",
+      "brake",
+      "gas"
+     ]
     },
     "name": {
      "type": "string"
@@ -560,6 +592,7 @@
     "mode": {
      "type": "string",
      "enum": [
+      "mov",
       "video",
       "green",
       "black"
@@ -570,7 +603,7 @@
      "items": {
       "type": "object"
      },
-     "description": "set_layout: [{id: dash|pad|wheel|brake|gas|gear|speedo, x?, y?, size?, w?, rot?, hidden?}] in frame pixels"
+     "description": "set_layout: [{id: dash|pad|lever|keys|wheel|brake|gas|gear|speedo, x?, y?, size?, w?, rot?, hidden?}] in frame pixels"
     },
     "confirmed": {
      "type": "boolean",
@@ -611,6 +644,192 @@
    "required": [
     "action"
    ]
+  }
+ },
+ {
+  "name": "gb_to_playtest",
+  "description": "Send the character rigged on \"Use your model\" (after gb_rig_finish) to Play test with its animations, like the \"🎮 Play test this character\" button. Waits until it is the player.",
+  "input_schema": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  }
+ },
+ {
+  "name": "gb_recipe",
+  "description": "Step-by-step recipe to make a playable ad from a 3D model with the Greenbox tools (rig → Play test → map → 2D plan gameplay → test → HTML export). Read it before starting such a job.",
+  "input_schema": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  }
+ },
+ {
+  "name": "gb_drama",
+  "description": "AI Drama (script → characters → clips → episode). AI Drama in Greenbox (Cockpit group 🎬 AI Drama, page drama.html). The user works there; every button that needs you posts a request into the Greenbox chat: \"[AI Drama #N] kind: …\". Loop: gb_inbox {wait: 50} → for each [AI Drama #N] request: gb_drama {action: \"get\"} (settings, script, characters, open requests) → do it → gb_drama {action: \"done\", id: N}. The page updates live while you work (the user watches), so narrate with gb_drama {action: \"say\", text}.\nKinds: write_script = write the full script from settings.text in Vietnamese (or the story's language): gb_drama {action: \"script\", script: {title, logline, chars: [{name, role, look}], eps: [{title, summary, beats: [{scene, chars: [names], action, lines: [{who, text}], sec, prompt}]}]}}. Single film (settings.type \"single\") = ONE entry in eps whose beats are the film's beats; series = settings.eps_n episodes of about settings.ep_sec seconds each. LONG (settings.long, more than 5 min per film / episode, up to 1 hour): give each episode segs = settings.parts_per_episode parts [{title, summary, sec ≈ settings.part_sec}] and write beats (with seg: 0) ONLY for part 1 — never the whole hour at once. write_beats {ep, seg} = write that part's beats: gb_drama {action: \"beats\", ep, seg, beats: [...]} (about part_sec / clip beats). gen_segment {ep, seg} = make the clips of that part only (like gen_episode). Every beat lasts settings.clip seconds (5 / 10 / 15 = one Higgsfield clip); the beats' sec must add up to the episode / film length. look = an English picture prompt in settings.style + settings.country; prompt = an English image-to-video prompt (camera, action, mood, style, aspect settings.ratio), naming the characters. rewrite_episode {ep} = rewrite that episode only (gb_drama {action: \"script\", ep, script: {summary, beats}}). char_image {name | names} = make the character picture(s) on Higgsfield (higgsfield.ai, in the browser; the user must be signed in — never sign in for them): portrait / character sheet from the character's look, settings.style, plain background; then gb_drama {action: \"char\", name, url} with the picture's link (the result image src or its download link — Greenbox downloads it on this computer; or path = a file already on this computer); you may also pass new_name / look. gen_episode {ep} / gen_beat {ep, beat} = image-to-video on Higgsfield, one clip per beat (the beat prompt + the pictures of the characters in it, duration = beat sec, aspect settings.ratio): before each batch ask the user to approve the credits with gb_say + gb_inbox (e.g. \"8 clips × 10 s, OK?\"); mark each beat with gb_drama {action: \"beat\", ep, beat, status: \"gen\"} while it renders, then gb_drama {action: \"clip\", ep, beat, url} (the video src / download link; or path). Only what was asked: one episode (series) or one beat (single film) at a time. name_hooks {eps} = gb_drama {action: \"episode\", ep, title, hook} for those episodes (hook = the first 3 seconds that make people stay). merge {ep} = gb_drama {action: \"merge\", ep} joins that episode's clips in order with ffmpeg on this computer and puts the MP4 back on the page. HIGGSFIELD: prefer the Higgsfield MCP tools (connector https://mcp.higgsfield.ai/mcp) — generate there and pass the result link with url; only without them use higgsfield.ai in the browser. settings.unlimited (default true) = use Higgsfield's Unlimited mode / unlimited models so no credits are spent; when it is false ask before spending credits. Per-beat buttons (Production): prompt_beat {ep, beat, idea} = from the beat (action, lines, characters' looks, style) and the user's idea write an English picture prompt and an image-to-video prompt: gb_drama {action: \"prompts\", ep, beat, img_prompt, prompt}. gen_image {ep, beat} = make the scene picture from img_prompt (use the characters' pictures as references when the tool takes them), aspect settings.ratio: gb_drama {action: \"beat\", ep, beat, status: \"img\"} while it renders, then gb_drama {action: \"still\", ep, beat, url}. gen_beat {ep, beat} = image-to-video from the beat's still (or the character pictures) + prompt, duration = beat sec: gb_drama {action: \"clip\", ep, beat, url}. STUDIO (DramaClaw-style parts): extract_assets {kind: scenes|props} = read the script and add every scene / prop: gb_drama {action: \"asset\", kind: \"scene\"|\"prop\", name, look} (look = English picture prompt). asset_image {kind, name | names} = make the picture on Higgsfield (wide 16:9 for scenes, plain background for props), then gb_drama {action: \"asset\", kind, name, url}. voice_sample {name} (\"__narrator\" = narrator) = a short voice sample from the voice desc (Higgsfield / any TTS you have): gb_drama {action: \"voice\", name, url | path, desc?}. voice {ep, beat} / voice_episode {ep} = voice-over of the beat lines in each character's voice: gb_drama {action: \"voice\", ep, beat, url | path}. music {ep} = background music for the episode: gb_drama {action: \"music\", ep, url | path}. storyboard {ep} = the first-frame picture of every beat of that episode (like gen_image for each). style_extract = look at the reference (gb_drama {action: \"media_out\", what: \"style\"} saves it as a file) and write the style: gb_drama {action: \"style\", name, prompt}. Always add settings/style.prompt to every picture / video prompt. fix_qc {ep, issues} = the page's QC found problems in that episode (get → qc lists them: dialogue too long for the clip, total length off, missing prompt, unknown character): rewrite it so they are gone, same plot and beat count: gb_drama {action: \"script\", ep, script: {summary, beats}}. QUALITY for every script: each episode opens with a hook inside the first 3 seconds and ends on a cliffhanger; one beat = one shot = one place + one clear action; at most 3 spoken words per second of the beat; prompt order = shot size + camera move, who (name + 3-word look) does what, place, light, mood, style, aspect. Requests the user's own API key already answers (⚡ in the log) never reach you. director {text} = Xia Director chat: answer the user (and edit the project with the other actions when they ask): gb_drama {action: \"reply\", text}. Freezone (canvas): node_gen {id, type, inputs} = fill that node using the wired input nodes (get → freezone.nodes): script → gb_drama {action: \"node\", id, text}; ai_image / video / audio → make it on Higgsfield and gb_drama {action: \"node\", id, prompt?, url}. You may add nodes: gb_drama {action: \"node\", type, title, text, from: id}. node_compose {id, inputs} = gb_drama {action: \"node_compose\", id} (the MCP joins the wired video nodes with ffmpeg and puts the MP4 in the node). merge mixes each beat's voice-over and the episode music when compose.voice / compose.music are on, and adds the subtitles (compose.subs) as a subtitle track + .srt file. media_out {what: style|char|scene|prop|still|clip|voice|music|node, name?, ep?, beat?, id?} saves any stored media as a file you can look at. If Higgsfield is not reachable, say so with gb_say and wait; the user can also upload pictures / clips on the page themselves. Actions: open | get | script {script, ep?} | beats {ep, seg, beats} | prompts {ep, beat, img_prompt, prompt} | still {ep, beat, url | path} | char {name, new_name?, role?, look?, url | path} | beat {ep, beat, status} | clip {ep, beat, url | path, sec?} | episode {ep, title?, hook?, summary?} | merge {ep} | clip_out {ep, beat} | asset {kind, name, look?, new_name?, url | path} | voice {name | ep+beat, url | path, desc?} | music {ep, url | path} | style {name?, prompt?} | node {id? , type?, title?, text?, prompt?, from?, url | path} | reply {text} | media_out {what, name?, ep?, beat?, id?} | srt {ep} | say {text} | done {id, note?}. ep / beat are 0-based.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "action": {
+     "type": "string",
+     "enum": [
+      "open",
+      "get",
+      "script",
+      "beats",
+      "prompts",
+      "still",
+      "char",
+      "beat",
+      "clip",
+      "episode",
+      "merge",
+      "clip_out",
+      "merged",
+      "say",
+      "done",
+      "asset",
+      "voice",
+      "music",
+      "style",
+      "node",
+      "reply",
+      "media_out",
+      "srt",
+      "node_compose"
+     ]
+    },
+    "kind": {
+     "type": "string"
+    },
+    "what": {
+     "type": "string"
+    },
+    "desc": {
+     "type": "string"
+    },
+    "type": {
+     "type": "string"
+    },
+    "from": {
+     "type": "string"
+    },
+    "names": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "id": {
+     "type": [
+      "number",
+      "string"
+     ]
+    },
+    "ep": {
+     "type": "number"
+    },
+    "beat": {
+     "type": "number"
+    },
+    "seg": {
+     "type": "number"
+    },
+    "img_prompt": {
+     "type": "string"
+    },
+    "prompt": {
+     "type": "string"
+    },
+    "beats": {
+     "type": "array",
+     "items": {
+      "type": "object"
+     }
+    },
+    "name": {
+     "type": "string"
+    },
+    "new_name": {
+     "type": "string"
+    },
+    "role": {
+     "type": "string"
+    },
+    "look": {
+     "type": "string"
+    },
+    "status": {
+     "type": "string"
+    },
+    "sec": {
+     "type": "number"
+    },
+    "title": {
+     "type": "string"
+    },
+    "hook": {
+     "type": "string"
+    },
+    "summary": {
+     "type": "string"
+    },
+    "text": {
+     "type": "string"
+    },
+    "note": {
+     "type": "string"
+    },
+    "script": {
+     "type": "object"
+    },
+    "data_b64": {
+     "type": "string"
+    },
+    "mime": {
+     "type": "string"
+    },
+    "source": {
+     "type": "string"
+    },
+    "url": {
+     "type": "string",
+     "description": "char / clip: link to the picture / video (Higgsfield result src or download link)"
+    }
+   },
+   "required": [
+    "action"
+   ]
+  }
+ },
+ {
+  "name": "gb_say",
+  "description": "Post a message in the user's Greenbox side chat (the \"🔌 Claude / Codex\" panel next to the 3D view): say what you are doing, what you found, or ask a question. Use it for anything the user should read while looking at Greenbox; their answers come back through gb_inbox. Markdown is shown as plain text.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "text": {
+     "type": "string",
+     "description": "the message (short; a few lines)"
+    }
+   },
+   "required": [
+    "text"
+   ]
+  }
+ },
+ {
+  "name": "gb_inbox",
+  "description": "Read what the user typed to you in the Greenbox side chat since the last read (they are cleared once read). wait = seconds to wait for a new message when there is none yet (0-50, default 0). Returns \"(no new messages)\" when empty.",
+  "input_schema": {
+   "type": "object",
+   "properties": {
+    "wait": {
+     "type": "number",
+     "description": "seconds to wait for a message (0-50)"
+    }
+   },
+   "required": []
   }
  }
 ]

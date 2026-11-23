@@ -115,6 +115,17 @@ export class CharacterController {
     this.model.position.y += this.foot_fix - before
   }
 
+  /** 📏 size: 1 = as loaded (people 1.8 m). The model is scaled around the feet; speeds, jumps and climbs follow (speed_scale) */
+  private size = 1
+  public get_size (): number { return this.size }
+  public set_size (f: number): void {
+    const r = f / this.size; if (!Number.isFinite(r) || r <= 0 || Math.abs(r - 1) < 1e-6) return
+    this.size = f; this.speed_scale = f
+    this.model.position.multiplyScalar(r); this.model.scale.multiplyScalar(r)
+    this.foot_fix *= r; this.rest_foot *= r
+    this.root.updateMatrixWorld(true)
+  }
+
   public has (a: Action): boolean { return this.actions.has(a) }
   public state (): string { return this.busy !== 'none' ? this.busy : (this.current_name ?? '') }
 

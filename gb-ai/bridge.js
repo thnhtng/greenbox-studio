@@ -10,16 +10,23 @@
   const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   const KEY = 'gb.mcp.pair';
   const state = { local: false, relay: 'off', port: 0, last: 0, error: '' };
+  /* this tab's id: with several Greenbox pages open, the server sends tool calls to the one the user chats from */
+  const CLIENT = (() => { try { let c = sessionStorage.getItem('gb.client'); if (!c) { c = Math.random().toString(36).slice(2, 10); sessionStorage.setItem('gb.client', c); } return c; } catch (e) { return Math.random().toString(36).slice(2, 10); } })();
+  window.__gbClient = CLIENT;
   const emit = () => dispatchEvent(new CustomEvent('gb-mcp-state', { detail: Object.assign({}, state) }));
 
   async function run (job) {
-    dispatchEvent(new CustomEvent('gb-mcp-call', { detail: { tool: job.tool, args: job.args } }));
+    // which AI app sent it (greenbox_mcp.py adds __from from the MCP client's name): Claude Code, Codex…
+    const from = job.args && job.args.__from ? String(job.args.__from) : 'Claude';
+    if (job.args) delete job.args.__from;
+    window.__gbMcpFrom = from;
+    dispatchEvent(new CustomEvent('gb-mcp-call', { detail: { tool: job.tool, args: job.args, from } }));
     let out;
     try {
       if (job.tool === '__list') out = { ok: true, result: { tools: window.__gbTools.list } };
       else out = { ok: true, result: await window.__gbTools.call(job.tool, job.args) };
     } catch (e) { out = { ok: false, error: String((e && e.message) || e) }; }
-    dispatchEvent(new CustomEvent('gb-mcp-done', { detail: { tool: job.tool, ok: out.ok, error: out.error, image: out.ok && out.result ? out.result.image : null } }));
+    dispatchEvent(new CustomEvent('gb-mcp-done', { detail: { tool: job.tool, from, ok: out.ok, error: out.error, image: out.ok && out.result ? out.result.image : null } }));
     state.last = Date.now(); emit()
     return Object.assign({ id: job.id }, out);
   }
@@ -29,7 +36,7 @@
     let fails = 0
     for (;;) {
       try {
-        const r = await fetch('/bridge/poll', { cache: 'no-store' });
+        const r = await fetch('/bridge/poll?c=' + CLIENT, { cache: 'no-store' });
         if (r.status === 404) return; // an old serve.py without the bridge
         if (!state.local) { state.local = true; emit() }
         if (r.status === 200) {

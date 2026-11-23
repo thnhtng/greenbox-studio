@@ -1,0 +1,103 @@
+/* Emerald glass for the tool pages shown inside the cockpit (HUD, SFX, the 3D pages): same tokens as the cockpit */
+html.gbk{--g-ink:#f3f5f6;--g-ink2:rgba(236,240,243,.74);--g-ink3:rgba(222,228,232,.54);--g-acc:#2fe98b;--g-acc-hi:#5ff2a8;--g-acc-ink:#03140b;
+  --g-fill:rgba(255,255,255,.06);--g-fill-2:rgba(255,255,255,.10);--g-line:rgba(255,255,255,.13);--g-line-2:rgba(255,255,255,.24);
+  --g-blur:blur(18px) saturate(140%);--g-glow:0 0 0 1px rgba(47,233,139,.55),0 6px 22px -6px rgba(47,233,139,.55);--g-ease:cubic-bezier(.4,0,.4,1);
+  --bg:#08090a;--panel:rgba(22,25,28,.6);--sunk:rgba(255,255,255,.035);--ink:var(--g-ink);--muted:var(--g-ink3);--line:var(--g-line);--accent:var(--g-acc);--mark:var(--g-acc);
+  --button-primary-bg:var(--g-acc);--current-step-indicator:var(--g-acc);--blue:var(--g-acc);--org:var(--g-acc-hi);
+  --gbp-accent:var(--g-acc);--gbp-panel:rgba(18,20,23,.72);--gbp-card:rgba(255,255,255,.04);--gbp-btn:rgba(255,255,255,.06);--gbp-on:rgba(47,233,139,.14);--gbp-line:var(--g-line-2);--gbp-accent-ink:var(--g-acc-ink)}
+html.gbk body,html.gbk body :where(button,input,select,textarea,label,h1,h2,h3,h4,p,span,div,b,small,summary,td,th,a,li){font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important}
+html.gbk:lang(vi) body,html.gbk:lang(vi) body :where(button,input,select,textarea,label,h1,h2,h3,h4,p,span,div,b,small,summary,td,th,a,li){font-family:"Be Vietnam Pro",-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important}
+html.gbk body :where(code,pre,kbd,samp,.mono){font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace!important}
+html.gbk body{-webkit-font-smoothing:antialiased;word-break:keep-all}
+/* panels: frosted glass, sections a faint fill, 16 px corners */
+html.gbk aside,html.gbk.embed aside,html.gbk #tool-panel{background:rgba(14,16,18,.66)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border-color:var(--g-line)!important;box-shadow:none!important}
+html.gbk section{background:rgba(255,255,255,.035)!important;border:1px solid var(--g-line)!important;border-radius:16px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)!important}
+html.gbk :is(h2,h3){color:var(--g-ink)!important;font-weight:700!important;letter-spacing:-.01em}
+html.gbk h3 b{background:var(--g-acc)!important;color:var(--g-acc-ink)!important;box-shadow:0 0 12px -2px rgba(47,233,139,.7)}
+/* buttons: glass; primary / on = the emerald */
+html.gbk button{border-radius:12px!important;background:var(--g-fill)!important;border:1px solid var(--g-line-2)!important;color:var(--g-ink)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)!important;transition:background-color 150ms var(--g-ease),transform 150ms cubic-bezier(0,0,.2,1)!important}
+@media (hover:hover){html.gbk button:hover:not(:disabled){background:var(--g-fill-2)!important;border-color:var(--g-line-2)!important}}
+html.gbk button:active:not(:disabled){transform:scale(.98)}
+html.gbk :is(button.pri,button.primary,.button,label.button,#load-model-button,#action_upload){background:var(--g-acc)!important;color:var(--g-acc-ink)!important;border-color:transparent!important;box-shadow:var(--g-glow)!important;font-weight:600!important;border-radius:12px!important}
+@media (hover:hover){html.gbk :is(button.pri,button.primary,.button):hover{background:var(--g-acc-hi)!important}}
+html.gbk :is(button.on,button[aria-pressed=true]){background:rgba(47,233,139,.14)!important;color:var(--g-acc-hi)!important;border-color:rgba(47,233,139,.5)!important;box-shadow:inset 0 0 16px -8px rgba(47,233,139,.7)!important}
+html.gbk button.alpha{background:var(--g-fill-2)!important}
+/* inputs: dark, a fine line, emerald focus */
+html.gbk :is(input[type=number],input[type=text],select,textarea){background:rgba(0,0,0,.25)!important;border:1px solid var(--g-line-2)!important;border-radius:8px!important;color:var(--g-ink)!important}
+html.gbk :is(input[type=range],input[type=checkbox],input[type=radio]){accent-color:var(--g-acc)}
+html.gbk :is(button,a,input,select,summary):focus-visible{outline:2px solid var(--g-acc)!important;outline-offset:2px}
+html.gbk :is(.sm,small,.hint){color:var(--g-ink3)}
+/* 3D pages: the top menu as a glass bar, the open page in emerald */
+html.gbk nav{background:rgba(11,12,14,.62)!important;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border-bottom:1px solid var(--g-line)!important;box-shadow:none!important}
+html.gbk nav a{color:var(--g-ink2)!important;border-radius:10px}html.gbk nav a:hover{background:var(--g-fill)!important;color:var(--g-ink)!important}
+html.gbk nav a.on,html.gbk nav a[aria-current]{background:rgba(47,233,139,.12)!important;color:var(--g-acc-hi)!important;box-shadow:inset 0 0 0 1px rgba(47,233,139,.42)}
+html.gbk :is(#logo-branding,.logo) i{background:var(--g-acc)!important;box-shadow:0 0 12px rgba(47,233,139,.7)!important}
+html.gbk :is(#vh-status,#pt-status){background:rgba(255,255,255,.05)!important;border:1px solid var(--g-line);border-radius:12px;color:var(--g-ink)}
+html.gbk *{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}
+@media (prefers-reduced-motion:reduce){html.gbk *{transition-duration:100ms!important}}
+
+/* ===== liquid glass buttons (round 40): tinted emerald glass, a white sheen on the top half, a bright top edge,
+   a green glow from inside the bottom. Primary = emerald liquid with a white highlight. ===== */
+html.gbk{--lq-fill:linear-gradient(180deg,rgba(255,255,255,.17) 0%,rgba(255,255,255,.06) 47%,rgba(255,255,255,.02) 53%,rgba(255,255,255,.05) 100%),rgba(30,33,37,.42);
+  --lq-fill-hi:linear-gradient(180deg,rgba(255,255,255,.26) 0%,rgba(255,255,255,.09) 47%,rgba(255,255,255,.04) 53%,rgba(255,255,255,.08) 100%),rgba(40,44,48,.48);
+  --lq-line:rgba(255,255,255,.3);
+  --lq-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.05),inset 0 0 14px rgba(255,255,255,.05),0 6px 16px -8px rgba(0,0,0,.55);
+  --lq-pri:linear-gradient(180deg,rgba(255,255,255,.62) 0%,rgba(255,255,255,.18) 44%,rgba(255,255,255,0) 56%,rgba(0,90,45,.14) 100%),rgba(47,233,139,.86);
+  --lq-pri-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -3px 10px rgba(0,90,45,.3),0 0 0 1px rgba(255,255,255,.35),0 6px 18px -10px rgba(47,233,139,.7);
+  --lq-on:linear-gradient(180deg,rgba(255,255,255,.3) 0%,rgba(255,255,255,.08) 47%,rgba(255,255,255,.05) 53%,rgba(47,233,139,.10) 100%),rgba(40,46,48,.52);
+  --lq-on-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -2px 8px rgba(47,233,139,.18),0 0 0 1px rgba(47,233,139,.45);
+  --lq-blur:blur(14px) saturate(170%);}
+html.gbk button{background:var(--lq-fill)!important;border:1px solid var(--lq-line)!important;color:#f6f7f8!important;box-shadow:var(--lq-shadow)!important;
+  -webkit-backdrop-filter:var(--lq-blur);backdrop-filter:var(--lq-blur);text-shadow:0 1px 1px rgba(0,30,15,.35);
+  transition:background 150ms var(--g-ease),box-shadow 150ms var(--g-ease),transform 150ms cubic-bezier(0,0,.2,1)!important}
+@media (hover:hover){html.gbk button:hover:not(:disabled){background:var(--lq-fill-hi)!important;border-color:rgba(255,255,255,.45)!important}}
+html.gbk button:active:not(:disabled){transform:scale(.97)}
+html.gbk :is(button.pri,button.primary,.button,label.button,#load-model-button,#action_upload){background:var(--lq-pri)!important;color:#03140b!important;text-shadow:0 1px 0 rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.7)!important;box-shadow:var(--lq-pri-shadow)!important}
+@media (hover:hover){html.gbk :is(button.pri,button.primary,.button):hover{background:linear-gradient(180deg,rgba(255,255,255,.72) 0%,rgba(255,255,255,.24) 44%,rgba(255,255,255,0) 56%,rgba(0,90,45,.1) 100%),rgba(95,242,168,.88)!important}}
+html.gbk :is(button.on,button[aria-pressed=true]){background:var(--lq-on)!important;color:#fff!important;border-color:rgba(255,255,255,.6)!important;box-shadow:var(--lq-on-shadow)!important}
+html.gbk button:disabled{opacity:.45;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)!important}
+/* panels: a whiter frost, a bright top edge */
+html.gbk section{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025))!important;border-color:rgba(255,255,255,.16)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)!important}
+/* sliders: a glass track, a white bead */
+html.gbk input[type=range]{accent-color:#5ff2a8}
+
+/* ===== hover glow (round 41): one short flash (≈0.6 s) that settles to a faint edge light, never a long glow ===== */
+@keyframes lq-flash{0%{filter:none}28%{filter:drop-shadow(0 0 9px rgba(190,255,225,.45)) brightness(1.08)}100%{filter:drop-shadow(0 0 2px rgba(190,255,225,.18))}}
+@media (hover:hover){html.gbk button:hover:not(:disabled){animation:lq-flash 600ms cubic-bezier(.2,.7,.2,1) forwards}}
+@media (prefers-reduced-motion:reduce){html.gbk button:hover{animation:none!important}}
+/* colour swatches keep their own colour under the glass sheen */
+html.gbk button[style*="--sw"]{background:linear-gradient(180deg,rgba(255,255,255,.38) 0%,rgba(255,255,255,.08) 48%,rgba(0,0,0,0) 55%),var(--sw)!important;border-color:rgba(255,255,255,.4)!important}
+html.gbk button[style*="--sw"].on{box-shadow:0 0 0 2px #fff,0 0 12px rgba(47,233,139,.8)!important}
+
+/* ===== round 42: neutral glass, line icons, white glass pictures ===== */
+html.gbk svg.gbi{color:rgba(236,240,243,.86)}
+html.gbk :is(button.on,button[aria-pressed=true],.gbc-it[aria-pressed=true]) svg.gbi{color:#5ff2a8}
+html.gbk :is(button.pri,button.primary,.gbc-b.pri,.btn.pri) svg.gbi{color:#03140b}
+html.gbk button.gb-tile img{filter:grayscale(1) brightness(1.32) contrast(1.06) drop-shadow(0 4px 10px rgba(0,0,0,.45))!important;opacity:.92;transition:filter 200ms cubic-bezier(.4,0,.4,1),transform 150ms cubic-bezier(0,0,.2,1)}
+html.gbk button.gb-tile.on img,html.gbk button.gb-tile.pri img{filter:grayscale(.15) brightness(1.15) drop-shadow(0 4px 12px rgba(47,233,139,.35))!important;opacity:1}
+@media (hover:hover){html.gbk button.gb-tile:hover img{filter:grayscale(.55) brightness(1.25) drop-shadow(0 4px 12px rgba(0,0,0,.4))!important}}
+
+/* ===== logo (round 44) ===== */
+html.gbk :is(#logo-branding,.logo) i{width:22px!important;height:22px!important;border-radius:0!important;background:url(__GB_LOGO__) center/contain no-repeat!important;box-shadow:none!important;filter:drop-shadow(0 0 7px rgba(47,233,139,.5))}
+/* ===== round 56: tidy button layout on every page (haru-ui: one grid, equal widths, clear groups) ===== */
+/* a row of only buttons = an even grid (no ragged wrapping); colour swatch rows stay small squares */
+html.gbk section .row:not(:has(> :not(button))):not(:has(> button[style*="--sw"])):has(> button + button){display:grid!important;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px!important;align-items:stretch}
+html.gbk section .row:not(:has(> :not(button))):not(:has(> button[style*="--sw"])) > button{width:100%;justify-content:center;text-align:center;min-height:38px;white-space:normal;line-height:1.2}
+html.gbk section .row:has(> button[style*="--sw"]){display:flex!important;flex-wrap:wrap;gap:8px!important;align-items:center}
+/* checkbox rows: one per line, aligned */
+html.gbk section .row:has(> label > input[type=checkbox]){display:flex!important;flex-direction:column;align-items:flex-start;gap:6px!important}
+/* label + control pairs: label on the left, control fills the rest */
+html.gbk section label.sm:has(> input[type=range]){display:grid!important;grid-template-columns:minmax(84px,auto) 1fr auto;align-items:center;gap:10px}
+html.gbk section label.sm:has(> select){display:flex;align-items:center;gap:8px}
+html.gbk section label.sm > select{flex:1;min-width:0}
+/* colour swatches: real colour, glass sheen, a clear ring when chosen */
+html.gbk button[style*="--sw"]{border-radius:10px!important;padding:0!important}
+html.gbk button[style*="--sw"]:is(.on,[aria-pressed=true]){box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(47,233,139,.7),0 0 14px rgba(47,233,139,.6)!important;transform:translateY(-1px)}
+/* group title above a tile grid */
+html.gbk .gb-grouptitle{margin:14px 0 6px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(222,232,227,.55)}
+/* the page guides (gb-base.js tour) in glass, like the cockpit guide */
+#gb-tour .gbt-hole{border-radius:14px!important;border:0!important;box-shadow:0 0 0 9999px rgba(2,6,5,.6),0 0 0 2px rgba(95,242,168,.9),0 0 26px 2px rgba(47,233,139,.5)!important}
+#gb-tour .gbt-tip{background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.03) 40%,rgba(47,233,139,.06)),rgba(12,20,17,.9)!important;-webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);
+  border:1px solid rgba(170,255,214,.24)!important;border-radius:18px!important;padding:16px 18px 14px!important;color:#eef6f2!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 0 34px -12px rgba(47,233,139,.55),0 24px 50px -20px rgba(0,0,0,.85)!important}
+#gb-tour .gbt-tip button{border-radius:12px!important;padding:8px 13px!important;border:1px solid rgba(255,255,255,.18)!important;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04)),rgba(30,34,37,.5)!important;color:#eef6f2!important}
+#gb-tour .gbt-tip .gbt-next{color:#03140b!important;border-color:rgba(255,255,255,.7)!important;background:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,.15) 45%,transparent 56%),rgba(47,233,139,.88)!important}

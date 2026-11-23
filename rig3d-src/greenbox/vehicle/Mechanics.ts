@@ -25,10 +25,14 @@ export interface Mech {
   kind: MechKind, name: string, hinge: Hinge, angle: number, flip: boolean, axis?: MechAxis
   /** free bone: where its joint is (vehicle space) */
   pivot?: [number, number, number]
+  /** 🔩 anchor (a bolt): the part turns round this point (vehicle space), on the axis, instead of its kind's own motion */
+  anchor?: [number, number, number]
   /** hang this part on another one (by name) instead of the automatic guess */
   parent?: string
   /** track: how many chain bones */
   links?: number
+  /** track: the belt loop reshaped by dragging its links: [where on the loop 0..1, dz, dy] (vehicle space), smooth bumps */
+  loop_edit?: Array<[number, number, number]>
 }
 export interface MechPose {
   used: string // the pivot rule actually used (for the UI)

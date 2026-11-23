@@ -11,24 +11,34 @@
  *              counter  takes an item, gives money (customers buy)
  *              unlock   "$" pad: pay money to unlock what its wires point to (a new room, a worker)
  *              player   where the player starts
+ *              camera   🎥 a camera: where it stands (height = camera height), the handle turns where it looks; it can
+ *                       track the player or another shape. Each camera becomes a shot of the 3D map, one after another
  *   wires    flow from a shape to another: carry = the player brings the items, belt = they move by themselves
  *   picture  your 2D layout behind the shapes, to trace over; 🪄 finds its colour blocks and turns them into
  *            shapes (you then type what each one is)
  */
 import { M } from '../common/lang.ts'
+const THREE_DEG = (d: number): number => d * Math.PI / 180
 import { is_trackpad, pinch_factor } from '../common/MacTrackpad.ts'
 import { main_colours, classify, majority, blobs } from './LayoutImport.ts'
 import { type PlanForm, FORMS, SWATCHES, form_outline, in_outline, trace_form, pad_picture, user_image } from './PlanForms.ts'
 
-export type PlanKind = 'zone' | 'block' | 'source' | 'machine' | 'stack' | 'counter' | 'unlock' | 'player'
+export type PlanKind = 'zone' | 'block' | 'source' | 'ore' | 'machine' | 'stack' | 'counter' | 'unlock' | 'player' | 'camera'
 export interface PlanShape {
   id: string, kind: PlanKind, form: PlanForm
   x: number, z: number, w: number, d: number, r: number // centre, size (m), turn (rad)
   label: string, color: string, height: number
   note?: string // shown in a bubble when the block is clicked in 3D (any language: Roboto)
   gives?: string, takes?: string, time?: number, price?: number
+  item?: string // ore / source: the 3D look of what it gives ("file:gem.glb"), else a gem / box
+  need?: number // ore: drill level needed (0 = the first vehicle digs it)
+  hp?: number, respawn?: number // ore: items it gives before it breaks, seconds until it grows back
+  evolve?: boolean // a block behind an unlock pad: when paid, the player becomes this model and works faster (a better drill)
   model?: string // a palette object / your 3D file instead of a box ("house", "file:oven.glb")
   image?: string // pads: your picture (data URL) instead of the built-in one
+  track?: string // camera: '' looks straight ahead, 'player' or a shape id = turns to keep it in view
+  cmode?: 'look' | 'follow' // camera that tracks: turns from its place, or rides along
+  fov?: number // camera lens (degrees)
 }
 export interface PlanWire { id: string, from: string, to: string, mode: 'carry' | 'belt' | 'unlock' }
 export interface Plan { shapes: PlanShape[], wires: PlanWire[] }
@@ -37,11 +47,13 @@ export const KIND_INFO: Record<PlanKind, { color: string, height: number, en: st
   zone: { color: '#e5e7eb', height: 0.05, en: 'Zone / room floor', vi: 'Khu / sàn phòng' },
   block: { color: '#9ca3af', height: 1, en: 'Block (solid)', vi: 'Khối (đặc)' },
   source: { color: '#22c55e', height: 1.6, en: 'Source (gives items)', vi: 'Nguồn (cho ra đồ)' },
+  ore: { color: '#f97316', height: 1.4, en: '⛏ Ore (drill it: gems burst out)', vi: '⛏ Quặng (khoan: ngọc văng ra)' },
   machine: { color: '#f59e0b', height: 1.4, en: 'Machine (A → B)', vi: 'Máy (A → B)' },
   stack: { color: '#ffffff', height: 0.1, en: 'Stack / pile', vi: 'Chỗ xếp đồ' },
   counter: { color: '#22d3ee', height: 1, en: 'Counter (sells for $)', vi: 'Quầy (bán ra $)' },
   unlock: { color: '#bbf7d0', height: 0.05, en: '$ Unlock pad', vi: 'Ô $ mở khoá' },
-  player: { color: '#f97316', height: 0.05, en: 'Player start', vi: 'Nhân vật bắt đầu' }
+  player: { color: '#f97316', height: 0.05, en: 'Player start', vi: 'Nhân vật bắt đầu' },
+  camera: { color: '#a855f7', height: 3, en: '🎥 Camera', vi: '🎥 Camera' }
 }
 
 let uid = 0
@@ -113,6 +125,7 @@ export class PlanEditor {
         ${FORMS.filter(f => f[0] !== 'rect' && f[0] !== 'ellipse').map(f => tb(f[0], f[1], T(`Draw: ${f[2]}`, `Vẽ: ${f[3]}`))).join('')}
         ${tb('wire', '↝', T('Flow wire: drag from one shape to another (W)', 'Dây flow: kéo từ khối này sang khối kia (W)'))}
         ${tb('text', 'T', T('Click a shape to type what it is (T)', 'Bấm vào khối để ghi chữ nó là gì (T)'))}
+        <button data-x="camera" title="${T('Add a camera (C): drag it into place, turn it with the round handle, choose what it tracks', 'Thêm camera (C): kéo tới chỗ đặt, xoay bằng nút tròn, chọn vật nó bám theo')}" style="width:44px;height:40px;border-radius:8px;border:1px solid #2c3440;background:#1f2630;color:inherit;cursor:pointer;font-size:17px">🎥</button>
         <button data-x="undo" title="Ctrl+Z / Cmd+Z" style="height:32px;border-radius:8px;border:1px solid #2c3440;background:#1f2630;color:inherit;cursor:pointer">↶</button>
         <button data-x="redo" title="Ctrl+Shift+Z / Cmd+Shift+Z" style="height:32px;border-radius:8px;border:1px solid #2c3440;background:#1f2630;color:inherit;cursor:pointer">↷</button>
       </div>
@@ -125,7 +138,7 @@ export class PlanEditor {
       const b = (e.target as HTMLElement).closest('button'); if (b === null) return
       if (b.dataset.t !== undefined) { this.tool = b.dataset.t as any; this.draw(); this.props() }
       const x = b.dataset.x
-      if (x === 'undo') this.step(true); else if (x === 'redo') this.step(false)
+      if (x === 'undo') this.step(true); else if (x === 'redo') this.step(false); else if (x === 'camera') this.add_camera()
     })
     new ResizeObserver(() => { const r = this.cv.getBoundingClientRect(); this.cv.width = r.width * devicePixelRatio; this.cv.height = r.height * devicePixelRatio; if (this.ox === 0) this.fit(); this.draw() }).observe(this.cv)
     this.bind()
@@ -226,6 +239,7 @@ export class PlanEditor {
       if (e.code === 'Escape') this.close()
       if (e.code === 'Delete' || e.code === 'Backspace') { e.preventDefault(); this.remove_selected() }
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyD') { e.preventDefault(); this.duplicate() }
+      if (!e.ctrlKey && !e.metaKey && e.code === 'KeyC') { this.add_camera(); return }
       if (!e.ctrlKey && !e.metaKey) { const k = ({ KeyV: 'select', KeyR: 'rect', KeyE: 'ellipse', KeyW: 'wire', KeyT: 'text' } as any)[e.code]; if (k !== undefined) { this.tool = k; this.props() } }
       if (e.code === 'KeyZ' || e.code === 'KeyX') { const s = this.get(this.sel); if (s !== undefined && !e.ctrlKey && !e.metaKey) { this.snap(); s.r += (e.code === 'KeyZ' ? 1 : -1) * (e.altKey ? Math.PI / 2 : Math.PI / 12); this.changed() } }
     }, true)
@@ -252,13 +266,14 @@ export class PlanEditor {
   /** a name says a lot: "$ …" = unlock pad, "counter" = counter, "stack" = pile, "player" = start… */
   private guess_kind (s: PlanShape): void {
     const t = s.label.toLowerCase()
-    const k: PlanKind | null = /^\$|unlock|mở khoá|hire|thuê/.test(t) ? 'unlock' : /player|nhân vật/.test(t) ? 'player' : /counter|quầy|cashier|thu ngân/.test(t) ? 'counter'
-      : /stack|pile|xếp|chồng|shelf|kệ/.test(t) ? 'stack' : /maker|machine|máy|oven|lò|grinder|nghiền|press|mill/.test(t) ? 'machine'
+    const k: PlanKind | null = /^\$|unlock|mở khoá|hire|thuê/.test(t) ? 'unlock' : /camera|\bcam\b|máy quay/.test(t) ? 'camera' : /player|nhân vật/.test(t) ? 'player' : /counter|quầy|cashier|thu ngân/.test(t) ? 'counter'
+      : /ore|quặng|ngọc|gem|crystal|pha lê|thạch anh/.test(t) ? 'ore' : /stack|pile|xếp|chồng|shelf|kệ/.test(t) ? 'stack' : /maker|machine|máy|oven|lò|grinder|nghiền|press|mill/.test(t) ? 'machine'
         : /tree|cây|field|ruộng|mine|mỏ|volcano|farm|source|nguồn|rock|đá/.test(t) ? 'source' : /room|phòng|zone|khu|road|đường|drive/.test(t) ? 'zone' : null
     if (k === null || k === s.kind) return
     s.kind = k; s.height = KIND_INFO[k].height
     if (k === 'source' && (s.gives ?? '') === '') s.gives = (t.match(/cheese|wood|gỗ|stone|đá|pizza|burger|milk|sữa|egg|trứng/)?.[0]) ?? 'item'
     if (k === 'unlock' && s.price === undefined) s.price = 50
+    if (k === 'ore' && (s.gives ?? '') === '') { s.gives = 'gem'; s.time = 0.5; s.hp = 6; s.respawn = 4; s.price = 5 }
   }
 
   private remove_selected (): void {
@@ -358,9 +373,39 @@ export class PlanEditor {
     const fs = Math.max(10, Math.min(18, Math.min(w, h) * 0.28)); g.fillStyle = '#111'; g.textAlign = 'center'; g.textBaseline = 'middle'
     g.font = `600 ${fs}px Roboto,system-ui,sans-serif`; if (s.label !== '') g.fillText(s.label + (s.note ? ' 📝' : ''), 0, 0, w * 0.95)
     g.font = `10px system-ui,sans-serif`; g.fillStyle = 'rgba(0,0,0,.6)'
-    const tag = ({ zone: '', block: '', source: `↑ ${s.gives ?? ''}`, machine: `${s.takes ?? '?'} → ${s.gives ?? '?'}`, stack: '≡', counter: `${s.takes ?? '?'} → $`, unlock: `$${s.price ?? 0}`, player: '🙂' } as Record<PlanKind, string>)[s.kind]
+    const tag = ({ zone: '', block: '', source: `↑ ${s.gives ?? ''}`, machine: `${s.takes ?? '?'} → ${s.gives ?? '?'}`, stack: '≡', counter: `${s.takes ?? '?'} → $`, unlock: `$${s.price ?? 0}`, player: '🙂', camera: (s.track ?? '') === '' ? '🎥' : `🎥 → ${s.track === 'player' ? '🙂' : (this.get(s.track!)?.label ?? '?')}` } as Record<PlanKind, string>)[s.kind]
     if (tag !== '') g.fillText(tag, 0, Math.min(h / 2 - 7, fs + 4))
     g.restore()
+    if (s.kind === 'camera') this.draw_view(s)
+  }
+
+  /** a camera's view on the plan: a cone where it looks (or toward what it tracks) and a dashed line to that */
+  private draw_view (s: PlanShape): void {
+    const g = this.g; const t = this.cam_target(s)
+    const dir = t !== null ? Math.atan2(t[0] - s.x, -(t[1] - s.z)) : s.r
+    const L = Math.max(4, Math.min(14, (t !== null ? Math.hypot(t[0] - s.x, t[1] - s.z) : 8))); const half = THREE_DEG(s.fov ?? 50) / 2
+    const [px, py] = this.to_screen(s.x, s.z)
+    g.save(); g.translate(px, py); g.rotate(dir)
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(-Math.tan(half) * L * this.scale, -L * this.scale); g.lineTo(Math.tan(half) * L * this.scale, -L * this.scale); g.closePath()
+    g.fillStyle = 'rgba(168,85,247,.18)'; g.fill(); g.strokeStyle = 'rgba(168,85,247,.8)'; g.lineWidth = 1.5; g.stroke()
+    g.restore()
+    if (t !== null) { const [qx, qy] = this.to_screen(t[0], t[1]); g.save(); g.strokeStyle = '#d8b4fe'; g.setLineDash([6, 5]); g.lineWidth = 2; g.beginPath(); g.moveTo(px, py); g.lineTo(qx, qy); g.stroke(); g.restore() }
+  }
+  /** where a camera looks on the plan: the tracked shape (or the player start), null = straight ahead */
+  private cam_target (s: PlanShape): [number, number] | null {
+    if ((s.track ?? '') === '') return null
+    const o = s.track === 'player' ? this.plan.shapes.find(x => x.kind === 'player') : this.get(s.track!)
+    return o !== undefined ? [o.x, o.z] : null
+  }
+  /** 🎥 a new camera: in the middle of the view, a little back from the player start, tracking it */
+  private add_camera (): void {
+    this.snap()
+    const r = this.cv.getBoundingClientRect(); const [cx, cz] = this.to_world(r.width / 2, r.height / 2)
+    const pl = this.plan.shapes.find(x => x.kind === 'player')
+    const n = this.plan.shapes.filter(x => x.kind === 'camera').length + 1
+    // placed round the player, not on top of the last camera
+    const s: PlanShape = { id: nid('c'), kind: 'camera', form: 'rect', x: pl !== undefined ? pl.x + Math.sin(n * 1.2) * 7 : cx, z: pl !== undefined ? pl.z + Math.cos(n * 1.2) * 7 : cz, w: 1.6, d: 1.1, r: 0, label: `Cam ${n}`, color: KIND_INFO.camera.color, height: KIND_INFO.camera.height, track: pl !== undefined ? 'player' : '', cmode: 'look', fov: 50, time: 3 }
+    this.plan.shapes.push(s); this.sel = s.id; this.tool = 'select'; this.changed()
   }
 
   private edge (s: PlanShape, tx: number, tz: number): [number, number] {
@@ -409,9 +454,15 @@ export class PlanEditor {
         ${s.kind === 'unlock' || s.kind === 'stack' ? `<div style="display:flex;gap:6px;align-items:center"><button data-p="padimg" style="${btn};flex:1">🖼 ${T('Pad picture…', 'Ảnh cho ô…')}</button>${s.image !== undefined && s.image !== '' ? `<button data-p="padimg0" style="${btn}" title="${T('Back to the built-in picture', 'Về ảnh mặc định')}">✕</button>` : ''}</div><input data-p="padfile" type="file" accept="image/*" hidden>` : ''}
         <div style="display:flex;gap:6px"><label style="flex:1">${T('Colour', 'Màu')}<input data-f="color" type="color" value="${s.color}" style="${inp};padding:0;height:30px"></label><label style="flex:1">${T('Height m', 'Cao (m)')}<input data-f="height" type="number" step="0.1" min="0.02" value="${s.height}" style="${inp}"></label></div>
         <div style="display:flex;gap:6px"><label style="flex:1">${T('Width m', 'Rộng (m)')}<input data-f="w" type="number" step="0.25" value="${+s.w.toFixed(2)}" style="${inp}"></label><label style="flex:1">${T('Depth m', 'Sâu (m)')}<input data-f="d" type="number" step="0.25" value="${+s.d.toFixed(2)}" style="${inp}"></label><label style="flex:1">${T('Turn °', 'Xoay °')}<input data-f="deg" type="number" step="15" value="${Math.round(s.r * 180 / Math.PI)}" style="${inp}"></label></div>
-        ${['source', 'machine'].includes(s.kind) ? `<label>${T('Gives (item)', 'Cho ra (món)')}<input data-f="gives" value="${s.gives ?? ''}" placeholder="wood / pizza…" style="${inp}"></label>` : ''}
+        ${s.kind === 'camera' ? `<label>🎯 ${T('Tracks', 'Bám theo')}<select data-f="track" style="${inp}"><option value=""${(s.track ?? '') === '' ? ' selected' : ''}>${T('Nothing: looks where it points', 'Không: nhìn thẳng theo hướng xoay')}</option><option value="player"${s.track === 'player' ? ' selected' : ''}>🙂 ${T('The player', 'Nhân vật')}</option>${this.plan.shapes.filter(x => x.id !== s.id && x.kind !== 'camera').map(x => `<option value="${x.id}"${s.track === x.id ? ' selected' : ''}>${(x.label || M(KIND_INFO[x.kind].en, KIND_INFO[x.kind].vi, KIND_INFO[x.kind].en)).replace(/</g, '&lt;')}</option>`).join('')}</select></label>
+        ${(s.track ?? '') !== '' ? `<label>${T('How', 'Cách bám')}<select data-f="cmode" style="${inp}"><option value="look"${s.cmode !== 'follow' ? ' selected' : ''}>${T('Stays here, turns to look', 'Đứng yên, xoay nhìn theo')}</option><option value="follow"${s.cmode === 'follow' ? ' selected' : ''}>${T('Rides along with it', 'Chạy theo cùng vật')}</option></select></label>` : ''}
+        <div style="display:flex;gap:6px"><label style="flex:1">${T('Lens °', 'Góc ống kính °')}<input data-f="fov" type="number" min="15" max="110" step="1" value="${s.fov ?? 50}" style="${inp}"></label><label style="flex:1">${T('Seconds', 'Số giây')}<input data-f="time" type="number" min="0.5" step="0.5" value="${s.time ?? 3}" style="${inp}"></label></div>
+        <div style="opacity:.7;font-size:12px">${T('Height m = how high the camera stands. In 3D every camera is a shot, in plan order: ▶ Play shots / ⏺ Record the shots.', 'Cao (m) = camera đặt cao bao nhiêu. Trong 3D mỗi camera là một shot, theo thứ tự trên sơ đồ: ▶ Chạy shot / ⏺ Quay các shot.')}</div>` : ''}
+        ${s.kind === 'ore' ? `<div style="display:flex;gap:6px"><label style="flex:1">${T('Items before it breaks', 'Số món rồi vỡ')}<input data-f="hp" type="number" min="1" step="1" value="${s.hp ?? 6}" style="${inp}"></label><label style="flex:1">${T('Grows back (s)', 'Mọc lại (giây)')}<input data-f="respawn" type="number" min="0" step="0.5" value="${s.respawn ?? 4}" style="${inp}"></label></div><label>${T('$ per item when sold', '$ mỗi món khi bán')}<input data-f="price" type="number" min="0" value="${s.price ?? 5}" style="${inp}"></label>` : ''}
+        ${s.kind === 'block' ? `<label style="flex-direction:row;align-items:center;gap:6px"><input data-f="evolve" type="checkbox"${s.evolve === true ? ' checked' : ''}> ${T('Evolve: behind a $ pad, the player becomes this model (digs faster)', 'Tiến hoá: sau ô $, nhân vật biến thành model này (khoan nhanh hơn)')}</label>` : ''}
+        ${['source', 'ore', 'machine'].includes(s.kind) ? `<label>${T('Gives (item)', 'Cho ra (món)')}<input data-f="gives" value="${s.gives ?? ''}" placeholder="wood / pizza…" style="${inp}"></label>` : ''}
         ${['machine', 'counter', 'stack'].includes(s.kind) ? `<label>${T('Takes (item, empty = anything)', 'Nhận vào (món, trống = gì cũng được)')}<input data-f="takes" value="${s.takes ?? ''}" style="${inp}"></label>` : ''}
-        ${['source', 'machine', 'counter'].includes(s.kind) ? `<label>${T('Seconds per item', 'Số giây mỗi món')}<input data-f="time" type="number" step="0.1" min="0.1" value="${s.time ?? (s.kind === 'source' ? 0.6 : 1.2)}" style="${inp}"></label>` : ''}
+        ${['source', 'ore', 'machine', 'counter'].includes(s.kind) ? `<label>${T('Seconds per item', 'Số giây mỗi món')}<input data-f="time" type="number" step="0.1" min="0.1" value="${s.time ?? (s.kind === 'source' ? 0.6 : 1.2)}" style="${inp}"></label>` : ''}
         ${['counter', 'unlock'].includes(s.kind) ? `<label>${s.kind === 'counter' ? T('$ per item', '$ mỗi món') : T('$ to unlock', '$ để mở khoá')}<input data-f="price" type="number" min="0" value="${s.price ?? (s.kind === 'counter' ? 5 : 50)}" style="${inp}"></label>` : ''}
         <label>${T('3D look', 'Hình 3D')}<select data-f="model" style="${inp}"><option value="">${T('Box in its colour', 'Khối hộp theo màu')}</option>${(window as any).__gbPlanModels?.().map((m: [string, string]) => `<option value="${m[0]}"${s.model === m[0] ? ' selected' : ''}>${m[1]}</option>`).join('') ?? ''}</select></label>
         <div style="display:flex;gap:6px"><button data-p="dup" style="${btn};flex:1">⧉ ${T('Copy', 'Nhân bản')}</button><button data-p="del" style="${btn};flex:1">🗑 ${T('Delete', 'Xoá')}</button></div>
@@ -434,8 +485,11 @@ export class PlanEditor {
       el.addEventListener('change', () => {
         const sh = this.get(this.sel); if (sh === undefined) return; const f = el.dataset.f!; const v = el.value
         if (f === 'deg') sh.r = Number(v) * Math.PI / 180
-        else if (['height', 'w', 'd', 'time', 'price'].includes(f)) (sh as any)[f] = Number(v)
+        else if (f === 'evolve') sh.evolve = (el as HTMLInputElement).checked
+        else if (['height', 'w', 'd', 'time', 'price', 'fov', 'hp', 'respawn'].includes(f)) (sh as any)[f] = Number(v)
         else (sh as any)[f] = v
+        if (f === 'track' || (f === 'kind' && sh.kind === 'camera')) { sh.cmode ??= 'look'; sh.fov ??= 50; sh.time ??= 3 }
+        if (f === 'track') { this.changed(); return }
         if (f === 'kind') { sh.height = KIND_INFO[sh.kind].height; if (sh.color === '' || Object.values(KIND_INFO).some(k => k.color === sh.color)) sh.color = KIND_INFO[sh.kind].color }
         if (f === 'label') this.guess_kind(sh)
         this.changed()

@@ -25,6 +25,21 @@ export default async ({ nav, ev, wait, start, key, down, up, click, drag }) => {
     await ev(`const b = new Uint8Array(await (await fetch('/_tmp_shot/truck.mp4')).arrayBuffer()); let s = ''; for (let i = 0; i < b.length; i += 32768) s += String.fromCharCode.apply(null, b.subarray(i, i + 32768)); await window.__gbTools.call('gb_drive', { action: 'load', video_b64: btoa(s), name: 'TruckCliff.mp4' }); await window.__gbTools.call('gb_drive', { action: 'auto' }); return 1`)
     await wait(1500); await start(); await ev(`document.getElementById('dr-playBtn').click(); return 1`); await wait(7500); return
   }
+  // ⬆ 🗺 🎒 the three new layouts: their state is set straight away (a sample map + a path, a few merges), then played
+  if (['upgrade', 'minimap', 'inventory'].includes(F)) {
+    await wait(1500)
+    if (F === 'minimap') {
+      await ev(HP(`d.querySelector('[data-lyx="sample"]').click(); return 1`)); await wait(300)
+      await ev(HP(`d.querySelector('[data-lyx="ok"]').click(); const st = w.__gbHp.state(); const P = []; let x = 0.5, y = 0.55; const legs = [[0.62, 0.55], [0.62, 0.25], [0.85, 0.25], [0.85, 0.5], [0.5, 0.5]]; let t = 1.3; for (const [tx, ty] of legs) { for (let i = 1; i <= 15; i++) { P.push([+t.toFixed(3), x + (tx - x) * i / 15, y + (ty - y) * i / 15]); t += 0.09 } x = tx; y = ty } st.map.path = P; st.map.tOk = 0.5; st.dur = 9; w.__gbHp.refresh(); return 1`)); await wait(400)
+    }
+    if (F === 'inventory') {
+      await ev(HP(`const st = w.__gbHp.state(); st.inv.items = [{id:1,type:'sword',lvl:1,c:0,r:0},{id:2,type:'sword',lvl:1,c:1,r:0},{id:3,type:'shield',lvl:1,c:2,r:0},{id:4,type:'shield',lvl:1,c:3,r:0},{id:5,type:'potion',lvl:1,c:4,r:0},{id:6,type:'gem',lvl:1,c:5,r:0},{id:7,type:'sword',lvl:1,c:0,r:2},{id:8,type:'sword',lvl:1,c:1,r:3}];
+        st.inv.acts = [{t:1.2,kind:'merge',id:1,into:2,nid:9},{t:2.4,kind:'merge',id:3,into:4,nid:10},{t:3.6,kind:'merge',id:7,into:8,nid:11},{t:4.8,kind:'merge',id:11,into:9,nid:12},{t:6,kind:'drop',id:5},{t:7,kind:'grow',dir:'row'}]; st.dur = 8.5; w.__gbHp.refresh(); return 1`)); await wait(400)
+    }
+    if (F === 'upgrade') await ev(HP(`const st = w.__gbHp.state(); st.dur = 4.6; w.__gbHp.refresh(); return 1`))
+    await ev(HPSEEK(0)); await start(); await wait(300)
+    await ev(HP(`d.getElementById('play').click(); return 1`)); await wait(F === 'upgrade' ? 4800 : 8500); return
+  }
   if (['hpbar', 'countdown', 'vfx', 'endcard'].includes(F)) {
     await wait(1500)
     if (F === 'vfx') {

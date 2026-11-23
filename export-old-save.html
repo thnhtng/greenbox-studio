@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>Export save</title>
+<body style="font:15px system-ui;background:#0b0e14;color:#dfe8f2;padding:30px">
+<p id="m">…</p>
+<script>
+// one-off: take the old game save out of this address so the standalone game can load it. Delete this file afterwards.
+const s = localStorage.getItem('gb.cosmos.v1')
+if (!s) document.getElementById('m').textContent = 'Không thấy save cũ ở địa chỉ này (' + location.host + ').'
+else {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s], { type: 'application/json' })); a.download = 'cosmos-save.json'; a.click()
+  document.getElementById('m').innerHTML = 'Đã tải <b>cosmos-save.json</b> về thư mục Downloads. Mở game mới → <b>📥 Nhập save cũ (.json)</b> → chọn file đó.'
+}
+</script>

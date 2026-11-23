@@ -492,3 +492,213 @@ Launcher dùng `serve.py` (server nhỏ có tắt cache, cập nhật bản mớ
 Tab **3D · Gắn xương** không chạy khi bấm đúp mở `Greenbox-Cockpit.html` (file://), vì trình duyệt chặn module và việc tải model. Thay vào đó:
 - macOS: bấm đúp `Mo-Greenbox.command` (lần đầu: chuột phải → Open).
 - Windows: bấm đúp `Mo-Greenbox.bat`.
+
+## Cập nhật 05/11/2026 — hàng rào dọc khớp lưới
+
+- Map editor: bóng mờ (ghost) của hàng rào / tường khi rê chuột giờ đặt cột đầu đúng điểm lưới, giống hệt chỗ đoạn rào được đặt khi bấm / kéo. Trước đây bóng rào dọc bị lệch 1 ô (1.5 m) so với cột góc.
+
+## Cập nhật 05/11/2026 (đợt 2) — xây nhà: tường nhà, cửa, cửa sổ, mái + camera bám theo nhân vật
+
+- **Map › Vật thể** có thêm 4 ô: **Tường nhà**, **Cửa**, **Cửa sổ**, **Mái**.
+  - Tường nhà: nhấn vào một điểm lưới rồi kéo thành dãy thẳng (mỗi tấm 3 m, cao 2.6 m). Kéo dãy tiếp theo từ cột ở góc để góc khớp.
+  - Cửa / Cửa sổ: bấm vào đầu một tấm tường để thay tấm đó (hoặc kéo thành dãy). Z xoay sang trục dọc.
+  - Mái: bấm vào bên trong một phòng đã khép kín (tường, cửa, cửa sổ bao quanh). Mái 2 dốc tự khớp theo phòng; phòng chưa kín sẽ có thông báo. Phòng hình chữ L thì mái phủ theo khung bao ngoài.
+- Khi nhân vật (hoặc vật đang được camera bám theo) ở trong nhà, **mái tự mờ đi**. **Tường chắn giữa camera và nhân vật** cũng mờ đi để luôn thấy bên trong. Khi đang chọn công cụ xây nhà, mọi mái đều mờ để dễ nhìn.
+- **Camera & quay › 🎯 Camera bám theo**: chọn nhân vật chính hoặc một nhân vật / model đặt trên map để camera ngôi thứ 3 bám theo (Q / E hoặc kéo chuột phải để xoay, lăn chuột để zoom).
+- Xuất Blender (.py) có cả tường nhà và mái. Lệnh AI `gb_map add` nhận thêm `hwall`, `door`, `window`, `roof`.
+
+## Cập nhật 05/11/2026 (đợt 3) — chỉnh to / nhỏ trong Play test
+
+- **Nhân vật › 📏 Kích thước**: kéo để nhân vật to / nhỏ (0.1× – 5×, 1× = người cao 1.8 m). Chân vẫn chạm đất; tốc độ chạy, độ cao nhảy, leo tường và tầm đánh tự theo kích thước; camera lùi / tiến theo. Kích thước được nhớ cho nhân vật nạp lần sau. Bấm đúp thanh kéo = về 1×.
+- **Sửa map (Edit map) › 📏 Kích thước**: chọn một vật (nhà, cây, model bạn thả vào…) rồi kéo để phóng to / thu nhỏ đều, giữ tỉ lệ, vật tự đặt lại xuống đất. Có Hoàn tác (Undo).
+- Phím tắt: **[** nhỏ lại, **]** to lên (đang sửa map và có vật được chọn → vật đó; còn lại → nhân vật).
+- Xe chưa chỉnh kích thước được bằng thanh này.
+
+## Cập nhật 05/11/2026 (đợt 4) — hướng dẫn đầy đủ cho người mới + kế hoạch nhà nhiều tầng
+
+- **Play test** có hướng dẫn từng bước mới (26 bước). Tour chỉ vào từng công cụ: nhân vật, kích thước, điều khiển, hoàn tác, thả vật, sửa map, map mẫu, nặn địa hình, tô đất, hố / nước, vật thể, xây nhà, file 3D riêng, lưu / mở, xuất file, ảnh → map, bản vẽ 2D → playable, camera, camera bám theo, camera tự do / shot, bảng góc nhìn, quay video.
+- Tour tự chạy lần đầu mở trang, kể cả với người đã xem bản 4 bước cũ. Bấm nút tròn **?** trên thanh trên cùng để xem lại; Esc để đóng.
+- **Nhà nhiều tầng**: chưa có, kế hoạch nằm trong `PLAN-NHA-NHIEU-TANG.md`, chờ duyệt.
+
+## Cập nhật 05/11/2026 (đợt 5) — nhà nhiều tầng: tầng, sàn, cầu thang
+
+- **Map › 🏢 Tầng 1 – 5** (ngay trên bảng vật thể): chọn tầng đang xây, mỗi tầng cao 2.8 m. Tường, cửa, cửa sổ, hàng rào và vật thể đặt lên tầng đang chọn. Con trỏ chuột bám đúng mặt sàn của tầng đó.
+- **Sàn** (ô mới): bấm vào trong một phòng kín.
+  - Ở tầng 1: một lớp sàn gỗ mỏng.
+  - Ở tầng 2 trở lên: tấm sàn dày 0.2 m đặt lên tường tầng dưới.
+- **Cầu thang** (ô mới): dài 4.5 m, rộng 1.5 m, 14 bậc, đi từ tầng đang xây lên tầng kế. Z xoay 90°; bóng mờ cho thấy hướng đi lên. Sàn tầng trên **tự khoét lỗ** chỗ cầu thang; xoá cầu thang thì lỗ tự lấp lại.
+- **Nhân vật đi bộ lên / xuống cầu thang**, không cần nhảy.
+- **Mái**: chọn tầng trên cùng rồi bấm vào trong phòng; mái đặt lên tường của tầng đó.
+- **Nhìn xuyên tầng**: khi đang xây ở tầng nào, các tầng phía trên mờ đi. Lúc này Tẩy cũng chỉ xoá vật của tầng đang chọn. Khi nhân vật ở trong nhà, các tầng phía trên nó và mái mờ đi.
+- Cách xây nhà 2 tầng:
+  1. Tầng 1: kéo tường, đặt cửa / cửa sổ, đặt cầu thang trong phòng (chừa chỗ ở đầu trên).
+  2. Tầng 2: kéo tường lên trên tường tầng 1, đặt **Sàn** (bấm vào trong phòng).
+  3. Đặt **Mái** (vẫn đang chọn tầng 2).
+- Hướng dẫn (nút **?**) có thêm bước "Nhà nhiều tầng". Xuất Blender có sàn và cầu thang (sàn trong Blender chưa có lỗ). Lệnh AI `gb_map add` nhận `level`, `floor`, `stairs`.
+
+## Cập nhật 05/11/2026 (đợt 6) — sửa lỗi model có xương nạp vào không thấy gì
+
+- Lỗi: một số file GLB xuất từ Blender có xương nằm trong "Armature" scale 0.01 (đơn vị cm), ví dụ `basketball_player_rigged.glb`. Nạp vào thì người cao 2 m chỉ còn **2 cm**, trông như trống trơn (chỉ thấy tay cầm di chuyển). Nguyên nhân: theo chuẩn glTF, mesh có xương phải bỏ qua scale của node cha, nhưng thư viện Three.js vẫn nhân thêm scale đó.
+- Đã sửa: khi nạp GLB / glTF, mesh có xương nằm dưới node bị xoay / co giãn được đặt lại theo đúng xương như chuẩn glTF. Áp dụng cho Use Your Model, Use Your Rigged Model (nút "Animate it now"), Play test, Xe cộ, Mocap. File bình thường (mesh không bị transform) giữ nguyên.
+- Đã thử với file cầu thủ bóng rổ: hiện đủ cao 2 m, chạy được 179 animation có sẵn, nạp vào Play test được.
+
+## Cập nhật 05/11/2026 (đợt 7) — kéo một khớp chỉ khớp đó di chuyển
+
+- **Use Your Model › đặt khớp**: bấm và kéo một khớp (ví dụ "Cột sống 1") giờ **chỉ khớp đó di chuyển**. Trước đây mặc định là cả nhánh phía sau (thân trên, tay, đầu…) đi theo.
+- Muốn cả nhánh đi theo: giữ **Ctrl / ⌘** khi kéo (chỉ cho lần kéo đó), hoặc tick ô mới **"Khớp con đi theo khớp đang kéo"** trong khung Easy mode. Ô này là cùng một công tắc với "Move Bone Children" trong tuỳ chọn nâng cao.
+- Kéo một nhóm đã quét chọn (màu cam) vẫn dời cả nhóm như cũ.
+
+## Cập nhật 06/11/2026 — tầng không còn khe hở, rê chuột lên tường để xây tầng trên
+
+- **Hết khe hở giữa các tầng**: tường tầng 2 trở lên có thêm một dải 0.2 m bên dưới, khít với đỉnh tường tầng dưới (tầng 1: 0–2.6 m, tầng 2: 2.6–5.4 m, tầng 3: 5.4–8.2 m…).
+- **Xây tầng trên bằng cách rê chuột**: đang chọn Tường nhà (hoặc Cửa / Cửa sổ), rê chuột lên một bức tường có sẵn thì tự chuyển sang tầng ngay trên nó. Bóng mờ nằm trên đỉnh tường; nhấn và kéo dọc theo tường để xây. Rê lên tường tầng 2 → tầng 3, tường tầng 3 → tầng 4. Rê ra chỗ trống thì quay về tầng đang chọn ở hàng nút 🏢.
+- **Sửa lỗi kéo dãy tường / rào**: trước đây kéo một dãy dài chỉ đặt được 1 tấm; giờ đặt đủ cả dãy.
+
+## Cập nhật 06/11/2026 (đợt 2) — cửa / cửa sổ khoét thẳng vào tường
+
+- Lỗi: chọn Cửa rồi bấm vào tường thì cửa bị đặt chồng lên (hoặc nhảy lên tầng trên) mà tường không được khoét.
+- Giờ: chọn **Cửa** hoặc **Cửa sổ**, rê chuột lên một tấm tường (bấm chỗ nào trên tấm cũng được). Bóng mờ hiện đúng vào tấm đó, dòng trạng thái báo "bấm để khoét". Bấm là tấm tường được **thay bằng tấm có lỗ cửa / cửa sổ**, cùng tầng, cùng hướng. Làm được ở mọi tầng.
+- Tường nhà vẫn như cũ: rê lên tường có sẵn thì xây lên tầng trên.
+
+## Cập nhật 06/11/2026 (đợt 3) — gói Unity: có màu, nước trong, tự có nhân vật chơi
+
+- **Hết trắng khi vào Unity**: trước đây mọi vật liệu trong file FBX cùng tên "Material", Unity gộp làm một nên tất cả thành trắng (cả nước). Giờ mỗi màu là một vật liệu riêng tên theo màu (`GB_e6dac2`, nước `GB_Water_3f8fd0_72`, kính `GB_9fd3f0_40`…).
+- **Mặt đất có màu**: Unity URP/Lit không hiện màu theo đỉnh, nên gói có thêm ảnh màu đất `Data/greenbox-terrain.png` phủ lên mặt đất.
+- **Menu Greenbox ▸ Build map in scene** giờ làm luôn:
+  - Tô lại màu đúng cho URP / HDRP / Built-in (vật liệu lưu ở `Data/Materials`).
+  - Nước và kính trong suốt.
+  - **Thêm nhân vật chơi** (khối capsule xanh, tag Player): WASD / mũi tên đi, Shift chạy, Space nhảy, Q/E hoặc kéo chuột phải xoay camera, lăn chuột zoom. Đặt cạnh cờ 🚩 nếu có, không thì giữa map. Bấm Play là chơi.
+- Menu thêm: **Greenbox ▸ Fix map colours** (tô lại màu nếu bị trắng), **Greenbox ▸ Add player**.
+- Muốn dùng nhân vật riêng: xoá capsule, gắn tag Player cho nhân vật của bạn, thêm CharacterController + `Greenbox.GreenboxPlayer`.
+- Sửa luôn: mọi vật cùng loại bị trùng tên (`wall_1`) — giờ là `wall_1`, `wall_2`…, để builder tìm đúng vật khi gắn hành vi.
+
+## Cập nhật 06/11/2026 (đợt 4) — xương xích chỉ chạy quanh bánh xe
+
+- Lỗi: xe bánh xích (xe ủi, máy xúc…) có các xương mắt xích văng ra tận cabin và thanh tay gầu, vì phần "xích" tự tìm ôm nhầm cả thanh nằm dọc phía trên xích.
+- Giờ:
+  - Khi tự tìm xích, chỉ lấy điểm sát vòng bánh (không quá 0.45 lần bán kính bánh ra ngoài). Một khối rời chỉ bị lấy nguyên khối khi nó nằm gọn trong vùng quanh bánh.
+  - Khi dựng xương, các mắt xích chạy **theo đường bao các bánh xe** của bên đó (cần từ 2 bánh trở lên). Điểm lạc nằm xa bánh đi theo thân xe, không gắn vào mắt xích.
+- Thử với `Bulldozer.glb`: trước đây mắt xích lên tới 3.05 m (gần nóc xe), giờ chỉ 0–1.8 m quanh bánh. Bộ test xe vẫn đạt 22/22.
+
+## Cập nhật 06/11/2026 (đợt 5) — khung chat Claude / Codex cạnh Greenbox (như extension)
+
+- Trong khung **🤖 AI**, nút mới **🔌** chuyển sang chế độ **Claude / Codex (MCP)**. Bấm **⇥** để ghim thành cột bên phải; trang Greenbox tự thu hẹp nhường chỗ, giống thanh bên của extension Chrome.
+- AI đang điều khiển Greenbox qua MCP (Claude Code, Codex, Claude Desktop, Cursor…) giờ **nói chuyện với bạn ngay trong khung này**:
+  - Lời AI hiện thành bong bóng có tên app (công cụ mới `gb_say`). Khung tự mở khi AI nhắn.
+  - Bạn gõ trả lời ở ô dưới; AI đọc bằng công cụ mới `gb_inbox` (có thể chờ bạn tới 50 giây). Khung báo "⏳ … đang chờ bạn trả lời" và "👀 … đã đọc".
+  - Mọi lệnh AI chạy vẫn hiện dòng xanh, giờ ghi đúng tên app ("🔌 Codex → gb_map …").
+- Cần mở lại app AI (Claude Desktop / Claude Code / Codex) để nó nạp bản MCP mới.
+
+## Cập nhật 06/11/2026 (đợt 6) — trang giới thiệu (introduction.html) gọn và chuyên nghiệp hơn
+
+- **Bỏ phần lặp**: mục "Mọi tính năng đều đã quay lại" bị ẩn. Video của nó vẫn nằm trong trang để các thẻ "Các layout trong Greenbox" phát khi bấm, nên mỗi video chỉ còn hiện một chỗ.
+- **Mới: "✨ Greenbox làm được gì"** (ngay sau phần hình ảnh, menu "Tính năng"): 13 ô, mỗi ô ghi **đưa vào gì → nhận lại gì**, mô tả ngắn và làm ở tab nào (gắn xương, clone rig, model có xương, xe, mocap, map & chơi thử, SMASH DOWN, overlay, vô lăng, SFX, end card, gacha, AI qua MCP). Bấm ô là mở video quay thật.
+- **Tự chỉnh vòng loop bằng chuột**: mở trang với `?edit`, ví dụ `introduction.html?edit` (hoặc bấm đúp vào tiêu đề mục Quy trình).
+  1. Bấm **✏️ Chỉnh bố cục**, rồi kéo từng ô và vòng giữa. Kéo vạch dưới cùng để đổi chiều cao. Mũi tên tự vẽ lại.
+  2. Bố cục tự lưu trong trình duyệt đó. **↺ Mặc định** để quay lại bản gốc.
+  3. Cho mọi người cùng thấy: bấm **⬇ loop-layout.json**, đặt file vào `dev/axhero/`, rồi chạy `python3 dev/release.py`.
+  - Người xem bình thường (không có `?edit`) không thấy các nút này. Chế độ chỉnh chỉ chạy khi cửa sổ rộng hơn 1120 px (hẹp hơn thì vòng loop xếp thành một cột).
+- (06/11, đợt 7) Các ô "Greenbox làm được gì" giờ dùng đúng kiểu kính (liquid glass) như các thẻ layout: nền kính mờ, đốm sáng theo chuột, nghiêng nhẹ khi rê; ô "vào → ra" thành viên kính, nút chỉnh loop cũng là nút kính.
+- (06/11, đợt 8) Kính đậm hơn cho thẻ layout và ô "Greenbox làm được gì": trong hơn, viền bắt sáng như mép kính, vệt sáng lướt qua khi rê chuột, ánh xanh mờ chuyển động phía sau lưới thẻ. Chỉ dùng CSS, không cần gen hình.
+- (06/11, đợt 9) Vòng loop cũng thành kính: các ô bước, khung 🤖/🧑, nhãn công cụ, vòng giữa GREENBOX LOOP, và ánh xanh phía sau.
+- (06/11, đợt 10) Vòng loop có hiệu ứng khi cuộn tới: vẽ đường vòng trước, đốm sáng chạy dọc vòng, tới ô nào ô đó hiện ra; chạy hết vòng thì nét mũi tên hiện lại. File vẫn dưới 5 MB.
+- (06/11, đợt 11) Vòng loop: chỉ chạy khi cuộn tới giữa vòng (không chạy sớm nữa), và giờ là hình tròn thật, 6 ô cách đều trên vòng tròn.
+
+## Cập nhật 06/11/2026 (đợt 12) — một câu prompt ra playable
+
+- Claude (Desktop / Code) giờ làm được trọn chuỗi chỉ từ 1 câu: **nạp model → gắn xương → sang Play test → dựng map + gameplay → chơi thử → xuất file playable .html**. Bạn xem trực tiếp trên trang Greenbox và trong khung chat bên cạnh.
+- Cách dùng: xem `gb-ai/README.md` mục **1c**. Trong Claude Code gõ `/mcp__greenbox__make_playable`.
+- Mới: lệnh `gb_to_playtest` (gửi nhân vật vừa rig sang Play test), `gb_map export_playable` (xuất playable không cần bấm hộp thoại), `gb_recipe` (công thức từng bước cho AI), prompt MCP `make_playable`.
+- Đã chạy thử trọn vòng với model người mẫu: gắn xương 178 animation → người chơi trong Play test → map + 4 cây đá + gameplay nhặt tiền / quầy / ô $10 / ngôi nhà → `greenbox-playable.html` **3.76 MB**, mở ra chơi được (nhân vật, mũi tên chỉ đường, bộ đếm tiền, nút "Chơi ngay").
+- Cần mở lại app AI để nạp bản MCP mới.
+
+## Cập nhật 06/11/2026 (đợt 13) — xe bánh xích: đinh tán theo bánh, kéo vòng bánh để chỉnh xương
+
+- **Tự động:** khối nhỏ nằm trong mặt bánh (đinh tán, nắp mâm, vành) giờ được giao cho chính bánh đó, nên quay theo bánh chứ không trượt theo xích. Áp dụng cả khi tự cắt (🪄) lẫn khi dựng xương.
+- **Chỉnh xương bằng chuột:** trên trang Xe cộ:
+  - **Kéo vòng màu của bánh** để dời tâm bánh.
+  - **Giữ Alt và kéo** vòng để đổi bán kính.
+  - Thả chuột là xương được dựng lại, các mắt xích chạy theo đường bao mới (bật 🦴 Bones để thấy).
+  - Ctrl+Z để hoàn tác.
+- Thử với `Bulldozer.glb`: tự cắt giao thêm 1115 điểm (đinh, mâm) về bánh; kéo bánh trước lên 0.23 m và nới bán kính 0.88 → 1.20 thì mắt xích chạy theo. Bộ test xe vẫn 22/22.
+
+## Cập nhật 06/11/2026 (đợt 14) — chỉnh bánh không cần phím tắt, xem xương xích gọn
+
+- **Bấm vào một bánh** (hoặc chọn nó trong danh sách bộ phận), khung 🛞 của bánh hiện ở góc trái trên khung 3D:
+  - **Tâm ↑ ↓ ← →**: dời tâm bánh từng bước.
+  - **Cỡ − +**: thu nhỏ / phóng to bánh; bên cạnh ghi bán kính hiện tại.
+  - Bấm được ở mọi chế độ, kể cả khi đang tô da.
+- **Kéo bằng chuột** trên bánh đang chọn: **chấm màu ở giữa** = dời tâm, **núm trắng trên vành** = đổi cỡ, kéo cả vòng màu = dời tâm. Không cần phím Alt / Option.
+- Sau mỗi lần chỉnh, xương và các mắt xích tự dựng lại theo bánh mới. Ctrl+Z để hoàn tác.
+- **Xem xương (🦴 Bones) gọn hơn**: mắt xích của xích giờ là một chuỗi chấm trắng chạy vòng quanh xích, không còn hàng trăm tia toả ra như quạt (số xương không đổi, chỉ đổi cách vẽ).
+
+## Cập nhật 09/11/2026 (đợt 15) — Lái xe: cần lái joystick + phím WASD, MCP không rớt nữa
+- Thêm 2 món ở tab Layout của Lái xe: **Cần lái (joystick)** — A/D nghiêng trái/phải, W đẩy tới, S kéo lui, chân cần đứng yên — và **Phím WASD** sáng vàng + lún xuống khi bấm. Bật trong danh sách, đổi ảnh cần lái bằng nút “Ảnh…”. Phím W = ga, S = phanh (R/E/mũi tên vẫn dùng được).
+- Sửa lỗi Claude điều khiển Lái xe bị treo / rớt kết nối khi nạp video hoặc xuất: video không còn gửi kèm lệnh dạng base64 mà đi qua server của Greenbox; xuất chạy nền và tự lưu vào `exports/drive/`. Xuất mới: `.MOV alpha` qua MCP (`gb_drive export {mode:"mov"}`).
+- Cần mở lại Mo-Greenbox và app Claude một lần để dùng bản mới.
+
+
+## Cập nhật 09/11/2026 (đợt 16) — Thanh máu thêm 3 logo, minimap hết lằn đen, xuất minimap chấm đỏ chạy đúng
+- Thanh máu: mục 5 có thêm Logo 2, Logo 3, Logo 4 (mỗi cái: tải ảnh, bật/tắt, cỡ, kéo trên khung hình, phím mũi tên để nhích).
+- Minimap: chỗ hai đường giao nhau không còn lằn viền đen.
+- Minimap: xuất video luôn đi theo đường đã ghi; bấm WASD lúc dừng chỉ để xem thử, không còn làm chấm đỏ đứng im khi xuất.
+
+## Cập nhật 10/11/2026 (đợt 95) — AI Drama thành studio kiểu DramaClaw, mở hết tính năng
+- Thanh trên: **Freezone | Phim bộ**, ô **🔓 Mở hết (kiểm tra)** (bật sẵn: mọi bước, mọi nút đều bấm được), **🎬 Xia Director** (chat với Claude về dự án).
+- Phim bộ: Nguồn truyện · Thư viện asset (Nhân vật, Bối cảnh, Đạo cụ, Giọng thuyết minh) · Kịch bản · Phác thảo (storyboard, 📸 Previz chụp từ Play test) · Âm thanh (lồng tiếng, nhạc nền, phụ đề .SRT) · Video · Dựng phim (trộn lồng tiếng / nhạc / phụ đề) · Phong cách.
+- Freezone: canvas node kéo-nối (văn bản, ảnh, ảnh AI, video AI, âm thanh, kịch bản, dựng video, Previz 3D), Claude tạo nội dung từng node.
+
+## Cập nhật 10/11/2026 (đợt 101) — Nhắn thẳng với Claude / Codex trong Greenbox, đi bộ trong trạm, lái xe rover
+
+- **Chat AI bằng CLI có sẵn trên máy (không cần API key):** bấm nút 🤖 AI ở bất kỳ trang nào của Greenbox (Cockpit, Drama, HP bar, SFX, Arcade, Rig 3D, Xe, Play-test, Mocap, Smash…), chọn **Claude Code** hoặc **Codex** ở ô chọn dưới khung chat rồi nhắn. Greenbox gọi CLI đã cài trên máy, CLI dùng công cụ Greenbox để làm việc ngay trên trang bạn đang xem. Nút ✏️ = cho phép AI sửa file (mặc định tắt), ⏹ = dừng. Đổi trang thì đoạn chat và việc đang chạy vẫn còn.
+- **Cần làm 1 lần:** đóng Greenbox rồi mở lại bằng Mo-Greenbox để máy chủ nhận phần mới (máy chủ đang mở vẫn là bản cũ).
+- **Sửa lỗi Play-test:** nhân vật có xương thả vào map bị lệch (nhân vật một bên, tay kéo một bên) → đã sửa.
+- Chưa thử: người chơi thật bằng chuột, chế độ ✏️ sửa file, chat ngay trong trang Cockpit.
+
+## Cập nhật 10/11/2026 (đợt 100) — Sửa lỗi gắn vật vào map
+
+- **Play-test map:** sửa lỗi vật thứ 2, thứ 3 kéo mũi tên đi mà model đứng yên.
+- **Buồng lái 3D thật** (phím V): bảng điều khiển, 3 màn hình chạy số thật, cần lái và cần ga cử động, góc nhìn rộng. Nhìn quanh bằng ←↑↓→ hoặc giữ C rồi rê chuột.
+- **Phụ tùng thấy ngay trên tàu:** mua súng, tên lửa, bình nhiên liệu, khiên… là thấy gắn lên thân tàu. Lúc cập bến, tàu xoay chậm bên trái bảng mua hàng để bạn xem.
+- **Thị trấn dùng được:** trụ nhiên liệu (đổ xăng), bàn sửa (sửa tàu), bảng điện tử (chợ), bình dưỡng khí (nạp O₂), dân trong trấn nói chuyện được.
+- **Hình ảnh:** ánh sáng môi trường, phát sáng (bloom), bóng đổ trên mặt đất, rung màn hình khi trúng đạn.
+- Chưa có: đi bộ trong trạm vũ trụ, lái xe rover. Model Polyfork là kiểu low-poly có phong cách, chưa phải mức AAA. CGTrader bắt đăng nhập nên không lấy model ở đó.
+
+## Cập nhật 10/11/2026 (đợt 99) — Ẩn game khỏi mockup
+
+- **Game là phần riêng**: máy bay và bóng rổ không còn trong mockup và introduction. Trong tool chính, nhóm game chỉ hiện sau khi gõ mã của chủ tool ngay trên trang Cockpit (gõ lại lần nữa để ẩn). Đây là khoá mềm phía trình duyệt, không phải bảo mật thật.
+- Vào khí quyển, **hạ càng và đáp bằng tay**, ra khỏi tàu đi bộ góc nhìn thứ 3; hành tinh có nơi cần oxy, có nơi có quái vật, có thị trấn và quán bar.
+- Đi buôn, cướp, đào khoáng, săn kho báu; 4 phe; tàu lạ là bạn hay thù phải tự đoán.
+- **Xây căn cứ tự do** (B), đặt máy phát 📡 rồi bấm H để quay về; H cũng đưa về bến nhà.
+- Nhiều kiểu tàu tương lai, nâng cấp dần; nhiều loại súng và tên lửa; góc nhìn buồng lái (V).
+- Phím: chuột lái · W/S ga · A/D lăn · Shift tăng lực · J siêu tốc · M bản đồ sao · G càng · E tương tác · F1 ẩn/hiện hướng dẫn. Chỉ chơi bằng bàn phím + chuột.
+- Dung lượng: mockup zip 5,444,853 B · introduction.html 8,816,416 B.
+
+## Cập nhật 23/11/2026 (đợt 102) — Gacha "Chọn 1 trong 2 (mặt trước)", loé đỏ làm theo video, hết bị cache
+
+- **🎴 Chọn 1 trong 2 (mặt trước)** (mục mới trong Cockpit, nhóm Gacha): hai thẻ ngửa sẵn mặt trước, không có mặt sau, không lật. Rê chuột chọn một: thẻ đó nảy lên, sáng; thẻ kia mờ đi, tụt xuống. Ghi / xuất MP4 / .MOV alpha như "Chọn 1 trong N". Trong "Chọn 1 trong N" cũng có ô **Chỉ mặt trước (không có mặt sau, không lật)**.
+- **🩸 Nháy đỏ khi trúng đòn:**
+  - Thả video vào khung xem trước (hoặc nút 🎞 Video gốc) → làm cú đánh theo video đó: phím V / "＋ Trúng đòn tại giây này", vạch đỏ trên timeline.
+  - Cú đánh của video **không lưu**: thả video mới là bắt đầu sạch, gỡ video (✕) là hết loé đỏ của video đó.
+  - Không có video vẫn chỉnh được (màu, độ đậm, độ lấn, thời lượng, các giây trúng đòn đã lưu).
+  - **🔄 Nháy thử**: nháy đỏ ngay trên khung xem trước, không cần tua tới giây trúng đòn (không lọt vào file xuất).
+  - **↻ Làm mới (xoá cache)**: tải lại trang bản mới nhất, giữ cài đặt. **🗑 Xoá hết cú đánh**.
+  - Cockpit mở trang HP bar với khoá cache mới mỗi lần → sửa hpbar.html xong không còn bị trình duyệt giữ bản cũ.
+
+## Cập nhật 10/11/2026 (đợt 98) — API nào cũng dùng được, 🧭 Quy trình nối các tool, xuất MOV alpha nhanh, game Space Fighter
+
+- **AI Drama**: chọn nhà cung cấp AI bất kỳ trong bảng 🔌 (Anthropic, OpenAI, Gemini, OpenRouter, Ollama, hoặc API tương thích OpenAI). Có hộp QC và nút "🛠 AI sửa giúp".
+- **🧭 Quy trình**: lần đầu vào, Greenbox hỏi "Bạn muốn làm gì?" rồi dẫn từng bước; thanh dưới đáy luôn ghi việc cần làm, thứ cần xuất và tool kế tiếp. Các tool nối với nhau theo loại file vào / ra, đi được cả hai chiều.
+- **Xuất MOV alpha** (Thanh máu / HUD): 12 giây xuất trong khoảng 5 giây (trước đây vài phút, có lúc đứng). Claude gọi xuất ở chế độ chạy nền nên không còn bị hết giờ.
+- Sửa thanh kéo lòi ra ngoài khung; bỏ nhãn "3D ENGINE THREE.JS".
+- **🚀 Space Fighter** (tool mới, nhóm Blockout): máy bay chiến đấu trong vũ trụ, camera bám sau đuôi. Kéo để lái, súng tự bắn; chỉnh số địch, độ khó, màu, nạp GLB máy bay riêng, xuất 1 file playable `.html` khoảng 1 MB. File mẫu: `space-fighter-playable.html` trong thư mục nộp bài.
+- Dung lượng: mockup zip 5,445,115 B · introduction.html 8,821,585 B.
+
+## Cập nhật 10/11/2026 (đợt 97) — QC toàn bộ, playable chơi được tới màn kết, đủ icon, hộp thoại xuất game
+- **Playable chơi trọn vòng**: màn chào → bàn tay hướng dẫn → đào → bán → trả tiền ô mở khóa → "MỞ KHÓA!" + pháo giấy → màn kết (tên game, sao, điểm, nút "Chơi ngay", "Chơi tiếp"). Có ô tiền, ô nhiệm vụ, mũi tên dẫn đường trên đất.
+- Xe không còn kẹt khi đi chéo vào quầy (trượt theo tường); chỉ dẫn không còn đổi qua lại giữa "đào" và "bán".
+- **Xuất playable** có hộp thoại: Tên game / Link store / Màn kết sau bao nhiêu giây. AI (`export_playable`) cũng nhận `title`, `limit`.
+- `dev/replayable.py`: thay runtime mới vào file playable cũ, không cần mở lại Greenbox. Bản mẫu: `AX Hero - nop bai/bulldozer-playable.html` (3,16 MB, "Drill Tycoon").
+- 15 ô công cụ / vật thể trong Play test trước đây trống hình nay có icon kính xanh (`dev/make_iso_icons.py`).
+- Mini map: bấm "✓ OK" là map thu về góc ngay; kéo vòng tròn để đổi chỗ (đã thử tay).
+- Dung lượng: mockup zip 5,43 MB, introduction.html 8,82 MB (giới hạn 9 MB).

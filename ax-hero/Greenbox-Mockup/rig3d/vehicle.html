@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <script src="./gb-base.js?v=202611041112"></script>
-<script src="./gb-theme.js?v=202611041112"></script>
+  <script src="./gb-base.js?v=202611231022"></script>
+<script src="./gb-theme.js?v=202611231022"></script>
 <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vehicle - Greenbox 3D</title>
@@ -112,6 +112,16 @@
         </details>
       </section>
 
+      <section id="vh-tpl">
+        <h3>🦴 Skeleton</h3>
+        <div class="sm" id="vh-tpl-note">Every vehicle you drop shows its skeleton. No rig in the file and none to copy: a ready-made skeleton is put on it.</div>
+        <div class="row"><select id="vh-tpl-kind" style="flex:1;min-width:0"></select><button id="vh-tpl-place" title="Put this skeleton on the vehicle">🦴 Put on</button></div>
+        <div class="sm">Drag the balls onto the real wheels / blade (left-drag). The other side follows.</div>
+        <div class="row"><button id="vh-tpl-smaller" title="Smaller wheel / blade ( [ )">－ Smaller</button><button id="vh-tpl-bigger" title="Bigger wheel / blade ( ] )">＋ Bigger</button></div>
+        <label class="row sm"><input type="checkbox" id="vh-tpl-mirror" checked> Mirror left / right</label>
+        <div class="row"><button class="pri" id="vh-tpl-apply">✅ Apply skeleton</button><button id="vh-tpl-cancel" style="flex:0 0 auto" title="Hide the template">✕</button></div>
+      </section>
+
       <section id="vh-step3">
         <h3><b>3</b>Copy the rig</h3>
         <button class="pri" id="vh-clone-apply">🧬 Copy the rig onto my vehicle</button>
@@ -150,9 +160,10 @@
           <label class="sm" id="vh-axis-row" style="display:none">Turns around
             <select id="vh-axis"><option value="auto">Auto</option><option value="x">X (side to side)</option><option value="y">Y (up)</option><option value="z">Z (front to back)</option></select></label>
           <div class="sm">Pivot <b id="vh-hinge-used" style="color:#f5a623;font-weight:600"></b></div>
+          <div class="row"><button id="vh-anchor" title="Then click the model where the bolt / pin is: the part turns round it instead of flying off">🔩 Set anchor (bolt)</button><button id="vh-anchor-clear" style="flex:0 0 auto" title="Back to the automatic pivot">✕</button></div>
+          <label class="sm">🔗 Bolted to <select id="vh-part-parent"></select></label>
           <details class="sub"><summary class="sm">More</summary>
             <label class="sm">Name <input id="vh-part-name"></label>
-            <label class="sm">Hangs on <select id="vh-part-parent"></select></label>
             <button id="vh-del-wheel" title="Delete key">🗑 Remove this part</button>
           </details>
         </div>
@@ -197,11 +208,11 @@
         <div class="row"><button id="vh-add">＋ Paint</button><button id="vh-remove">－ Erase</button></div>
         <label class="sm">Brush size <input type="range" id="vh-brush" min="1" max="20" value="6"></label>
         </details>
-        <div class="sm"><b>[ ]</b> ring size · <b>O</b> hide rings · <b>G</b> drag a selection out · <b>Delete</b> remove it</div>
+        <div class="sm"><b>Click a wheel</b>, then drag its ring or middle dot = move it · drag the white knob on the rim = its size · or use the ↑ ↓ ← → − + buttons in its 🛞 box (bones + track links follow) · <b>[ ]</b> ring size · <b>O</b> hide rings · <b>G</b> drag a selection out · <b>Delete</b> remove it</div>
         <span id="vh-wheel-count" hidden>0</span><span id="vh-door-count" hidden>0</span>
       </details>
     </aside>
   </main>
-    <script src="./gb-i18n.js?v=202611041112"></script>
+  <script src="../gb-ai/embed.js?v=20261110g" defer></script>  <script src="./gb-i18n.js?v=202611231022"></script>
 </body>
 </html>

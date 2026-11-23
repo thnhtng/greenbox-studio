@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rig QC</title>
+<!--
+  Rig QC: every model is rigged by the tool on its own (vehicles: Vehicle tool auto rig; characters / animals: Create
+  page, skeleton picked from the shape, joints scanned onto the model), then YOU rate it ★1–5 with a note.
+  4–5 ★ vehicle rigs are saved into the tool's rig memory (the next auto rig of that shape copies it).
+  Ratings: localStorage gb.qc.v1 (Claude reads them back to fix the low ones), ⬇ JSON to keep them.
+  Models: ../_tmp_shot/qc/ (links to the user's files) + the 15 built-in vehicle samples. Goal: 50 at ≥ 4 ★ in 60 min.
+-->
+<style>
+:root{--bg:#0e1311;--panel:#151c19;--line:#26332d;--text:#e8efe9;--mute:#93a39a;--acc:#3ddc84;--warn:#ffb020;--bad:#ff5d5d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Be Vietnam Pro",sans-serif;height:100vh;display:grid;grid-template-rows:auto 1fr auto;grid-template-columns:300px 1fr}
+header{grid-column:1/3;display:flex;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+header b{font-size:16px}header .sp{flex:1}
+.pill{padding:3px 10px;border-radius:999px;background:#1d2723;border:1px solid var(--line);font-variant-numeric:tabular-nums}
+button,select,input,textarea{font:inherit;color:var(--text);background:#1d2723;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+button{cursor:pointer}button:hover{border-color:var(--acc)}button.pri{background:var(--acc);color:#04120a;border-color:var(--acc);font-weight:700}
+aside{overflow:auto;border-right:1px solid var(--line);background:var(--panel)}
+.it{display:flex;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.it:hover{background:#1b2420}.it.on{background:#20332a}.it .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.it .s{font-size:12px;color:var(--warn);white-space:nowrap}.it .s.ok{color:var(--acc)}.it .s.bad{color:var(--bad)}
+main{position:relative}iframe{width:100%;height:100%;border:0;background:#222}
+footer{grid-column:1/3;display:flex;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.stars button{font-size:20px;padding:2px 9px}.stars button.on{background:var(--warn);color:#000;border-color:var(--warn)}
+#note{flex:1;min-width:240px}#info{color:var(--mute);font-size:13px;max-width:520px}
+.k{font-size:12px;color:var(--mute)}
+</style></head><body>
+<header>
+  <b>🧪 Rig QC</b><span class="k">Tool tự rig → bạn chấm ★ → rig 4–5★ được nhớ cho lần sau</span><span class="sp"></span>
+  <span class="pill" id="timer">⏱ 00:00</span><button id="tgo">▶ Bấm giờ</button>
+  <span class="pill" id="score">0 / 50 đạt ≥4★</span>
+  <select id="flt"><option value="all">Tất cả</option><option value="vehicle">🚗 Xe</option><option value="char">🧍 Nhân vật / thú</option><option value="todo">Chưa chấm</option><option value="low">≤3★ (cần sửa)</option></select>
+  <button id="dl">⬇ JSON điểm</button>
+</header>
+<aside id="list"></aside>
+<main><iframe id="fr"></iframe></main>
+<footer>
+  <b id="cur">—</b><span id="info"></span><span id="prev" class="k" style="color:#ffb020"></span>
+  <span class="char-only" style="display:none">Xương <select id="skel"><option>human</option><option>fox</option><option>horse</option><option>dragon</option><option>bird</option><option>snake</option><option>kaiju</option><option>spider</option><option>fish</option><option>xphero</option></select>
+  Tay <select id="hand"><option value="all-fingers">Đủ ngón</option><option value="thumb-and-index">1 ngón chính + 1 phụ (hyper casual)</option><option value="simplified-hand">Đủ ngón (gọn)</option><option value="single-bone">1 xương bàn tay</option></select></span>
+  <button id="again">⟲ Rig lại</button>
+  <span class="stars" id="stars"><button data-s="1">1★</button><button data-s="2">2★</button><button data-s="3">3★</button><button data-s="4">4★</button><button data-s="5">5★</button></span>
+  <input id="note" placeholder="Ghi chú: sai ở đâu (vd. bánh trước lệch, xích lẹm, tay thiếu ngón, đuôi chưa có xương…)">
+  <button class="pri" id="next">Lưu & tiếp ▶</button>
+</footer>
+<script>
+const $ = id => document.getElementById(id), sleep = t => new Promise(r => setTimeout(r, t));
+const Q = '../_tmp_shot/qc/';
+const CHAR = { 'Meshy_AI_Overalligator_20261106_texture.fbx': { skel: 'human', note: 'humanoid có đuôi' }, 'boss.glb.glb': {}, 'Meshy_AI_yellow_hero_figure_1103033425_image-to-3d-texture.glb.glb': { hand: 'thumb-and-index' }, 'reptiles_pack.glb': { skel: 'fox', note: 'nhiều con trong 1 file' } };
+const USER_VEH = ['Bulldozer.glb', 'bulldozer.fbx', 'BulldozerAnimated.fbx', '50s_bulldozer_carmageddon_1.glb', 'cat_bulldozer.fbx'];
+// heavy machines first (bulldozers, drill dozer, compactor = road roller, military truck), cars after; the 2 train wagons are not vehicles to rig
+const HEAVY = ['v07_xe_bulldozer_khoan_v_a_da__.glb', 'v09_Bullzoder_.glb', 'v10_compactor_.glb', 'v20_Military_truck_2k_by_Jungle_Jim__animate.fbx', 'v13_wos_truck_orange_.glb', 'v16_wos_truck_.glb'];
+const MORE_VEH = ['v01_car_rig_capoA_banle_kinhlai_.fbx', 'v02_car_scene_.fbx', 'v03_car__animation_.glb', 'v04_super_car_.fbx', 'v05_car_rig_capoB_banle_dauxe_.fbx', 'v06_spcarglb_.glb', 'v08_concept_car_.glb', 'v11_xe_b.glb', 'v12_fab_.fbx', 'v17_car_welded_.glb', 'v18_car_doors_.glb', 'v19_car_x_.glb', 'v21_car_1_.fbx', 'v22_car_2_.fbx'];
+const SAMPLES = ['dozer', 'excavator', 'driller', 'tank', 'roller', 'mixer', 'crane', 'forklift', 'car', 'sport', 'pickup', 'bus', 'bike', 'heli', 'boat'];
+const ITEMS = [
+  ...USER_VEH.map(f => ({ id: f, kind: 'vehicle', file: f, label: '🚜 ' + f })),
+  ...HEAVY.map(f => ({ id: f, kind: 'vehicle', file: f, label: '🏗 ' + f.replace(/^v\d+_/, '') })),
+  ...SAMPLES.slice(0, 5).map(s => ({ id: 'sample:' + s, kind: 'vehicle', sample: s, label: '📦 mẫu ' + s })),
+  ...Object.entries(CHAR).map(([f, o]) => ({ id: f, kind: 'char', file: f, label: '🧍 ' + f.replace(/_image-to-3d-texture|\.glb\.glb/g, ''), ...o })),
+  ...MORE_VEH.map(f => ({ id: f, kind: 'vehicle', file: f, label: '🚗 ' + f.replace(/^v\d+_/, '') })),
+  ...SAMPLES.slice(5).map(s => ({ id: 'sample:' + s, kind: 'vehicle', sample: s, label: '📦 mẫu ' + s }))
+];
+const LS = 'gb.qc.v2'; // round 2 (after the fixes); round 1 is shown as "lần trước"
+let R = (() => { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch (e) { return {}; } })();
+const R1 = (() => { try { return JSON.parse(localStorage.getItem('gb.qc.v1') || '{}'); } catch (e) { return {}; } })();
+const save = () => { try { localStorage.setItem(LS, JSON.stringify(R)); } catch (e) {} };
+let cur = -1, star = 0, auto = null;
+
+function list () {
+  const f = $('flt').value;
+  $('list').innerHTML = ITEMS.map((it, i) => {
+    const r = R[it.id]; if (f === 'vehicle' && it.kind !== 'vehicle') return ''; if (f === 'char' && it.kind !== 'char') return ''; if (f === 'todo' && r) return ''; if (f === 'low' && !(r && r.score <= 3)) return '';
+    const s = r ? '★'.repeat(r.score) : '·'; const cl = r ? (r.score >= 4 ? 'ok' : 'bad') : '';
+    return `<div class="it${i === cur ? ' on' : ''}" data-i="${i}"><span class="n" title="${it.label}">${it.label}</span><span class="s ${cl}">${s}</span></div>`;
+  }).join('');
+  $('list').querySelectorAll('.it').forEach(d => { d.onclick = () => open(+d.dataset.i); });
+  const ok = Object.values(R).filter(r => r.score >= 4 && r.kind === 'vehicle').length;
+  $('score').textContent = `${ok} / 50 xe đạt ≥4★ · ${Object.keys(R).length} đã chấm`;
+}
+// ⏱ the 1-hour round
+let t0 = +(localStorage.getItem('gb.qc.t0') || 0);
+$('tgo').onclick = () => { t0 = t0 ? 0 : Date.now(); localStorage.setItem('gb.qc.t0', String(t0)); $('tgo').textContent = t0 ? '⏹ Dừng' : '▶ Bấm giờ'; };
+$('tgo').textContent = t0 ? '⏹ Dừng' : '▶ Bấm giờ';
+setInterval(() => { if (!t0) return; const s = Math.floor((Date.now() - t0) / 1000); $('timer').textContent = `⏱ ${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}${s > 3600 ? ' (quá 1 giờ)' : ''}`; }, 500);
+
+const step = t => { $('info').textContent = '⏳ ' + t; };
+function frame (url) { return new Promise(res => { $('fr').onload = () => res(); $('fr').src = url; }); }
+async function until (fn, ms = 15000) { const t = Date.now(); while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch (e) {} await sleep(150); } return null; }
+
+/** how many triangles get stretched > 2× while driving: the tearing check (0 = clean) */
+function torn (V) {
+  if (!V.rig) return null; const k = V.clips.findIndex(c => /drive/i.test(c.name)); if (k < 0) return null;
+  V.play(k); V.mixer.update(1.3); V.holder.updateMatrixWorld(true);
+  const P = V.rig.root.position.constructor; const a = new P(), c = new P(); let bad = 0, tot = 0;
+  for (const m of V.rig.skinned) { const pos = m.geometry.attributes.position, idx = m.geometry.index; const n = idx ? idx.count : pos.count; for (let t = 0; t < n; t += 3) { const i0 = idx ? idx.getX(t) : t, i1 = idx ? idx.getX(t + 1) : t + 1; a.fromBufferAttribute(pos, i0); c.fromBufferAttribute(pos, i1); const L0 = a.distanceTo(c); m.getVertexPosition(i0, a); m.getVertexPosition(i1, c); tot++; if (a.distanceTo(c) > L0 * 2 + 0.05) bad++; } }
+  V.play(k); return { bad, tot };
+}
+async function run_vehicle (it) {
+  step('mở trang Xe cộ…'); await frame('../rig3d/vehicle.html?lang=vi&qc=' + Date.now());
+  const w = $('fr').contentWindow; const V = await until(() => w.__vehicle); if (!V) throw new Error('vehicle page did not start');
+  await sleep(700);
+  step(it.sample ? 'nạp xe mẫu…' : 'nạp file (tự dựng đứng nếu nằm nghiêng), quét bánh…');
+  if (it.sample) V.load_sample(it.sample);
+  else { const b = await (await fetch(Q + encodeURIComponent(it.file))).blob(); await V.load_file([new w.File([b], it.file)]); }
+  await sleep(1500);
+  const own = /đã có rig|already has a rig/.test(w.document.getElementById('vh-status')?.textContent || '');
+  if (!it.sample && !own) { step('⚡ Tự rig: bánh, xích, lưỡi ủi, cửa…'); await sleep(50); V.auto_rig(); await sleep(1200); } // like the user: drop the file, press ⚡ Auto rig
+  else if (!V.rig) { V.auto_rig(); await sleep(1200); }
+  V.show_bones && V.show_bones(true);
+  step('chạy thử animation Drive, đo lưới rách…'); const tr = torn(V);
+  const wh = V.wheels.length, mech = V.mechs.map(m => m.kind).join(', ');
+  auto = { wheels: wh, parts: V.mechs.length, clips: V.clips.length, torn: tr ? tr.bad : null };
+  $('info').textContent = `${wh} bánh · ${V.mechs.length} bộ phận (${mech || '—'}) · ${V.clips.length} animation · ${tr ? (tr.bad === 0 ? 'không rách lưới khi chạy ✓' : `⚠ ${tr.bad} tam giác bị kéo khi chạy`) : 'chưa có xương'}`;
+}
+async function run_char (it) {
+  await frame('../rig3d/create.html?lang=vi&qc=' + Date.now());
+  const w = $('fr').contentWindow, d = w.document; const e = await until(() => w.__gb3d && d.querySelector('#model-upload')); if (!e) throw new Error('create page did not start');
+  await sleep(1500);
+  const buf = await (await fetch(Q + encodeURIComponent(it.file))).arrayBuffer();
+  const input = d.querySelector('#model-upload'); const dt = new w.DataTransfer(); dt.items.add(new w.File([buf], it.file)); input.files = dt.files; input.dispatchEvent(new w.Event('change', { bubbles: true }));
+  await until(() => { const m = w.__gb3d.load_model_step.model_meshes(); let n = 0; m && m.traverse(o => { if (o.isMesh) n++; }); return n > 0; }, 30000); await sleep(1500);
+  // the skeleton from the shape (taller than long = human, long and low = four legs), unless picked by hand
+  const m = w.__gb3d.load_model_step.model_meshes(); const B = new (w.__gb3d.camera.position.constructor)(); let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9]; m.updateMatrixWorld(true);
+  m.traverse(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i += 25) { B.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); mn = [Math.min(mn[0], B.x), Math.min(mn[1], B.y), Math.min(mn[2], B.z)]; mx = [Math.max(mx[0], B.x), Math.max(mx[1], B.y), Math.max(mx[2], B.z)]; } });
+  const sx = mx[0] - mn[0], sy = mx[1] - mn[1], sz = mx[2] - mn[2];
+  const guess = sy > Math.max(sx, sz) * 0.9 ? 'human' : sz > sy * 3 ? 'snake' : 'fox';
+  const skel = $('skel').dataset.user === '1' ? $('skel').value : (it.skel || guess); $('skel').value = skel;
+  const sel = d.querySelector('#skeleton-selection'); sel.value = skel; sel.dispatchEvent(new w.Event('change', { bubbles: true })); await sleep(1200);
+  if (skel === 'human') { const hs = d.querySelector('#hand-skeleton-selection'); if (hs) { hs.value = $('hand').dataset.user === '1' ? $('hand').value : (it.hand || 'all-fingers'); $('hand').value = hs.value; hs.dispatchEvent(new w.Event('change', { bubbles: true })); } }
+  d.querySelector('#load-skeleton-button').click(); await sleep(2500);
+  const er = w.__gb3d.easy_rig; if (er && er.zero_transform) er.zero_transform();
+  if (er && er.fit_to_model) er.fit_to_model();
+  const bones = er ? er.skeleton().bones.length : 0;
+  auto = { skel, bones, size: [sx, sy, sz].map(v => +v.toFixed(2)) };
+  $('info').textContent = `xương ${skel} (${bones} khớp) · model ${auto.size.join(' × ')} · ${it.note || ''}`;
+}
+async function open (i) {
+  cur = i; const it = ITEMS[i]; star = R[it.id] ? R[it.id].score : 0; $('note').value = R[it.id] ? R[it.id].note : ''; paint_stars(); list();
+  $('cur').textContent = it.label; $('info').textContent = 'Đang tự rig…'; auto = null;
+  const p1 = R1[it.id]; $('prev').textContent = p1 ? `lần trước ${p1.score}★${p1.note ? ': ' + p1.note : ''}` : '';
+  document.querySelector('.char-only').style.display = it.kind === 'char' ? '' : 'none';
+  try { await (it.kind === 'vehicle' ? run_vehicle(it) : run_char(it)); } catch (e) { $('info').textContent = '⚠ ' + (e.message || e); }
+}
+function paint_stars () { document.querySelectorAll('#stars button').forEach(b => b.classList.toggle('on', +b.dataset.s <= star)); }
+document.querySelectorAll('#stars button').forEach(b => { b.onclick = () => { star = +b.dataset.s; paint_stars(); }; });
+addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') { if (e.key === 'Enter') $('next').click(); return; } if (/^[1-5]$/.test(e.key)) { star = +e.key; paint_stars(); } if (e.key === 'Enter') $('next').click(); });
+$('next').onclick = () => {
+  if (cur < 0) return; const it = ITEMS[cur];
+  if (star > 0) {
+    R[it.id] = { score: star, note: $('note').value.trim(), kind: it.kind, auto, t: Date.now() }; save();
+    if (it.kind === 'vehicle' && !it.sample) { try { const V = $('fr').contentWindow.__vehicle; if (V && V.rate) V.rate(star); } catch (e) {} } // 4–5 ★ teach the next auto rig
+  }
+  delete $('skel').dataset.user; delete $('hand').dataset.user; // the next model gets its own guess
+  const nxt = ITEMS.findIndex((q, k) => k > cur && !R[q.id]); open(nxt >= 0 ? nxt : Math.min(cur + 1, ITEMS.length - 1));
+};
+$('again').onclick = () => { if (cur >= 0) open(cur); };
+$('skel').onchange = () => { $('skel').dataset.user = '1'; if (cur >= 0) open(cur); };
+$('hand').onchange = () => { $('hand').dataset.user = '1'; if (cur >= 0) open(cur); };
+$('flt').onchange = list;
+$('dl').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(R, null, 1)], { type: 'application/json' })); a.download = 'rig-qc.json'; a.click(); };
+window.__qc = { items: ITEMS, results: () => R, open };
+list(); open(Math.max(0, ITEMS.findIndex(q => !R[q.id])));
+</script></body></html>

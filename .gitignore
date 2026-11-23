@@ -9,4 +9,5 @@ model-1-4 (1).js
 Greenbox-Cockpit_7.html
 __pycache__/
 gb-ai/.bridge.json
+gb-ai/.bridge-*.json
 exports/

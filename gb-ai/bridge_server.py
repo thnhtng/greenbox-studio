@@ -8,6 +8,9 @@
   GET  /bridge/status  what the AI side looks like (MCP calls seen, Claude Desktop config found / set up)
   POST /bridge/blender {name, glb_b64, script}   saves a Rigify kit into Greenbox/exports/ and opens it in
                        Blender (same Greenbox-page-only rule as install-claude)
+  POST /bridge/save?name=…   raw file body from the Greenbox page (big exports: cockpit .MOV alpha, MP4) -> written to
+                       Greenbox/exports/drive/<name>; replies {ok, path}. Greenbox-page-only, like /blender. Big files no
+                       longer travel as base64 inside an MCP reply (that timed out / dropped the bridge)
   POST /bridge/install-claude | install-codex | install-claude-code   adds Greenbox to Claude Desktop's /
                        Codex's (~/.codex/config.toml) / Claude Code's (~/.claude.json) MCP config (backup first). Only from the
                        Greenbox page itself: needs header X-Greenbox-UI and a localhost Origin.
@@ -35,6 +38,20 @@ _waiting = {}  # id -> [Event, result]
 _last_poll = {'t': 0.0}
 _activity = collections.deque(maxlen=30)  # recent MCP tool calls: {'t', 'tool'}
 _port = {'p': 0}
+_clients = {}  # browser page id -> time of its last /poll
+_pref = {'c': None}  # the page the user last chatted from: MCP calls go to it while it is open
+
+try:
+    import cli_agent
+except Exception:  # the chat-to-CLI bridge is optional
+    cli_agent = None
+
+
+def ui_ok(h):
+    """the request comes from the Greenbox page itself (header a plain web page cannot send cross-site + localhost Origin)"""
+    origin = h.headers.get('Origin') or ''
+    ok_origin = origin in ('', 'http://localhost:%d' % _port['p'], 'http://127.0.0.1:%d' % _port['p'])
+    return h.headers.get('X-Greenbox-UI') == '1' and ok_origin
 
 
 def claude_config_path():
@@ -225,13 +242,51 @@ def install_claude():
     return path
 
 
-def write_info(port):
-    _port['p'] = port
+def _alive(pid):
     try:
-        with open(os.path.join(HERE, '.bridge.json'), 'w') as f:
-            json.dump({'port': port, 'token': TOKEN, 'pid': os.getpid()}, f)
+        os.kill(int(pid), 0)
+        return True
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def _write(path, info):
+    tmp = path + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(info, f)
+    os.replace(tmp, path)
+
+
+def write_info(port):
+    """.bridge.json = the server the MCP talks to; .bridge-<port>.json = this server too, so a 2nd Greenbox server
+    (another port) never strands the MCP: when the server named in .bridge.json stops, a live one takes it back."""
+    _port['p'] = port
+    info = {'port': port, 'token': TOKEN, 'pid': os.getpid()}
+    try:
+        _write(os.path.join(HERE, '.bridge-%d.json' % port), info)
+        if os.environ.get('GREENBOX_SIDE'):   # a side / test server: outside AI apps keep talking to the main one
+            return
+        _write(os.path.join(HERE, '.bridge.json'), info)
     except OSError as e:
         print('bridge: could not write .bridge.json:', e)
+
+    def heal():
+        main = os.path.join(HERE, '.bridge.json')
+        while True:
+            time.sleep(5)
+            try:
+                with open(main) as f:
+                    cur = json.load(f)
+                if cur.get('pid') == os.getpid() or _alive(cur.get('pid')):
+                    continue
+            except (OSError, ValueError):
+                pass
+            try:
+                _write(main, info)
+                print('bridge: .bridge.json pointed at a stopped server, now this one (port %d)' % port)
+            except OSError:
+                pass
+    threading.Thread(target=heal, daemon=True).start()
 
 
 def make_reply(h):
@@ -246,14 +301,53 @@ def make_reply(h):
     return reply
 
 
+def _gone(h):
+    """True when the browser closed this connection (page reloaded or left)."""
+    try:
+        import select, socket
+        sock = h.connection
+        if not select.select([sock], [], [], 0)[0]:
+            return False
+        return sock.recv(1, socket.MSG_PEEK) == b''
+    except Exception:
+        return True
+
+
 def handle(h, method, path, reply):
     """`reply(code, obj=None, body=None, ctype=...)`. Returns False when the path is not ours."""
+    if path.startswith('/cli/'):
+        if cli_agent is None:
+            reply(404, {'error': 'cli_agent.py missing'}); return True
+        if method == 'POST' and path == '/cli/send' and ui_ok(h):
+            c = h.headers.get('X-Greenbox-Client')
+            if c:
+                _pref['c'] = c
+        return cli_agent.handle(h, method, path, reply, ui_ok(h))
     if method == 'GET' and path.startswith('/poll'):
         _last_poll['t'] = time.time()
-        try:
-            job = _jobs.get(timeout=25)
-        except queue.Empty:
+        c = path.partition('c=')[2].split('&')[0] or None
+        if c:
+            _clients[c] = time.time()
+        # several Greenbox pages open: tool calls go to the one the user chats from (while it keeps polling)
+        if _pref['c'] and c != _pref['c'] and time.time() - _clients.get(_pref['c'], 0) < 40:
+            time.sleep(8)
             reply(204, body=b'', ctype='text/plain')
+            return True
+        # wait in short slices and give up when the page went away (reload / page change): a call handed to a dead
+        # connection would be lost and the AI would wait for nothing
+        job, end = None, time.time() + (8 if c else 25)
+        while job is None and time.time() < end:
+            if _gone(h):
+                return True
+            try:
+                job = _jobs.get(timeout=0.5)
+            except queue.Empty:
+                pass
+        if job is None:
+            reply(204, body=b'', ctype='text/plain')
+            return True
+        if _gone(h):
+            _jobs.put(job)
             return True
         reply(200, {'id': job['id'], 'tool': job['tool'], 'args': job['args']})
         return True
@@ -281,6 +375,34 @@ def handle(h, method, path, reply):
         try:
             req = json.loads(h.rfile.read(n) or b'{}')
             reply(200, open_in_blender(req.get('name'), base64.b64decode(req.get('glb_b64') or ''), req.get('script') or ''))
+        except Exception as e:
+            reply(500, {'ok': False, 'error': str(e)})
+        return True
+    if method == 'POST' and path.startswith('/save'):
+        origin = h.headers.get('Origin') or ''
+        if h.headers.get('X-Greenbox-UI') != '1' or origin not in ('http://localhost:%d' % _port['p'], 'http://127.0.0.1:%d' % _port['p']):
+            reply(403, {'error': 'only the Greenbox page can do this'}); return True
+        try:
+            from urllib.parse import urlparse, parse_qs
+            q = parse_qs(urlparse(path).query)
+            name = os.path.basename((q.get('name') or ['export.bin'])[0]) or 'export.bin'
+            name = ''.join(ch for ch in name if ch.isalnum() or ch in '-_.') or 'export.bin'
+            sub = ''.join(ch for ch in (q.get('dir') or ['drive'])[0] if ch.isalnum() or ch in '-_') or 'drive'
+            folder = os.path.join(os.path.dirname(HERE), 'exports', sub)
+            os.makedirs(folder, exist_ok=True)
+            target = os.path.join(folder, name)
+            n = int(h.headers.get('Content-Length') or 0)
+            with open(target + '.part', 'wb') as f:
+                left = n
+                while left > 0:
+                    chunk = h.rfile.read(min(left, 1 << 20))
+                    if not chunk:
+                        break
+                    f.write(chunk); left -= len(chunk)
+            if left:
+                raise RuntimeError('upload cut short (%d bytes missing)' % left)
+            os.replace(target + '.part', target)
+            reply(200, {'ok': True, 'path': target, 'bytes': n})
         except Exception as e:
             reply(500, {'ok': False, 'error': str(e)})
         return True

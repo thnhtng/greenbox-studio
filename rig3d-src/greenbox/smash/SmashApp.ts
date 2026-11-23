@@ -436,7 +436,7 @@ class SmashApp {
       <div id="sm-status">${M('Draw the wall, then click the view to shoot. Record the run as a 9:16 blockout video for an AI video model.', 'Vẽ bức tường khối, rồi bấm vào khung để bắn. Quay lại thành video blockout 9:16 để đưa qua AI làm đẹp.', '벽을 그리고 클릭해 쏘세요.')}</div>
       <section><h3><b>1</b>${M('Draw the stack', 'Vẽ khối xếp', '블록 그리기')}</h3>
         <div class="row">${['wall', 'pyramid', 'towers', 'checker', 'random'].map(p => `<button data-pre="${p}">${({ wall: M('Wall', 'Tường', '벽'), pyramid: M('Pyramid', 'Kim tự tháp', '피라미드'), towers: M('Towers', 'Tháp', '타워'), checker: M('Checker', 'Caro', '체크'), random: M('Random', 'Ngẫu nhiên', '랜덤') } as any)[p]}</button>`).join('')}</div>
-        <div class="row sm-pal">${[1, 2, 3, 4, 0].map(v => `<button data-brush="${v}" class="${this.brush === v ? 'on' : ''}" style="${v > 0 ? `background:#${COLORS[v].toString(16).padStart(6, '0')};` : ''}width:34px;height:28px">${v === 0 ? '⌫' : ''}</button>`).join('')}</div>
+        <div class="row sm-pal">${[1, 2, 3, 4, 0].map(v => `<button data-brush="${v}" class="${this.brush === v ? 'on' : ''}" title="${v === 0 ? M('Eraser', 'Tẩy', '지우개') : '#' + COLORS[v].toString(16).padStart(6, '0')}" style="${v > 0 ? `--sw:#${COLORS[v].toString(16).padStart(6, '0')};background:var(--sw);` : ''}width:40px;height:32px">${v === 0 ? '⌫' : ''}</button>`).join('')}</div>
         <canvas id="sm-grid" width="300" height="300"></canvas>
         <div class="sm">${M('Click / drag to paint cells (bottom row sits on the table). Right click = erase.', 'Bấm / kéo để tô ô (hàng dưới cùng nằm trên bàn). Chuột phải = xoá.', '클릭/드래그로 칠하기')}</div>
         <label class="sm">${M('Columns', 'Số cột', '열')} <input type="range" id="sm-cols" min="3" max="14" value="${L.cols}"> ${L.cols}</label>
@@ -456,7 +456,7 @@ class SmashApp {
           <label class="sm">${M('Width', 'Rộng', '폭')} <input type="range" data-bk="bW" min="50" max="220" value="${Math.round(L.bW * 100)}"> <span>${Math.round(L.bW * 100)}%</span></label>
           <label class="sm">${M('Depth', 'Sâu', '깊이')} <input type="range" data-bk="bD" min="50" max="400" value="${Math.round(L.bD * 100)}"> <span>${Math.round(L.bD * 100)}%</span></label>
           <label class="sm">${M('Legs', 'Chân đế', '다리')} <select data-bk="bLegs">${([['pole', M('1 pole', '1 cột giữa', '1기둥')], ['two', M('2 thin pillars', '2 cột mỏng', '2기둥')], ['four', M('4 legs', '4 chân', '4다리')], ['solid', M('Solid block', 'Khối đặc', '통짜')], ['none', M('None (floating)', 'Không chân (lơ lửng)', '없음')]] as Array<[string, string]>).map(([k, t]) => `<option value="${k}"${L.bLegs === k ? ' selected' : ''}>${t}</option>`).join('')}</select></label>` : ''}
-        <div class="row">${['#ffffff', '#e53935', '#2457d6', '#c08a52', '#3a4258', '#4fed89'].map(c => `<button data-bcol="${c}" title="${c}" style="width:30px;height:24px;background:${c};${L.baseColor === c ? 'outline:2px solid #fff;' : ''}"></button>`).join('')}</div>
+        <div class="row">${['#ffffff', '#e53935', '#2457d6', '#c08a52', '#3a4258', '#4fed89'].map(c => `<button data-bcol="${c}" title="${c}" class="${L.baseColor === c ? 'on' : ''}" style="--sw:${c};background:var(--sw);width:36px;height:28px"></button>`).join('')}</div>
       </section>
       <section><h3><b>2</b>${M('Play it', 'Chơi thử', '플레이')}</h3>
         <div class="row"><button id="sm-reset">↺ ${M('Rebuild the stack', 'Dựng lại khối', '다시')}</button><button id="sm-auto" class="${this.auto ? 'on' : ''}">⚡ ${M('Auto shoot', 'Bắn tự động', '자동 사격')}</button></div>

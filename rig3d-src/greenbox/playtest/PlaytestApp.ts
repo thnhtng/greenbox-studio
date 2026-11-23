@@ -7,9 +7,11 @@
  */
 import { is_trackpad, pinch_factor } from '../common/MacTrackpad.ts'
 import { load_any_buffer } from '../common/AnyLoader.ts'
-import { MapEditor, OBJECTS, CUSTOM } from './MapEditor.ts'
+import { MapEditor, OBJECTS, CUSTOM, jpeg_textures } from './MapEditor.ts'
+import { mount_polyfork_shop } from './PolyforkShop.ts'
 import { PlanEditor, type Plan } from './PlanEditor.ts'
 import { Playable } from './Playable.ts'
+import { PlayableFx } from './PlayableFx.ts'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { CameraRig } from './CameraRig.ts'
 import { History } from '../common/UndoKeys.ts'
@@ -19,10 +21,14 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { CharacterController, strip_root_motion, strip_vertical_motion, type Input } from './CharacterController.ts'
 import { World, type EditMode } from './World.ts'
+import { Weather } from './Weather.ts'
 import { VehicleDriver, is_vehicle } from './VehicleDriver.ts'
 import { map_clips } from './ClipMap.ts'
 import { handoff_take, on_handoff } from '../common/Handoff.ts'
 import { on_lang_change, M } from '../common/lang.ts'
+import { tile, tile_grid } from '../common/Tiles.ts'
+import { ViewGizmo } from './ViewGizmo.ts'
+import { BehaviourPanel } from './unity/BehaviourPanel.ts'
 
 const $ = (id: string): HTMLElement => document.getElementById(id) as HTMLElement
 
@@ -67,14 +73,16 @@ type CamMode = 'third' | 'top' | 'side'
 interface MapState { json: string, props: Array<{ o: THREE.Object3D, t: number[] }> }
 
 class PlaytestApp {
+  public weather!: Weather
   private readonly renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: false })
   private readonly scene = new THREE.Scene()
   private readonly camera = new THREE.PerspectiveCamera(50, 1, 0.05, 500)
-  private readonly timer = new THREE.Timer()
+  private readonly clock = new THREE.Timer()
   private ctrl: CharacterController | null = null
   private car: VehicleDriver | null = null
   private world!: World
   private editing = false
+  private vgiz: ViewGizmo | null = null
   private push_t = 0
   private ledge: THREE.Vector3 | null = null
   private last_dt = 0.016
@@ -83,6 +91,8 @@ class PlaytestApp {
   private cam_yaw = 0
   private cam_pitch = 0.32
   private cam_dist = 4.2
+  /** 📏 size of the player (character / pawn): 1 = 1.8 m person, kept for the next character too */
+  private char_size = (() => { try { const v = Number(localStorage.getItem('gb.playtest.size')); return Number.isFinite(v) && v > 0 ? v : 1 } catch { return 1 } })()
   private readonly keys = new Set<string>()
   private pressed = new Set<string>()
   private mouse_attack = false
@@ -108,7 +118,7 @@ class PlaytestApp {
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.scene.background = new THREE.Color(0x9fc6e8)
     this.scene.fog = new THREE.Fog(0x9fc6e8, 25, 70)
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7a5a, 1.4))
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x6a7a5a, 1.4); this.scene.add(hemi)
     const sun = new THREE.DirectionalLight(0xffffff, 2.2)
     sun.position.set(6, 12, 5); sun.castShadow = true
     sun.shadow.mapSize.set(1024, 1024)
@@ -119,6 +129,9 @@ class PlaytestApp {
     addEventListener('pointerdown', e => { if (e.button === 0 && e.target === this.renderer.domElement) this.note_click(e) }, { capture: true }) // 📝 block notes (window capture: before the game's own handlers)
     this.make_props()
     this.map = new MapEditor(this.world, this.scene, () => this.camera, this.renderer.domElement)
+    // ☁ weather + time of day (chosen in the map panel, saved with the map)
+    this.weather = new Weather(this.scene, hemi, sun)
+    this.map.on_weather = (w, t) => { this.weather.set(w, t) }
     const aside = document.querySelector('aside'); const sec3 = $('pt-edit').closest('section')
     if (aside !== null) { const holder = document.createElement('div'); this.map.mount(holder); if (sec3 !== null) sec3.after(holder.firstElementChild!); else aside.append(holder.firstElementChild!) }
     document.addEventListener('gb-map-tool', (e) => {
@@ -130,6 +143,8 @@ class PlaytestApp {
       (n) => n === 'player' ? (this.ctrl?.root ?? this.car?.root ?? this.pawn) : (this.world.props.getObjectByName(n) ?? null),
       () => this.world.props.children.filter(o => o.name !== '' && o.name !== 'Terrain').map(o => o.name),
       () => this.follow_target())
+    this.scene.add(this.rig.gizmos)
+    this.vgiz = new ViewGizmo($('pt-view'), this.camera, this.rig) // Blender-style view panel (axis gizmo, zoom, pan, camera, perspective)
     this.map.rig = this.rig; this.map.status = (t, w) => this.status(t, w)
     this.map.riders = () => [this.ctrl?.root, this.car?.root, this.pawn].filter((o): o is THREE.Object3D => o != null)
     let ground_size = 0
@@ -218,10 +233,11 @@ class PlaytestApp {
     // a playable only needs the moves the controller uses (idle, run, jump…), not the whole library
     this.char_model = model; this.char_clips = [...new Set(Object.values(table).filter((c): c is THREE.AnimationClip => c !== undefined))]
     this.ctrl = new CharacterController(model, table)
-    this.ctrl.on_hit_frame = (reach) => this.try_hit(reach)
+    this.ctrl.set_size(this.char_size)
+    this.ctrl.on_hit_frame = (reach) => this.try_hit(reach * this.char_size)
     this.ctrl.ground_at = (x, z, y) => this.world.ground_at(x, z, y)
     this.ctrl.move_filter = (a, b) => {
-      const ledge = this.ctrl !== null && this.ctrl.is_on_ground() ? this.world.block(a, b) : (this.world.block(a, b), null)
+      const ledge = this.ctrl !== null && this.ctrl.is_on_ground() ? this.world.block(a, b, this.char_size) : (this.world.block(a, b, this.char_size), null)
       if (ledge !== null) { this.push_t += this.last_dt; this.ledge = ledge } else { this.push_t = 0; this.ledge = null }
     }
     this.scene.add(this.ctrl.root)
@@ -258,6 +274,7 @@ class PlaytestApp {
   /* ---------------- 2D plan -> 3D playable ---------------- */
   public plan_ed!: PlanEditor
   public playable: Playable | null = null
+  private playable_fx: PlayableFx | null = null
   /** a stand-in player (a capsule you drive with WASD) when no character is loaded */
   private pawn: THREE.Object3D | null = null
   private char_model: THREE.Object3D | null = null
@@ -268,28 +285,92 @@ class PlaytestApp {
    * with its animations, the plan and the runtime (three.js included) all inside. Touch-drag joystick, CTA button
    * (mraid.open in ad networks).
    */
+  /**
+   * 🎮 the playable as one HTML file (map + character + 2D plan logic + runtime), no dialog, no download: used by the
+   * "Playable (.html)" button and by the MCP (gb_map export_playable). cta = store / landing link ('' = no button).
+   */
+  public async playable_html (cta: string, opt: { title?: string, limit?: number } = {}): Promise<{ blob: Blob, name: string, size_mb: number, has_character: boolean, shapes: number }> {
+    const plan = this.map.plan
+    if (plan === null || plan.shapes.length === 0) throw new Error(M('Draw a 2D plan first (📐).', 'Vẽ sơ đồ 2D trước (📐).', '먼저 2D 평면도를 그리세요.'))
+    if (!plan.shapes.some(s => this.map.plan_object(s.id) !== null)) this.map.build_plan(plan)
+    const b64 = (buf: ArrayBuffer): string => { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s) }
+    const runtime = await (await fetch('playable-runtime.js', { cache: 'no-store' })).text()
+    const map = b64(await this.map.glb_buffer(false, true))
+    let char: string | null = null
+    if (this.char_model !== null && this.ctrl !== null) { jpeg_textures(this.char_model); char = b64(await new GLTFExporter().parseAsync(this.char_model, { binary: true, animations: this.char_clips }) as ArrayBuffer) }
+    // the items' own looks (an ore's small stone…), one small GLB each
+    const items: Record<string, string> = {}
+    for (const sh of plan.shapes) {
+      if ((sh.item ?? '') === '' || (sh.gives ?? '') === '' || items[sh.gives!] !== undefined) continue
+      const t = CUSTOM.get(sh.item!); if (t === undefined) continue
+      const c = t.clone(true); jpeg_textures(c); items[sh.gives!] = b64(await new GLTFExporter().parseAsync(c, { binary: true }) as ArrayBuffer)
+    }
+    const title = (opt.title ?? '').trim() !== '' ? opt.title!.trim() : 'Greenbox playable'
+    const lang = M('en', 'vi', 'ko')
+    const data = { map, char, plan, items, cta, cta_label: M('Play now', 'Chơi ngay', '지금 플레이'), title, lang, limit: Math.max(0, opt.limit ?? 0), cam: { yaw: this.cam_yaw, pitch: Math.max(0.45, this.cam_pitch), dist: Math.max(8, this.cam_dist) } }
+    const safe = (t: string): string => t.replace(/<\/script/gi, '<\\/script')
+    const esc = (t: string): string => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+    // ad.size: the tag Google / some networks read; the page itself fills any screen, portrait or landscape
+    const html = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="ad.size" content="width=320,height=480"><title>${esc(title)}</title><style>html,body{margin:0;height:100%;overflow:hidden;background:#0e1522;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}</style></head><body><script>window.__GB_PLAYABLE=${safe(JSON.stringify(data))}</script><script>${safe(runtime)}</script></body></html>`
+    const blob = new Blob([html], { type: 'text/html' })
+    const slug = title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    return { blob, name: (slug !== '' ? slug : 'greenbox-playable') + '.html', size_mb: blob.size / 1048576, has_character: char !== null, shapes: plan.shapes.length }
+  }
+
+  /** the export box: name of the game, store link, when the end card comes; remembers the last answers */
   public async export_playable (): Promise<void> {
     const plan = this.map.plan
     if (plan === null || plan.shapes.length === 0) { this.status(M('Draw a 2D plan first (📐).', 'Vẽ sơ đồ 2D trước (📐).', '먼저 2D 평면도를 그리세요.'), true); return }
-    const KEY = 'gb.playable.cta'; const last = (() => { try { return localStorage.getItem(KEY) ?? '' } catch { return '' } })()
-    const cta = prompt(M('Store / landing link for the button (empty = no button):', 'Link cửa hàng / landing cho nút bấm (để trống = không có nút):', '버튼 링크 (비우면 없음):'), last)
-    if (cta === null) return
-    try { localStorage.setItem(KEY, cta) } catch { /* ignore */ }
-    this.status(M('Making the playable…', 'Đang tạo file playable…', '플레이어블 생성 중…'))
-    try {
-      if (!plan.shapes.some(s => this.map.plan_object(s.id) !== null)) this.map.build_plan(plan)
-      const b64 = (buf: ArrayBuffer): string => { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s) }
-      const runtime = await (await fetch('playable-runtime.js', { cache: 'no-store' })).text()
-      const map = b64(await this.map.glb_buffer(false))
-      let char: string | null = null
-      if (this.char_model !== null && this.ctrl !== null) char = b64(await new GLTFExporter().parseAsync(this.char_model, { binary: true, animations: this.char_clips }) as ArrayBuffer)
-      const data = { map, char, plan, cta, cta_label: M('Play now', 'Chơi ngay', '지금 플레이'), cam: { yaw: this.cam_yaw, pitch: Math.max(0.45, this.cam_pitch), dist: Math.max(8, this.cam_dist) } }
-      const safe = (t: string): string => t.replace(/<\/script/gi, '<\\/script')
-      const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Greenbox playable</title><style>html,body{margin:0;height:100%;overflow:hidden;background:#9fc6e8;touch-action:none;-webkit-user-select:none;user-select:none}</style></head><body><script>window.__GB_PLAYABLE=${safe(JSON.stringify(data))}</script><script>${safe(runtime)}</script></body></html>`
-      const blob = new Blob([html], { type: 'text/html' })
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'greenbox-playable.html'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000)
-      this.status(M(`Playable saved: greenbox-playable.html (${(blob.size / 1048576).toFixed(1)} MB). Open it in a browser or upload it to the ad network.`, `Đã lưu playable: greenbox-playable.html (${(blob.size / 1048576).toFixed(1)} MB). Mở bằng trình duyệt hoặc tải lên mạng quảng cáo.`, `저장됨 (${(blob.size / 1048576).toFixed(1)} MB)`))
-    } catch (e) { this.status(String((e as Error).message ?? e), true) }
+    const KEY = 'gb.playable.export'
+    const last: { title: string, cta: string, limit: number } = (() => { try { return { title: '', cta: localStorage.getItem('gb.playable.cta') ?? '', limit: 0, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') } } catch { return { title: '', cta: '', limit: 0 } } })()
+    document.getElementById('pt-export')?.remove()
+    const pads = plan.shapes.filter(s => s.kind === 'unlock').length
+    const d = document.createElement('div'); d.id = 'pt-export'
+    d.style.cssText = 'position:fixed;inset:0;z-index:300;display:grid;place-items:center;background:#0009;backdrop-filter:blur(3px);font:13px/1.45 "Be Vietnam Pro","Pretendard Variable",system-ui,sans-serif;color:var(--txt,#e6e6e6)'
+    const inp = 'width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid var(--line,#545454);background:var(--bg,#303030);color:inherit;font:inherit;outline:none'
+    const lab = 'display:block;margin:12px 0 5px;font-weight:600'
+    const hint = 'margin-top:4px;font-size:11.5px;color:var(--mut,#b4b4b4)'
+    d.innerHTML = `<form style="width:min(92vw,420px);padding:18px 20px 16px;border-radius:14px;background:var(--bg2,#3d3d3d);border:1px solid var(--line,#545454);box-shadow:0 24px 60px #000a">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">🎮</span><div><div style="font-size:15px;font-weight:700">${M('Export the playable', 'Xuất file playable', '플레이어블 내보내기')}</div><div style="${hint};margin:0">${M('One HTML file: loading screen, tutorial, sound, end card.', 'Một file HTML: màn chờ, hướng dẫn kéo, âm thanh, màn kết.', 'HTML 파일 하나: 로딩, 튜토리얼, 사운드, 엔드 카드.')}</div></div></div>
+      <label style="${lab}">${M('Game name', 'Tên game', '게임 이름')}</label><input name="title" style="${inp}" maxlength="40" placeholder="Greenbox playable">
+      <div style="${hint}">${M('Shown on the loading screen and the end card.', 'Hiện ở màn chờ và màn kết.', '로딩 화면과 엔드 카드에 표시됩니다.')}</div>
+      <label style="${lab}">${M('Store / landing link', 'Link cửa hàng / landing', '스토어 / 랜딩 링크')}</label><input name="cta" style="${inp}" placeholder="https://play.google.com/store/apps/details?id=…" inputmode="url">
+      <div style="${hint}">${M('Empty = no “Play now” button. Ad networks (mraid, Facebook, Google) are handled.', 'Để trống = không có nút “Chơi ngay”. Tự chạy đúng trên các mạng quảng cáo (mraid, Facebook, Google).', '비우면 버튼 없음. 광고 네트워크 지원.')}</div>
+      <label style="${lab}">${M('End card', 'Màn kết', '엔드 카드')}</label>
+      <div data-seg style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"></div>
+      <div style="${hint}">${pads > 0 ? M('It always comes when every $ pad is paid; a time limit brings it earlier.', 'Luôn hiện khi trả xong mọi ô $; đặt giờ để hiện sớm hơn.', '모든 $ 패드 결제 시 표시; 시간 제한으로 더 빨리.') : M('This plan has no $ pad: pick a time, or the end card never comes.', 'Sơ đồ này không có ô $: hãy chọn thời gian, nếu không màn kết sẽ không hiện.', '$ 패드가 없습니다: 시간을 선택하세요.')}</div>
+      <div data-msg style="${hint};min-height:16px;margin-top:10px"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px"><button type="button" data-x>${M('Cancel', 'Hủy', '취소')}</button><button type="submit" class="pri" style="padding-inline:16px">⬇ ${M('Export .html', 'Xuất .html', '.html 내보내기')}</button></div></form>`
+    document.body.append(d)
+    const f = d.querySelector('form')!; const title = f.elements.namedItem('title') as HTMLInputElement; const cta = f.elements.namedItem('cta') as HTMLInputElement
+    title.value = last.title; cta.value = last.cta
+    let limit = pads === 0 && last.limit === 0 ? 45 : last.limit
+    const seg = d.querySelector<HTMLElement>('[data-seg]')!
+    const paint = (): void => { seg.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.classList.toggle('on', Number(b.dataset.v) === limit) }) }
+    for (const [v, t] of [[0, pads > 0 ? M('When done', 'Khi xong', '완료 시') : M('Never', 'Không', '없음')], [30, '30 s'], [45, '45 s'], [60, '60 s']] as Array<[number, string]>) { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = String(v); b.textContent = t; b.onclick = () => { limit = v; paint() }; seg.append(b) }
+    paint(); title.focus()
+    const msg = d.querySelector<HTMLElement>('[data-msg]')!
+    const close = (): void => { d.remove(); removeEventListener('keydown', esc, true) }
+    const esc = (e: KeyboardEvent): void => { if (e.key === 'Escape') { e.stopImmediatePropagation(); close() } else if (d.contains(e.target as Node)) e.stopImmediatePropagation() } // typing a name must not move the player
+    addEventListener('keydown', esc, true)
+    d.querySelector<HTMLButtonElement>('[data-x]')!.onclick = close
+    d.addEventListener('pointerdown', e => { if (e.target === d) close() })
+    f.onsubmit = (e) => {
+      e.preventDefault()
+      const link = cta.value.trim()
+      if (link !== '' && !/^(https?:\/\/|market:\/\/|itms-apps:\/\/)/i.test(link)) { msg.style.color = '#ff8a8a'; msg.textContent = M('The link must start with https://', 'Link phải bắt đầu bằng https://', '링크는 https:// 로 시작해야 합니다'); cta.focus(); return }
+      try { localStorage.setItem(KEY, JSON.stringify({ title: title.value.trim(), cta: link, limit })) } catch { /* ignore */ }
+      const go = f.querySelector<HTMLButtonElement>('[type=submit]')!; go.disabled = true; msg.style.color = ''; msg.textContent = M('Making the playable…', 'Đang tạo file playable…', '플레이어블 생성 중…')
+      void (async () => {
+        try {
+          const { blob, name } = await this.playable_html(link, { title: title.value, limit })
+          const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000)
+          const mb = blob.size / 1048576; const big = mb > 5
+          close()
+          this.status(M(`Playable saved: ${name} (${mb.toFixed(1)} MB${big ? ', over the 5 MB most ad networks allow: use fewer / lighter models' : ''}).`, `Đã lưu playable: ${name} (${mb.toFixed(1)} MB${big ? ', vượt 5 MB mà đa số mạng quảng cáo cho phép: hãy dùng ít model hơn / model nhẹ hơn' : ''}).`, `저장됨: ${name} (${mb.toFixed(1)} MB)`), big)
+        } catch (err) { go.disabled = false; msg.style.color = '#ff8a8a'; msg.textContent = String((err as Error).message ?? err) }
+      })()
+    }
   }
 
   private make_plan (): void {
@@ -308,7 +389,8 @@ class PlaytestApp {
       const row = document.createElement('div'); row.className = 'row'
       const row2 = document.createElement('div'); row2.className = 'row'
       row2.innerHTML = `<button data-plan="wires" title="${M('Flow wires on the ground: show them while designing, hide them for the game and the export', 'Dây flow trên mặt đất: hiện khi thiết kế, ẩn khi chơi và khi xuất', '흐름 선 표시/숨김')}"></button><button data-plan="export" title="${M('One HTML file that plays this map as a playable ad', 'Một file HTML chơi được map này như playable ad', '플레이어블 HTML')}">⬇ ${M('Playable (.html)', 'File playable (.html)', '플레이어블 (.html)')}</button>`
-      const wb = (): void => { (row2.querySelector('[data-plan="wires"]') as HTMLElement).textContent = (this.map.wires_visible ? '🔗 ' : '⛓️‍💥 ') + (this.map.wires_visible ? M('Wires: shown', 'Dây: đang hiện', '선: 표시') : M('Wires: hidden', 'Dây: đang ẩn', '선: 숨김')) }
+      const wires_btn = row2.querySelector('[data-plan="wires"]') as HTMLElement // kept: the tile grid moves it out of row2
+      const wb = (): void => { tile(wires_btn, this.map.wires_visible ? 'plan-wires' : 'plan-wires-off', this.map.wires_visible ? M('Wires: shown', 'Dây: đang hiện', '선: 표시') : M('Wires: hidden', 'Dây: đang ẩn', '선: 숨김')) }
       row2.querySelector<HTMLButtonElement>('[data-plan="wires"]')!.onclick = () => { this.map.show_wires(!this.map.wires_visible); wb() }
       row2.querySelector<HTMLButtonElement>('[data-plan="export"]')!.onclick = () => { void this.export_playable() }
       wb()
@@ -316,6 +398,10 @@ class PlaytestApp {
       sec.querySelector('h3')?.after(row); row.after(row2)
       row.querySelector<HTMLButtonElement>('[data-plan="open"]')!.onclick = () => { if (this.editing) this.set_editing(false); this.map.set_tool('none'); ed.open() }
       row.querySelector<HTMLButtonElement>('[data-plan="play"]')!.onclick = () => { if (this.playable !== null) this.stop_playable(); else this.start_playable() }
+      // picture tiles (wide: picture left, name right)
+      const grid = tile_grid([...row.querySelectorAll<HTMLElement>('button'), ...row2.querySelectorAll<HTMLElement>('button')], b => 'plan-' + (b.dataset.plan ?? ''), true)
+      void grid; row.remove(); row2.remove()
+      wb()
     }
   }
 
@@ -327,19 +413,22 @@ class PlaytestApp {
     if (this.editing) this.set_editing(false); this.map.set_tool('none'); this.rig.stop(); this.rig.exit_free()
     if (this.ctrl === null && this.car === null) this.make_pawn()
     this.playable = new Playable(plan, this.scene, (id) => this.map.plan_object(id), () => this.ctrl?.root ?? this.car?.root ?? this.pawn, $('pt-view'), () => this.stop_playable())
+    this.playable.on_world = () => { this.world.refresh() }; this.world.refresh()
+    this.playable_fx = new PlayableFx(this.playable, this.camera, $('pt-view'), { top: 56 }); this.playable_fx.input() // sound, objective line, +$ (the tutorial and the end card are for the exported file)
+    for (const sh of plan.shapes) if ((sh.item ?? '') !== '' && (sh.gives ?? '') !== '') { const t = CUSTOM.get(sh.item!); if (t !== undefined) this.playable.item_models.set(sh.gives!, t) } // the items' own look
     this.cam_mode = 'third'; this.cam_pitch = 0.75; this.cam_dist = Math.max(this.cam_dist, 9)
     this.status(M('Playable: walk to the yellow arrow. Items stack on your back, machines work, counters pay.', 'Playable: đi theo mũi tên vàng. Đồ chồng lên lưng, máy chạy, quầy trả tiền.', '플레이어블: 노란 화살표를 따라가세요.'))
     this.renderer.domElement.focus()
   }
 
-  public stop_playable (): void { if (this.playable !== null) { this.playable.dispose(); this.playable = null } }
+  public stop_playable (): void { this.playable_fx?.dispose(); this.playable_fx = null; if (this.playable !== null) { this.playable.dispose(); this.playable = null } }
 
   private make_pawn (): void {
     if (this.pawn !== null) return
     const g = new THREE.Group(); g.name = 'Player'
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.8, 6, 16), new THREE.MeshLambertMaterial({ color: 0xf97316 })); body.position.y = 0.72; body.castShadow = true
     const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), new THREE.MeshLambertMaterial({ color: 0xffffff })); nose.position.set(0, 1.05, 0.3)
-    g.add(body, nose); this.scene.add(g); this.pawn = g
+    g.add(body, nose); g.scale.multiplyScalar(this.char_size); this.scene.add(g); this.pawn = g
   }
 
   private move_pawn (dt: number, input: Input): void {
@@ -347,7 +436,7 @@ class PlaytestApp {
     const want = new THREE.Vector3(input.move.x, 0, -input.move.y).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.cam_yaw)
     if (want.lengthSq() > 1e-4) {
       const b = p.position.clone().addScaledVector(want, (input.sprint ? 7 : 4.5) * dt)
-      this.world.block(p.position, b)
+      this.world.block(p.position, b, this.char_size)
       p.position.x = b.x; p.position.z = b.z
       const yaw = Math.atan2(want.x, want.z); let d = yaw - p.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); p.rotation.y += d * Math.min(1, dt * 14)
     }
@@ -379,6 +468,7 @@ class PlaytestApp {
     // drags on the view: brushes, placing, the gizmo, the eraser (not while just playing)
     h.watch_canvas(this.renderer.domElement, () => this.editing || this.map.tool !== 'none')
     this.map.on_edit_start = () => { h.commit(); h.begin() } // the map editor takes its clicks before the canvas sees them
+    this.setup_grab()
     // keys that edit: Delete, Z (turn), Shift+D (copy)
     addEventListener('keydown', e => { if (!e.ctrlKey && !e.metaKey && (e.code === 'Delete' || e.code === 'Backspace' || ((e.code === 'KeyZ' || e.code === 'KeyX') && (this.editing || this.map.tool === 'place')) || (e.code === 'KeyD' && e.shiftKey))) h.begin() }, true)
     addEventListener('keyup', () => h.commit_soon())
@@ -390,6 +480,71 @@ class PlaytestApp {
   }
 
   /* ---------------- map editor ---------------- */
+  /* ---------------- ✋ grab: hold a placed prop and slide it (select mode, or a click on a prop while placing) ---------------- */
+  private grab_chip: HTMLDivElement | null = null
+  private ndc_of (e: { clientX: number, clientY: number }): THREE.Vector2 {
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1)
+  }
+
+  private grab_begin (o: THREE.Object3D, e: PointerEvent): void {
+    this.world.grab_start(o, this.ndc_of(e), this.camera)
+    this.map.grabbing = true
+    this.renderer.domElement.style.cursor = 'grabbing'
+    if (this.grab_chip === null) {
+      const c = document.createElement('div'); c.id = 'pt-grab'
+      c.style.cssText = 'position:fixed;z-index:50;pointer-events:none;padding:7px 12px 7px 10px;border-radius:999px;font:600 13px/1.2 "Be Vietnam Pro","Pretendard Variable",system-ui,sans-serif;color:#fff;' +
+        'background:linear-gradient(180deg,rgba(255,255,255,.42) 0%,rgba(255,255,255,.12) 46%,rgba(47,233,139,.18) 54%,rgba(47,233,139,.34) 100%),rgba(18,70,48,.38);' +
+        '-webkit-backdrop-filter:blur(14px) saturate(170%);backdrop-filter:blur(14px) saturate(170%);border:1px solid rgba(255,255,255,.55);' +
+        'box-shadow:inset 0 1px 0 rgba(255,255,255,.85),inset 0 -2px 8px rgba(47,233,139,.35),0 0 18px -4px rgba(47,233,139,.75),0 8px 20px -10px rgba(0,0,0,.6);text-shadow:0 1px 2px rgba(0,40,20,.45);white-space:nowrap;transform:translate(14px,-130%)'
+      document.body.appendChild(c); this.grab_chip = c
+    }
+    const name = (o.name !== '' ? o.name : String(o.userData.map_kind ?? '')).replace(/^file:/, '').slice(0, 28)
+    this.grab_chip.textContent = '✋ ' + (name !== '' ? name : M('Prop', 'Vật', '오브젝트'))
+    this.grab_chip.style.left = e.clientX + 'px'; this.grab_chip.style.top = e.clientY + 'px'; this.grab_chip.style.display = 'block'
+  }
+
+  private setup_grab (): void {
+    const el = this.renderer.domElement
+    // placing: a click on a prop already on the map picks it up instead of dropping a new one
+    this.map.grab_hook = (e) => {
+      const o = this.world.pick(this.ndc_of(e), this.camera); if (o === null) return false
+      this.grab_begin(o, e); return true
+    }
+    let hover_raf = 0; let hover_ev: PointerEvent | null = null
+    addEventListener('pointermove', e => {
+      if (this.world.held !== null) {
+        e.stopImmediatePropagation()
+        this.world.grab_move(this.ndc_of(e), this.camera)
+        if (this.grab_chip !== null) { this.grab_chip.style.left = e.clientX + 'px'; this.grab_chip.style.top = e.clientY + 'px' }
+        return
+      }
+      // hover: an open hand over a prop you can pick up
+      if (e.target !== el || !(this.editing || this.map.tool === 'place')) return
+      hover_ev = e
+      if (hover_raf === 0) {
+        hover_raf = requestAnimationFrame(() => {
+          hover_raf = 0; if (hover_ev === null || this.world.held !== null) return
+          const over = this.world.pick(this.ndc_of(hover_ev), this.camera) !== null
+          el.style.cursor = over ? 'grab' : this.map.tool === 'place' ? 'crosshair' : ''
+        })
+      }
+    }, { capture: true })
+    const end = (): void => {
+      if (this.world.held === null) return
+      const held = this.world.held
+      const moved = this.world.grab_end()
+      if (moved) this.map.sync_plan_from_3d(held)
+      this.map.grabbing = false
+      el.style.cursor = 'grab'
+      if (this.grab_chip !== null) this.grab_chip.style.display = 'none'
+      if (moved) this.map.autosave_now()
+    }
+    addEventListener('pointerup', end, { capture: true })
+    addEventListener('pointercancel', end, { capture: true })
+    addEventListener('blur', end)
+  }
+
   private set_editing (on: boolean): void {
     this.editing = on
     this.world.set_editing(on)
@@ -441,6 +596,13 @@ class PlaytestApp {
     addEventListener('dragover', e => e.preventDefault())
     addEventListener('drop', async e => { e.preventDefault(); for (const f of Array.from(e.dataTransfer?.files ?? [])) await this.load_any(await f.arrayBuffer(), f.name) })
     // map editor
+    // 🛒 the Polyfork model shop: picked models become palette objects, placed in a row where the camera looks
+    mount_polyfork_shop($('pt-shop'), {
+      add_file: async (n, b) => await this.map.add_custom_file(n, b),
+      // placed in a row in front of the camera; the map goes into Edit mode with the first one selected (drag it, R turns, S scales)
+      place: (kind, i, n) => { const t = this.follow_target(); const o = this.map.add_object(kind, t.x + (i - (n - 1) / 2) * 3, t.z - 4, 0, 1); if (i === 0) { if (!this.editing) this.set_editing(true); this.world.select(o) } },
+      status: (t, w) => { this.status(t, w === true) }
+    })
     const pfile = $('pt-prop-file') as HTMLInputElement
     $('pt-add-prop').onclick = () => pfile.click()
     pfile.onchange = async () => { for (const f of Array.from(pfile.files ?? [])) await this.load_any(await f.arrayBuffer(), f.name, true); pfile.value = '' }
@@ -464,6 +626,39 @@ class PlaytestApp {
     ;($('pt-snap') as HTMLInputElement).onchange = (e) => { this.world.snap = (e.target as HTMLInputElement).checked }
     document.querySelectorAll<HTMLButtonElement>('[data-scheme]').forEach(b => { b.onclick = () => this.set_scheme(b.dataset.scheme as Scheme) })
     document.querySelectorAll<HTMLButtonElement>('[data-cam]').forEach(b => { b.onclick = () => this.set_cam(b.dataset.cam as CamMode) })
+    // 📏 size sliders (log scale): the player, and the selected object while editing; double click = 1×
+    const cs = $('pt-size') as HTMLInputElement
+    cs.oninput = () => this.set_char_size(Math.exp(Number(cs.value) / 100)); cs.ondblclick = () => this.set_char_size(1)
+    const os = $('pt-osize') as HTMLInputElement
+    os.addEventListener('pointerdown', () => this.history.begin()); os.addEventListener('change', () => this.history.commit())
+    os.oninput = () => this.scale_selected(Math.exp(Number(os.value) / 100))
+    os.ondblclick = () => { this.history.begin(); this.scale_selected(1); this.history.commit() }
+    // 🧩 Unity behaviours of the selected map object (Edit map tools)
+    const mbp = new BehaviourPanel($('pt-edit-tools'), () => this.map.autosave_now())
+    this.world.on_select = (o) => { this.show_sizes(); mbp.show(o) }
+    this.world.gizmo.addEventListener('objectChange', () => { if (this.world.gizmo.mode === 'scale') this.show_sizes() })
+    // a plan block moved / turned / scaled with the handles → the 2D plan follows (▶ Play no longer puts it back)
+    this.world.gizmo.addEventListener('mouseUp', () => { this.map.sync_plan_from_3d(this.world.selected) })
+    this.show_sizes()
+    // 🎯 which character the camera follows: the player, or a character / model placed on the map (the list is read when it opens)
+    const fol = $('pt-follow') as HTMLSelectElement
+    const fill_follow = (): void => {
+      const chars = this.world.props.children.filter(o => {
+        if (o.name === '' || o.name === 'Terrain') return false
+        const k = (o.userData.map_kind as string | undefined) ?? ''
+        let skinned = false; o.traverse(q => { if ((q as THREE.SkinnedMesh).isSkinnedMesh === true) skinned = true })
+        return skinned || k.startsWith('file:') || (o.userData.map_extra as { role?: string } | undefined)?.role === 'player'
+      }).map(o => o.name)
+      const cur = this.rig.track
+      const all = ['player', ...chars, ...(cur !== 'player' && !chars.includes(cur) ? [cur] : [])]
+      fol.innerHTML = all.map(n => `<option value="${n.replace(/"/g, '&quot;')}"${n === cur ? ' selected' : ''}>${n === 'player' ? M('The player', 'Nhân vật chính', '플레이어') : n}</option>`).join('')
+    }
+    fol.addEventListener('pointerdown', fill_follow); fol.addEventListener('focus', fill_follow)
+    fol.onchange = () => {
+      this.rig.track = fol.value; this.rig.stop(); if (this.rig.free) this.rig.exit_free(); else this.rig.refresh_panel()
+      if (this.cam_mode !== 'third') this.set_cam('third')
+      this.status(fol.value === 'player' ? M('The camera follows the player.', 'Camera bám theo nhân vật chính.', '카메라: 플레이어') : M(`The camera follows ${fol.value} (Q / E or right-drag turn it, the wheel zooms).`, `Camera bám theo ${fol.value} (Q / E hoặc kéo chuột phải để xoay, lăn chuột để zoom).`, `카메라: ${fol.value}`))
+    }
     $('pt-rec').onclick = () => this.toggle_record()
     $('pt-rec-shots').onclick = () => {
       if (this.rig.shots.length === 0) { this.status(M('Save a few camera shots first (📌).', 'Lưu vài shot camera trước (📌).', '먼저 카메라 샷을 저장하세요.'), true); return }
@@ -486,7 +681,7 @@ class PlaytestApp {
         const step = (e.altKey ? Math.PI / 2 : Math.PI / 12) * (e.shiftKey ? -1 : 1) * (k === 'KeyX' ? -1 : 1)
         e.preventDefault()
         if (this.map.tool === 'place') { this.map.turn_next(step); return }
-        if (this.editing && this.world.selected !== null) { this.world.selected.rotation.y += step; this.world.refresh(); this.map.autosave_now(); return }
+        if (this.editing && this.world.selected !== null) { this.world.selected.rotation.y += step; this.world.refresh(); this.map.sync_plan_from_3d(this.world.selected); this.map.autosave_now(); return }
         if (this.ctrl !== null) { this.ctrl.yaw += step * 3; this.ctrl.root.rotation.y = this.ctrl.yaw; return }
         if (this.car !== null) { this.car.yaw += step * 3; this.car.root.rotation.y = this.car.yaw; return }
         return
@@ -494,6 +689,12 @@ class PlaytestApp {
       if (k === 'KeyF' && !e.ctrlKey && !e.metaKey) {
         if (this.editing && this.world.selected !== null) { const b = new THREE.Box3().setFromObject(this.world.selected); this.rig.focus(b.getCenter(new THREE.Vector3()), b.getSize(new THREE.Vector3()).length()); return }
         if (this.rig.free || this.rig.playing()) { this.rig.stop(); this.rig.exit_free(); return }
+      }
+      // 📏 [ / ] : smaller / bigger (the selected object while editing, else the player)
+      if ((k === 'BracketLeft' || k === 'BracketRight') && !e.ctrlKey && !e.metaKey) {
+        const f = k === 'BracketRight' ? 1.1 : 1 / 1.1
+        if (this.editing && this.world.selected !== null) { this.history.begin(); this.scale_selected(this.world.selected.scale.x * f); this.history.commit() } else this.set_char_size(this.char_size * f)
+        return
       }
       if (this.editing) {
         if (k === 'Escape') this.set_editing(false)
@@ -509,6 +710,16 @@ class PlaytestApp {
       this.keys.add(k)
     })
     addEventListener('keyup', e => { this.keys.delete(e.code) })
+    // ⇧ held in Edit map: drag / arrows / rings snap (half a map cell, 15°, 10 %) so roads, walls, props line up
+    const shift_snap = (on: boolean): void => {
+      const W = this.world; if (W.shift === on) return
+      W.shift = on; W.grid_step = this.map.snap_step()
+      const g = W.gizmo as any
+      g.setTranslationSnap?.(on ? W.grid_step : null); g.setRotationSnap?.(on ? Math.PI / 12 : null); g.setScaleSnap?.(on ? 0.1 : null)
+    }
+    addEventListener('keydown', e => { if (e.key === 'Shift') shift_snap(true) })
+    addEventListener('keyup', e => { if (e.key === 'Shift') shift_snap(false) })
+    addEventListener('blur', () => shift_snap(false))
     addEventListener('blur', () => { this.keys.clear(); this.mouse_block = false })
     el.addEventListener('contextmenu', e => e.preventDefault())
     let last_click = 0
@@ -522,6 +733,7 @@ class PlaytestApp {
           const hit = this.world.pick(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), this.camera)
           // a click on empty space keeps the selection when it lands on the gizmo
           if (hit !== null || !(this.world as any).gizmo?.axis) this.world.select(hit)
+          if (hit !== null) this.grab_begin(hit, e) // ✋ hold the prop and slide it over the map
         }
         return
       }
@@ -566,6 +778,35 @@ class PlaytestApp {
       : M('<b>Click the ground</b> to run there · <b>double click</b> = sprint · buttons: attack / jump / roll / block · right-drag: camera',
         '<b>Bấm xuống đất</b> để chạy tới đó · <b>bấm đúp</b> = chạy nhanh · nút: tấn công / nhảy / lộn / đỡ · kéo chuột phải: xoay camera',
         '<b>땅을 클릭</b>하면 그곳으로 달림 · <b>더블 클릭</b> = 질주 · 버튼: 공격 / 점프 / 구르기 / 방어 · 오른쪽 드래그: 카메라')
+  }
+
+  /* ---------------- 📏 sizes ---------------- */
+  /** the player's size (character, pawn); the camera distance follows */
+  private set_char_size (f: number): void {
+    f = Math.min(5, Math.max(0.1, f)); const r = f / this.char_size; if (!Number.isFinite(r) || Math.abs(r - 1) < 1e-6) { this.show_sizes(); return }
+    this.char_size = f
+    try { localStorage.setItem('gb.playtest.size', String(f)) } catch {}
+    this.ctrl?.set_size(f)
+    if (this.pawn !== null) this.pawn.scale.multiplyScalar(r)
+    this.cam_dist = Math.min(60, Math.max(1.5, this.cam_dist * r))
+    this.show_sizes()
+  }
+
+  /** the selected prop, uniformly (its proportions kept), then back on the ground */
+  private scale_selected (s: number): void {
+    const o = this.world.selected; if (o === null) return
+    s = Math.min(50, Math.max(0.02, s)); const r = s / Math.max(1e-6, Math.abs(o.scale.x)); if (!Number.isFinite(r)) return
+    o.scale.multiplyScalar(r); this.world.drop_to_ground(o); this.world.refresh(); this.map.sync_plan_from_3d(o); this.map.autosave_now()
+    this.show_sizes()
+  }
+
+  private show_sizes (): void {
+    const cs = $('pt-size') as HTMLInputElement | null; const cv = $('pt-size-v')
+    if (cs !== null) cs.value = String(Math.round(Math.log(this.char_size) * 100))
+    if (cv !== null) cv.textContent = `${this.char_size.toFixed(2)}× · ${(1.8 * this.char_size).toFixed(2)} m`
+    const o = this.world.selected; const os = $('pt-osize') as HTMLInputElement | null; const ov = $('pt-osize-v')
+    if (os !== null) { os.disabled = o === null; if (o !== null) os.value = String(Math.round(Math.log(Math.abs(o.scale.x)) * 100)) }
+    if (ov !== null) ov.textContent = o === null ? '—' : `${Math.abs(o.scale.x).toFixed(2)}×`
   }
 
   private set_cam (m: CamMode): void {
@@ -650,9 +891,10 @@ class PlaytestApp {
 
   /* ---------------- loop ---------------- */
   private tick (): void {
-    this.timer.update()
-    const dt = Math.min(0.05, this.timer.getDelta())
+    this.clock.update()
+    const dt = Math.min(0.05, this.clock.getDelta())
     this.last_dt = dt
+    this.world.tick_halo(dt)
     const input = this.editing ? NO_INPUT : this.read_input()
     if (this.ctrl !== null) {
       this.ctrl.update(dt, input, this.cam_yaw)
@@ -672,7 +914,7 @@ class PlaytestApp {
       $('pt-state').textContent = this.car.state()
     }
     this.move_pawn(dt, input)
-    this.playable?.update(dt)
+    this.playable?.update(dt); this.playable_fx?.update(dt, true)
     if (this.dummy !== null) {
       const top = this.dummy.userData.top as THREE.Group
       const dir = (this.dummy.userData.dir as THREE.Vector3 | undefined) ?? new THREE.Vector3(0, 0, 1)
@@ -681,6 +923,8 @@ class PlaytestApp {
       top.rotation.set(dir.z * a, 0, -dir.x * a)
     }
     this.update_camera(dt)
+    // roofs / walls in the way of the followed character turn see-through (free camera / no character: only while building)
+    this.map.cutaway(!this.rig.free && !this.rig.playing() && (this.ctrl !== null || this.car !== null || this.pawn !== null || this.rig.track !== 'player') ? this.follow_target() : null, this.camera.position)
     this.renderer.render(this.scene, this.camera)
     this.place_notes()
   }
@@ -711,15 +955,21 @@ class PlaytestApp {
   }
 
   private follow_target (): THREE.Vector3 {
+    // 🎯 the camera may follow another object than the player
+    const tp = this.rig?.track_point(); if (tp != null) return tp
     const who = this.ctrl?.root ?? this.car?.root ?? this.pawn ?? undefined
-    return who !== undefined ? who.position.clone().add(new THREE.Vector3(0, this.car !== null ? 1.4 : 1.2, 0)) : new THREE.Vector3(0, 1, 0)
+    return who !== undefined ? who.position.clone().add(new THREE.Vector3(0, this.car !== null ? 1.4 : 1.2 * this.char_size, 0)) : new THREE.Vector3(0, 1, 0)
   }
 
   private update_camera (dt: number): void {
     // fog starts behind what you look at: a far free camera / a wide shot still sees the whole map
     const fog = this.scene.fog as THREE.Fog; const vd = this.rig.free || this.rig.playing() ? this.rig.view_dist() : this.cam_dist
-    fog.near = Math.max(25, vd * 1.3); fog.far = Math.max(70, vd * 3.2)
-    if (this.rig.update(dt)) return
+    fog.near = Math.max(25, vd * 1.3) * this.weather.fog_scale; fog.far = Math.max(70, vd * 3.2) * Math.max(0.35, this.weather.fog_scale)
+    this.weather.update(dt, this.camera.position)
+    const own = this.rig.update(dt)
+    if (this.vgiz !== null) { this.vgiz.set_visible(this.recorder === null); this.vgiz.draw() }
+    if (this.recorder !== null) this.rig.gizmos.visible = false // never in the footage
+    if (own) return
     const target = this.follow_target()
     let yaw = this.cam_yaw
     // driving: the camera follows behind the vehicle unless the user turns it

@@ -8,6 +8,7 @@
  * (normals, NaN vertices, broken materials) so it always renders.
  */
 import * as THREE from 'three'
+import { fix_gltf_skinned_parents } from './SkinnedFix.ts'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
@@ -109,6 +110,7 @@ export async function load_any (input: Src[]): Promise<AnyResult> {
     switch (ext(main.name)) {
       case 'glb': case 'gltf': {
         const g = await new GLTFLoader(manager).parseAsync(ext(main.name) === 'glb' ? main.data : text(), '')
+        fix_gltf_skinned_parents(g.scene) // a skinned mesh under a scaled Armature (cm): placed by its joints, as glTF says
         scene.add(g.scene); clips = g.animations; break
       }
       case 'fbx': {

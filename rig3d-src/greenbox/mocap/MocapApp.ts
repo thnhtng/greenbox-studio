@@ -25,7 +25,7 @@ class MocapApp {
   private readonly scene = new THREE.Scene()
   private readonly camera = new THREE.PerspectiveCamera(40, 1, 0.01, 200)
   private readonly controls: OrbitControls
-  private readonly timer = new THREE.Timer()
+  private readonly clock = new THREE.Timer()
   private readonly video = document.createElement('video')
   private readonly overlay = document.createElement('canvas')
   private character: THREE.Object3D | null = null
@@ -57,8 +57,8 @@ class MocapApp {
     addEventListener('resize', () => this.resize()); this.resize()
     this.bind()
     this.renderer.setAnimationLoop(() => {
-      this.timer.update()
-      this.mixer?.update(this.timer.getDelta())
+      this.clock.update()
+      this.mixer?.update(this.clock.getDelta())
       this.controls.update()
       this.renderer.render(this.scene, this.camera)
     })

@@ -10,13 +10,16 @@
  *             cut or blend into the next one. ▶ plays them (and records them for ad footage);
  *             they are saved with the map and exported to GLB (glTF cameras), Blender (cameras + Track To +
  *             timeline markers that switch the active camera) and Unity (a C# script that switches the shots)
+ *   track     🎯 what the play camera follows while you play: the player or any object (pick it in the list or 👆 click it)
+ *   gizmos    every shot is drawn in the scene as a small camera with a line to what it looks at (hidden while the shots
+ *             play / record); 🎥 Attach puts a camera that rides along with the tracked object
  */
 import * as THREE from 'three'
 import { M } from '../common/lang.ts'
 
 export type ShotMode = 'fixed' | 'look' | 'follow'
 type V3a = [number, number, number]
-export interface Shot { name: string, t: number, dur: number, mode: ShotMode, pos: V3a, target: V3a, fov: number, follow: string, offset: V3a, blend: number }
+export interface Shot { name: string, t: number, dur: number, mode: ShotMode, pos: V3a, target: V3a, fov: number, follow: string, offset: V3a, blend: number, pid?: string /* made from a 🎥 camera of the 2D plan */ }
 
 const r3 = (v: THREE.Vector3): V3a => [v.x, v.y, v.z].map(x => Math.round(x * 1000) / 1000) as V3a
 const v3 = (a: V3a): THREE.Vector3 => new THREE.Vector3(a[0], a[1], a[2])
@@ -27,6 +30,13 @@ export class CameraRig {
   public shots: Shot[] = []
   public on_change: (() => void) | null = null
   public on_done: (() => void) | null = null
+  /** 🎯 what the play camera follows: 'player' or an object name */
+  public track = 'player'
+  /** the 🎥 cameras drawn in the scene (off while recording) */
+  public show_gizmos = true
+  private picking = false
+  /** the shots drawn in the scene as small cameras */
+  public readonly gizmos = new THREE.Group()
   private readonly pivot = new THREE.Vector3()
   private yaw = 0
   private pitch = 0.4
@@ -46,6 +56,14 @@ export class CameraRig {
     /** where the follow camera looks right now */
     private readonly follow_target: () => THREE.Vector3
   ) {
+    this.gizmos.name = 'Camera gizmos'
+    // 👆 pick: the next left click on an object makes it the camera's target
+    dom.addEventListener('pointerdown', e => {
+      if (!this.picking || e.button !== 0) return
+      e.preventDefault(); e.stopImmediatePropagation(); this.picking = false
+      const n = this.object_at(e); if (n !== null) this.track = n
+      this.render()
+    }, true)
     dom.addEventListener('pointerdown', e => {
       if (e.button !== 1) return
       e.preventDefault(); e.stopPropagation()
@@ -74,6 +92,69 @@ export class CameraRig {
     dom.addEventListener('pointerdown', e => { if (e.button !== 1) return; const now = performance.now(); if (now - last < 300) this.exit_free(); last = now })
   }
 
+  /* ---------------- tracking ---------------- */
+  /** the named object under the mouse ('player' for the character / vehicle) */
+  private object_at (e: PointerEvent): string | null {
+    const r = this.dom.getBoundingClientRect()
+    const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.camera)
+    const named = new Map<THREE.Object3D, string>()
+    for (const n of ['player', ...this.names()]) { const o = this.find(n); if (o !== null) named.set(o, n) }
+    for (const h of ray.intersectObjects([...named.keys()], true)) {
+      let o: THREE.Object3D | null = h.object
+      while (o !== null && !named.has(o)) o = o.parent
+      if (o !== null && o.visible) return named.get(o)!
+    }
+    return null
+  }
+
+  /** where the play camera looks when it tracks an object (null: the player, as usual) */
+  public track_point (): THREE.Vector3 | null {
+    if (this.track === 'player') return null
+    const o = this.find(this.track); if (o === null) return null
+    const b = new THREE.Box3().setFromObject(o); if (b.isEmpty()) return o.getWorldPosition(new THREE.Vector3())
+    const c = b.getCenter(new THREE.Vector3()); c.y = b.min.y + Math.min(LOOK_UP, (b.max.y - b.min.y) * 0.6)
+    return c
+  }
+
+  /** 🎥 a camera attached to the tracked object: it rides along at the current view's distance */
+  public attach (): Shot {
+    const s = this.add_shot(); s.mode = 'follow'; s.follow = this.track; s.name = `${this.track === 'player' ? M('player', 'nhân vật', '플레이어') : this.track} cam`
+    this.capture(s); this.changed(); return s
+  }
+
+  /** small camera bodies + a line to what each shot looks at */
+  private draw_gizmos (): void {
+    this.gizmos.clear()
+    this.shots.forEach((s, i) => {
+      const col = new THREE.Color().setHSL((0.78 + i * 0.13) % 1, 0.75, 0.6)
+      const g = new THREE.Group(); g.userData.shot = i
+      const mat = new THREE.MeshBasicMaterial({ color: col })
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.26, 0.44), mat); g.add(body)
+      const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.16, 12), mat); lens.rotation.x = Math.PI / 2; lens.position.z = 0.29; g.add(lens)
+      // the view: a small frustum in front of the lens
+      const a = Math.tan(THREE.MathUtils.degToRad(s.fov) / 2) * 0.9; const q = [new THREE.Vector3(-a * 1.6, -a, 1.2), new THREE.Vector3(a * 1.6, -a, 1.2), new THREE.Vector3(a * 1.6, a, 1.2), new THREE.Vector3(-a * 1.6, a, 1.2)]
+      const o = new THREE.Vector3(0, 0, 0.3); const pts: THREE.Vector3[] = []
+      q.forEach((v, k) => { pts.push(o, v, v, q[(k + 1) % 4]) })
+      g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: col })))
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineDashedMaterial({ color: col, dashSize: 0.25, gapSize: 0.18 }))
+      line.userData.to_target = true; line.frustumCulled = false
+      this.gizmos.add(g, line)
+    })
+    this.place_gizmos()
+  }
+  /** every frame: the gizmos follow their shots (a tracking shot moves with its object) */
+  private place_gizmos (): void {
+    const ch = this.gizmos.children
+    for (let i = 0; i < this.shots.length && i * 2 + 1 < ch.length; i++) {
+      const r = this.resolve(this.shots[i]); const g = ch[i * 2]; const line = ch[i * 2 + 1] as THREE.Line
+      g.position.copy(r.pos); g.lookAt(r.target)
+      // looking through this shot: its own body would fill the view
+      g.visible = r.pos.distanceTo(this.camera.position) > 0.6
+      const pos = line.geometry.getAttribute('position') as THREE.BufferAttribute
+      pos.setXYZ(0, r.pos.x, r.pos.y, r.pos.z); pos.setXYZ(1, r.target.x, r.target.y, r.target.z); pos.needsUpdate = true; line.computeLineDistances(); line.visible = g.visible
+    }
+  }
+
   /* ---------------- free camera ---------------- */
   public enter_free (): void {
     this.stop()
@@ -93,6 +174,20 @@ export class CameraRig {
 
   /** the wheel, while the free camera is on */
   public dolly (sign: number): void { this.dist = Math.min(400, Math.max(0.4, this.dist * (1 + sign * 0.1))) }
+
+  /* ---------------- view gizmo (Blender-style panel on the view) ---------------- */
+  public get_view (): { yaw: number, pitch: number, dist: number } { return { yaw: this.yaw, pitch: this.pitch, dist: this.dist } }
+  /** look from this direction around the current pivot (the free camera turns on) */
+  public set_view (yaw: number, pitch: number, dist?: number): void { if (!this.free) this.enter_free(); this.yaw = yaw; this.pitch = Math.min(1.5, Math.max(-1.5, pitch)); if (dist !== undefined) this.dist = Math.min(400, Math.max(0.4, dist)) }
+  public orbit (dx: number, dy: number): void { if (!this.free) this.enter_free(); this.yaw -= dx * 0.008; this.pitch = Math.min(1.5, Math.max(-1.5, this.pitch + dy * 0.006)) }
+  public pan (dx: number, dy: number): void {
+    if (!this.free) this.enter_free()
+    const k = this.dist * 0.0016
+    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0)
+    const up = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 1)
+    this.pivot.addScaledVector(right, -dx * k).addScaledVector(up, dy * k)
+  }
+  public zoom_drag (dy: number): void { if (!this.free) this.enter_free(); this.dist = Math.min(400, Math.max(0.4, this.dist * Math.exp(dy * 0.01))) }
 
   /** frame a point (F on a selected prop) */
   public focus (p: THREE.Vector3, size = 4): void { if (!this.free) this.enter_free(); this.pivot.copy(p); this.dist = Math.max(2, size * 2.2) }
@@ -143,6 +238,8 @@ export class CameraRig {
 
   /** drive the camera; false = not ours this frame (the follow camera runs) */
   public update (dt: number): boolean {
+    this.gizmos.visible = this.play_t0 < 0 && this.show_gizmos
+    if (this.gizmos.visible) this.place_gizmos()
     if (this.play_t0 >= 0) {
       const t = (performance.now() - this.play_t0) / 1000
       if (t > this.total()) { this.stop(); return false }
@@ -184,6 +281,9 @@ export class CameraRig {
       const b = (e.target as HTMLElement).closest('button'); if (b === null) return
       const i = Number(b.dataset.i); const a = b.dataset.a
       if (a === 'free') { if (this.free) this.exit_free(); else this.enter_free() }
+      else if (a === 'pick') { this.picking = !this.picking; this.render() }
+      else if (a === 'attach') this.attach()
+      else if (a === 'gizmos') { this.show_gizmos = !this.show_gizmos; this.render() }
       else if (a === 'add') this.add_shot()
       else if (a === 'play') { if (this.playing()) this.stop(); else this.play() }
       else if (a === 'go') this.view(this.shots[i])
@@ -192,7 +292,9 @@ export class CameraRig {
       else if (a === 'up' && i > 0) { [this.shots[i - 1], this.shots[i]] = [this.shots[i], this.shots[i - 1]]; this.changed() }
     })
     d.addEventListener('change', e => {
-      const el = e.target as HTMLInputElement | HTMLSelectElement; const i = Number(el.dataset.i); const f = el.dataset.f; if (f === undefined) return
+      const el = e.target as HTMLInputElement | HTMLSelectElement
+      if (el.dataset.a === 'track') { this.track = el.value; if (this.free) this.exit_free(); this.render(); return }
+      const i = Number(el.dataset.i); const f = el.dataset.f; if (f === undefined) return
       const s = this.shots[i] as any
       s[f] = ['t', 'dur', 'fov', 'blend'].includes(f) ? Number(el.value) : el.value
       if (f === 'follow' || f === 'mode') { if (s.mode === 'follow') this.capture(s) }
@@ -202,6 +304,7 @@ export class CameraRig {
   }
 
   private render (): void {
+    this.draw_gizmos()
     const d = this.panel; if (d === null) return
     const opts = ['player', ...this.names()]
     const mode = (m: ShotMode): string => ({ fixed: M('Fixed', 'Cố định', '고정'), look: M('Track (turns to look)', 'Bám theo (xoay nhìn)', '추적(회전)'), follow: M('Follow (rides along)', 'Đi theo (chạy cùng)', '따라가기') })[m]
@@ -209,6 +312,9 @@ export class CameraRig {
     d.innerHTML = `
       <div class="row"><button data-a="free">${this.free ? '🎯 ' + M('Follow the player (F)', 'Theo nhân vật (F)', '플레이어 따라가기 (F)') : '🕊 ' + M('Free camera', 'Camera tự do', '자유 카메라')}</button></div>
       <div class="sm">${M('Middle-drag: free camera (orbit) · Shift + middle-drag: pan · wheel: zoom · double middle-click or F: back to the player · Q / E turn the follow camera', 'Kéo chuột giữa: camera tự do (xoay quanh) · Shift + kéo chuột giữa: dời · lăn: zoom · bấm đúp chuột giữa hoặc F: về theo nhân vật · Q / E xoay camera theo', '가운데 드래그: 자유 카메라 · Shift+가운데: 이동 · 휠: 줌 · 가운데 더블클릭/F: 복귀')}</div>
+      <div class="row" style="gap:4px;align-items:center"><span class="sm">🎯 ${M('Camera follows', 'Camera bám theo', '카메라 추적')}</span><select data-a="track" style="flex:1;min-width:0">${(opts.includes(this.track) ? opts : [...opts, this.track]).map(n => `<option value="${n}"${this.track === n ? ' selected' : ''}>${who(n)}</option>`).join('')}</select><button data-a="pick" title="${M('Then click an object in the view', 'Rồi bấm vào một vật trong khung 3D', '그다음 3D에서 오브젝트 클릭')}"${this.picking ? ' style="background:#2f6fde;color:#fff"' : ''}>👆</button></div>
+      ${this.picking ? `<div class="sm" style="color:#ffd34d">👆 ${M('Click the object the camera should follow…', 'Bấm vào vật mà camera sẽ bám theo…', '추적할 오브젝트를 클릭…')}</div>` : ''}
+      <div class="row"><button data-a="attach" title="${M('A shot that rides along with what the camera follows, from the current view', 'Một shot chạy cùng vật đang bám, giữ đúng góc đang nhìn', '추적 대상과 함께 움직이는 샷')}">🎥 ${M('Attach a camera to it', 'Gắn camera vào vật này', '카메라 부착')}</button><button data-a="gizmos" style="flex:0 0 auto" title="${M('Show / hide the cameras in the scene', 'Hiện / ẩn camera trong cảnh', '카메라 표시')}">${this.show_gizmos ? '👁' : '🙈'}</button></div>
       <h4 style="margin:8px 0 4px;font-size:12px">🎥 ${M('Camera shots', 'Các góc camera (shot)', '카메라 샷')} <span data-now class="sm"></span></h4>
       <div class="row"><button data-a="add">📌 ${M('Save this view as a shot', 'Lưu góc đang nhìn thành shot', '현재 시점 저장')}</button><button data-a="play"${this.shots.length === 0 ? ' disabled' : ''}>${this.playing() ? '⏹ ' + M('Stop', 'Dừng', '정지') : '▶ ' + M('Play shots', 'Phát shot', '샷 재생')}</button></div>
       ${this.shots.map((s, i) => `<div class="shot" style="border:1px solid var(--line,#333);border-radius:8px;padding:5px;margin:4px 0;display:flex;flex-direction:column;gap:3px;font-size:12px">

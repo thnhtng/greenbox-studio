@@ -17,12 +17,39 @@ Hai cách để AI điều khiển Greenbox, dùng **chung một bộ công cụ
 | `gb_map` | map chơi thử: map mẫu, đặt vật, nâng/hạ/tô đất, mực nước, xuất GLB / script Blender |
 | `gb_hpbar` | thanh máu / HUD: chỉnh thông số, mốc bị đánh theo giây, xuất .MOV alpha / MP4 phông xanh |
 | `gb_sfx` | gắn SFX: nạp video, phân tích điểm va chạm, gắn 1 âm vào TẤT CẢ điểm (`add_all`, vd. "coin"), xuất MP4 có tiếng |
+| `gb_say`, `gb_inbox` | (MCP) chat với người dùng trong khung **🔌 Claude / Codex** cạnh Greenbox: AI nhắn (`gb_say`), đọc tin bạn gõ (`gb_inbox`, chờ tới 50 giây) |
 
 ## 1. Chat trong Greenbox (nút **🤖 AI** góc phải dưới, ⇥ để ghim thành cột bên phải)
 Chọn nhà cung cấp → nhập model + API key. Anthropic, OpenAI, Gemini, OpenRouter, Ollama (máy mình) hoặc URL OpenAI-compatible bất kỳ.
 Đính kèm: 📸 ảnh khung 3D hiện tại, 📎 ảnh hoặc video (video được cắt thành 6 khung hình).
 Key chỉ lưu trong trình duyệt (localStorage) và chỉ gửi tới nhà cung cấp đã chọn.
 Lưu ý: đây là **dùng** model qua API, không phải fine-tune (fine-tune cần dữ liệu huấn luyện riêng).
+
+## 1a. Chat bằng Claude Code / Codex CLI có sẵn trên máy (không cần API key)
+
+Trong khung chat chọn **Claude Code** hoặc **Codex** (ô chọn dưới khung). Máy chủ Greenbox (`serve.py` → `cli_agent.py`) chạy CLI đã cài, gắn sẵn Greenbox MCP, nên AI điều khiển đúng trang đang mở. ✏️ = cho sửa file (mặc định tắt), ⏹ = dừng. Chỉ có ở bản chạy trên máy (Mo-Greenbox); sau khi cập nhật phải mở lại Mo-Greenbox. Thử song song: `GREENBOX_SIDE=1 python3 serve.py 8090` (chỉ ghi `.bridge-8090.json`), MCP đọc cổng qua `GREENBOX_PORT`.
+
+## 1b. Khung chat cạnh Greenbox cho Claude / Codex (MCP)
+🤖 AI → nút **🔌** (đổi chế độ) → **⇥** ghim thành cột bên phải (trang Greenbox tự thu hẹp nhường chỗ, giống thanh bên của extension Chrome).
+- Lời AI hiện thành bong bóng có tên app (Claude Code, Codex, Claude, Cursor…), các lệnh AI chạy hiện dòng xanh "🔌 Codex → gb_map …".
+- Bạn gõ ở ô dưới: AI đọc bằng `gb_inbox` ("👀 Codex đã đọc 1 tin"). Khi AI hỏi và chờ, có dòng "⏳ … đang chờ bạn trả lời".
+- Nhắn AI trong app của nó một lần: "trả lời tôi trong khung chat Greenbox" (MCP cũng tự dặn AI điều này).
+
+## 1c. Một câu prompt → một playable (Claude Desktop / Claude Code)
+1. Mở Greenbox bằng **Mo-Greenbox**, bật khung chat cạnh bên (🤖 AI → 🔌 → ⇥) để xem AI làm gì.
+2. Trong Claude:
+   - **Claude Code:** gõ `/mcp__greenbox__make_playable`, điền `model` (đường dẫn file 3D), `game` (ý tưởng, vd. "nhặt tiền mở nhà"), `link` (link cửa hàng cho nút Chơi ngay).
+   - **Claude Desktop:** chọn prompt *make_playable* của Greenbox.
+   - Hoặc nhắn thường: "Dùng Greenbox làm playable từ ~/Downloads/hero.glb, nhặt tiền mở khoá nhà, nút Chơi ngay trỏ về <link>". AI tự đọc `gb_recipe`.
+3. AI làm lần lượt, báo từng bước trong khung chat Greenbox; bạn thấy trang tự đổi theo:
+   1. Nạp model, tự gắn xương, tự kiểm tra ảnh, tính da + 178 animation.
+   2. `gb_to_playtest`: nhân vật thành người chơi.
+   3. Dựng map + trang trí, rồi gameplay bằng sơ đồ 2D (nguồn tiền → quầy → ô mở khoá → ngôi nhà).
+   4. Chơi thử.
+   5. `gb_map export_playable`: lưu `exports/greenbox-playable.html` và báo dung lượng (nên dưới 5 MB).
+4. Khi cần bạn quyết (khớp lệch, ý tưởng game), AI hỏi trong khung chat và chờ bạn trả lời.
+
+Công cụ mới: `gb_to_playtest`, `gb_recipe`, `gb_map` action `export_playable {cta}`; prompt MCP `make_playable {model, game, link}`.
 
 ## 2. MCP — Claude Desktop / Claude Code / Codex / Cowork (bản máy và bản web)
 `greenbox_mcp.py` (chỉ cần Python 3.8+, không cài gì) + `tools.json` để chung một thư mục. Cấu hình (đường dẫn đầy đủ):

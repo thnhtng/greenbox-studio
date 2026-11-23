@@ -27,7 +27,7 @@ export interface RigRec { id: string, file: string, score: number, date: number,
 const KEY = 'gb.vehicle.rigmem'
 const MAX = 80
 export const MIN_SCORE = 4 // only rigs rated this or better are used for the next ones
-export const MIN_SIM = 0.82 // and only when the shape is at least this close
+export const MIN_SIM = 0.97 // only a near twin: a 94 % look-alike (a sample dozer vs a real one) added 6 wheels and 4 tracks that were not there
 
 export function load_mem (): RigRec[] { try { const a = JSON.parse(localStorage.getItem(KEY) ?? '[]'); return Array.isArray(a) ? a : [] } catch { return [] } }
 function save_mem (a: RigRec[]): void { try { localStorage.setItem(KEY, JSON.stringify(a)) } catch { /* full or blocked */ } }

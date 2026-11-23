@@ -128,3 +128,36 @@ export function belt_loop (pts: P2[]): Loop | null {
   if (h.length < 3) return null
   return new Loop(chaikin(h, 2))
 }
+
+/**
+ * Shrink-wrap: the loop hugs the belt instead of cutting across it. The side-view hull of the belt is convex, so on a
+ * high-drive bulldozer (sprocket up high, triangle belt) its top edge ran from the sprocket straight down to the idler
+ * over thin air. Every point of the hull walks inwards along its normal until it meets belt points (within a thin
+ * tube), never deeper than `depth`; then a few smoothing passes keep the chain round.
+ */
+export function wrap_loop (hull: Loop, pts: P2[], depth: number, M = 160): Loop {
+  if (pts.length < 8) return hull
+  const step = Math.max(1, Math.floor(pts.length / 9000)); const q: P2[] = []; for (let i = 0; i < pts.length; i += step) q.push(pts[i])
+  let cz = 0; let cy = 0; for (const p of hull.pts) { cz += p[0]; cy += p[1] } cz /= hull.pts.length; cy /= hull.pts.length
+  const tube = hull.len / M * 1.6
+  const out: P2[] = []
+  for (let i = 0; i < M; i++) {
+    const at = hull.at(i * hull.len / M); const p = at.p
+    let nz = at.t[1]; let ny = -at.t[0]
+    if ((cz - p[0]) * nz + (cy - p[1]) * ny < 0) { nz = -nz; ny = -ny } // pointing inside
+    let best = Infinity
+    for (const v of q) {
+      const dz = v[0] - p[0]; const dy = v[1] - p[1]; const t = dz * nz + dy * ny
+      if (t < -tube || t > depth || t >= best) continue
+      const lz = dz - nz * t; const ly = dy - ny * t
+      if (lz * lz + ly * ly < tube * tube) best = t
+    }
+    const t = best === Infinity ? 0 : Math.max(0, best)
+    out.push([p[0] + nz * t, p[1] + ny * t])
+  }
+  for (let pass = 0; pass < 3; pass++) {
+    const c = out.map(p => [p[0], p[1]] as P2)
+    for (let i = 0; i < M; i++) { const a = c[(i + M - 1) % M]; const b = c[(i + 1) % M]; out[i] = [(a[0] + 2 * c[i][0] + b[0]) / 4, (a[1] + 2 * c[i][1] + b[1]) / 4] }
+  }
+  return new Loop(out)
+}

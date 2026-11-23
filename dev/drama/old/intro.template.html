@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Greenbox AI Drama</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b1310;--card:#121c18;--card2:#17241f;--line:#24362e;--txt:#e9f2ec;--mut:#9db0a5;--gb:#2fe98b;--gb2:#16a34a;--cl:#f59e0b;--hf:#a78bfa;--dc:#38bdf8;--r:14px}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#123526 0%,transparent 60%),var(--bg);color:var(--txt);font:15px/1.6 "Be Vietnam Pro",system-ui,-apple-system,sans-serif;word-break:keep-all}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+header{position:sticky;top:0;z-index:5;background:rgba(11,19,16,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;gap:12px;height:56px}
+header b{font-size:16px}
+.sp{flex:1}
+.lang button{background:none;border:1px solid var(--line);color:var(--mut);border-radius:8px;padding:4px 10px;font:inherit;font-size:13px;cursor:pointer}
+.lang button.on{background:var(--gb2);border-color:var(--gb2);color:#fff}
+[data-l]{display:none}
+html[lang=vi] [data-l=vi],html[lang=en] [data-l=en]{display:revert}
+h1{font-size:30px;line-height:1.3;margin:32px 0 8px;letter-spacing:-.01em}
+h2{font-size:20px;margin:40px 0 12px}
+.lead{color:var(--mut);max-width:780px;margin:0}
+.demo{display:inline-block;margin-top:12px;color:#fde68a;background:#3a2e0a;border:1px solid #6b5212;border-radius:8px;padding:6px 10px;font-size:13px}
+/* tools legend + share */
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 0}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:600;border:1px solid}
+.chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.t-gb{color:#bff7d6;border-color:#1f6b45;background:#0f2a1d}.t-gb i{background:var(--gb)}
+.t-cl{color:#fde3b0;border-color:#6b4a12;background:#2a1d08}.t-cl i{background:var(--cl)}
+.t-hf{color:#ddd3ff;border-color:#4b3b8a;background:#1c1533}.t-hf i{background:var(--hf)}
+.t-dc{color:#c8ecff;border-color:#1d5b7a;background:#0b2130}.t-dc i{background:var(--dc)}
+.share{display:flex;height:10px;border-radius:999px;overflow:hidden;margin:14px 0 6px;max-width:640px;background:var(--card)}
+.share span{display:block}
+.note{color:var(--mut);font-size:13px}
+/* pipeline */
+.steps{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:8px}
+.step{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;position:relative;transition:border-color .15s,background-color .15s}
+.step.on{border-color:var(--gb);background:#12261c}
+.step.done{border-color:#1f6b45}
+.step .n{font-size:12px;color:var(--mut)}
+.step b{display:block;font-size:14px;line-height:1.35;margin:2px 0 8px}
+.step p{margin:8px 0 0;font-size:12.5px;color:var(--mut);line-height:1.5}
+.ctrl{display:flex;gap:8px;align-items:center;margin:14px 0 0;flex-wrap:wrap}
+.btn{border:0;border-radius:10px;padding:9px 16px;font:600 14px "Be Vietnam Pro",system-ui,sans-serif;cursor:pointer;background:linear-gradient(#36d36a,#16a34a);color:#fff;transition:transform .15s}
+.btn:active{transform:scale(.98)}
+.btn.ghost{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
+.btn:focus-visible{outline:2px solid var(--gb);outline-offset:2px}
+/* script + player */
+.two{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.script p{margin:0 0 10px}
+.script .sc{color:var(--gb);font-weight:600}
+.player{position:sticky;top:72px}
+.screen{position:relative;width:100%;aspect-ratio:9/16;border-radius:12px;overflow:hidden;background:#000}
+.screen img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s}
+.screen img.on{opacity:1;animation:kb 4s linear forwards}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.08)}}
+.sub{position:absolute;left:8%;right:8%;bottom:9%;text-align:center;font-weight:700;font-size:15px;line-height:1.4;text-shadow:0 2px 6px #000,0 0 2px #000}
+.badge{position:absolute;left:10px;top:10px;font-size:11px;background:rgba(0,0,0,.55);border-radius:6px;padding:2px 8px}
+.money{position:absolute;right:12px;top:30%;font:800 26px system-ui;color:#fde047;text-shadow:0 2px 8px #000;opacity:0}
+.money.go{animation:pop 1.6s ease-out forwards}
+@keyframes pop{0%{opacity:0;transform:translateY(10px) scale(.7)}20%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-30px)}}
+.tl{margin-top:10px}
+.track{display:flex;gap:2px;height:26px;margin-top:4px;position:relative}
+.track div{border-radius:5px;font-size:10.5px;display:flex;align-items:center;padding:0 5px;overflow:hidden;white-space:nowrap}
+.track.v div{background:#1f6b45}.track.a div{background:#2a2245}.track.s div{background:#203040}
+.head{position:absolute;top:24px;bottom:-2px;width:2px;background:#fff;left:0;pointer-events:none;border-radius:1px}
+.tlw{position:relative}
+.lbl{font-size:11px;color:var(--mut);margin-top:6px}
+/* shot board */
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.shot{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s}
+.shot.on{border-color:var(--gb)}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:#000}
+.pair figure{margin:0;position:relative;aspect-ratio:9/16}
+.pair img{width:100%;height:100%;object-fit:cover;display:block}
+.pair figcaption{position:absolute;left:4px;top:4px;font-size:10px;background:rgba(0,0,0,.6);border-radius:5px;padding:1px 6px}
+.empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;font-size:11px;color:#c9bdf7;background:repeating-linear-gradient(135deg,#1a1430 0 8px,#160f29 8px 16px)}
+.shot .body{padding:10px 12px 12px;font-size:13px}
+.shot .body b{font-size:14px}
+.meta{color:var(--mut);font-size:12px}
+.vo{margin:6px 0;font-style:italic}
+.prompt{background:#0d1512;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:11.5px;color:#cfd9d3;max-height:84px;overflow:auto;margin-top:6px}
+.row{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.mini{font-size:11.5px;padding:4px 9px;border-radius:8px;background:var(--card2);border:1px solid var(--line);color:var(--txt);cursor:pointer;font-family:inherit}
+.st{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.st span{font-size:10.5px;border-radius:5px;padding:1px 6px;background:#1b2621;color:var(--mut)}
+.st span.ok{background:#0f2a1d;color:#9ef5c4}
+.st span.wait{background:#1c1533;color:#cbbcff}
+/* limits */
+.lim{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.lim ul{margin:6px 0 0;padding-left:18px;color:var(--mut);font-size:13.5px}
+code{background:#0d1512;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:12.5px}
+footer{margin:48px 0 32px;color:var(--mut);font-size:12.5px}
+@media (max-width:980px){.steps{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}.player{position:static;max-width:340px;margin:0 auto}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:100ms!important;transition-duration:100ms!important}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><b>🎬 Greenbox AI Drama</b><span class="sp"></span><div class="lang"><button data-set="vi" class="on">VI</button> <button data-set="en">EN</button></div></div></header>
+<main class="wrap">
+<h1><span data-l="vi">Một phim AI ngắn, làm phần lớn trong Greenbox</span><span data-l="en">A short AI film, made mostly in Greenbox</span></h1>
+<p class="lead"><span data-l="vi">Phần riêng của Greenbox, không thuộc 3D. Kịch bản → bảng shot → khung hình tham chiếu cho từng shot → Claude mang khung hình lên Higgsfield tạo video → dựng lại trong Greenbox → lưu dự án sang DramaClaw.</span><span data-l="en">A separate part of Greenbox, not 3D. Script → shot board → a reference frame per shot → Claude takes the frames to Higgsfield to make the video → edit back in Greenbox → the project is saved to DramaClaw.</span></p>
+<span class="demo"><span data-l="vi">Bản xem trước giao diện: ảnh tham chiếu là khung hình thật từ Greenbox; ô video Higgsfield còn trống (chưa tạo, chưa tốn credit).</span><span data-l="en">Interface preview: the reference pictures are real Greenbox frames; the Higgsfield video slots are empty (nothing generated, no credits spent).</span></span>
+
+<div class="tools">
+  <span class="chip t-gb"><i></i>Greenbox</span><span class="chip t-cl"><i></i>Claude</span><span class="chip t-hf"><i></i>Higgsfield</span><span class="chip t-dc"><i></i>DramaClaw</span>
+</div>
+<div class="share" aria-hidden="true"><span style="flex:4;background:var(--gb)"></span><span style="flex:1;background:var(--cl)"></span><span style="flex:1;background:var(--hf)"></span><span style="flex:1;background:var(--dc)"></span></div>
+<div class="note"><span data-l="vi">4 / 7 bước làm trong Greenbox · 1 bước Claude · 1 bước Higgsfield · 1 bước DramaClaw.</span><span data-l="en">4 / 7 steps in Greenbox · 1 Claude · 1 Higgsfield · 1 DramaClaw.</span></div>
+
+<h2><span data-l="vi">Quy trình</span><span data-l="en">The workflow</span></h2>
+<div class="steps" id="steps"></div>
+<div class="ctrl"><button class="btn" id="run"><span data-l="vi">▶ Chạy thử quy trình</span><span data-l="en">▶ Run the workflow</span></button><button class="btn ghost" id="reset"><span data-l="vi">Làm lại</span><span data-l="en">Reset</span></button><span class="note" id="runmsg"></span></div>
+
+<h2><span data-l="vi">Kịch bản và animatic</span><span data-l="en">Script and animatic</span></h2>
+<div class="two">
+  <div class="card script" id="script"></div>
+  <div class="card player">
+    <div class="screen" id="screen"><span class="badge" id="badge">Shot 1</span><div class="money" id="money">+$60</div><div class="sub" id="sub"></div></div>
+    <div class="ctrl"><button class="btn" id="play"><span data-l="vi">▶ Xem animatic</span><span data-l="en">▶ Play the animatic</span></button><span class="note" id="tc">0.0 / 17 s</span></div>
+    <div class="tl tlw">
+      <div class="lbl"><span data-l="vi">Timeline Video FX (Greenbox)</span><span data-l="en">Video FX timeline (Greenbox)</span></div>
+      <div class="track v" id="tv"></div><div class="track a" id="ta"></div><div class="track s" id="ts"></div>
+      <div class="head" id="head"></div>
+    </div>
+  </div>
+</div>
+
+<h2><span data-l="vi">Bảng shot</span><span data-l="en">Shot board</span></h2>
+<div class="board" id="board"></div>
+
+<h2><span data-l="vi">Giới hạn hiện tại</span><span data-l="en">Current limits</span></h2>
+<div class="lim">
+  <div class="card"><span class="chip t-hf"><i></i>Higgsfield</span><ul>
+    <li data-l="vi">Bạn đăng nhập Higgsfield trong trình duyệt; Claude không đăng nhập hộ.</li><li data-l="en">You sign in to Higgsfield in the browser; Claude never signs in for you.</li>
+    <li data-l="vi">Mỗi video tốn credit, nên Claude hỏi trước mỗi đợt (vd. 5 video × 4 giây).</li><li data-l="en">Each video costs credits, so Claude asks before each batch (e.g. 5 videos × 4 s).</li></ul></div>
+  <div class="card"><span class="chip t-dc"><i></i>DramaClaw</span><ul>
+    <li data-l="vi">Chạy trên máy: <code>uv run novelvideo api --port 8780</code>; Claude điều khiển qua MCP.</li><li data-l="en">Runs locally: <code>uv run novelvideo api --port 8780</code>; Claude drives it through MCP.</li>
+    <li data-l="vi">Phần tự tạo ảnh / video của nó cần key trả phí, nên ở đây chỉ dùng làm kho dự án + canvas (upload ảnh không cần key).</li><li data-l="en">Its own generation needs a paid key, so here it is only the project store + canvas (uploads need no key).</li>
+    <li data-l="vi">License Elastic 2.0: Greenbox chỉ gọi API, không chép code.</li><li data-l="en">Elastic 2.0 licence: Greenbox only calls its API, no code copied.</li></ul></div>
+  <div class="card"><span class="chip t-gb"><i></i>Greenbox</span><ul>
+    <li data-l="vi">Previz dùng nhân vật / xe đã rig: cùng một model cho mọi shot nên nhân vật không đổi mặt.</li><li data-l="en">Previz uses rigged characters / vehicles: one model in every shot keeps the character consistent.</li>
+    <li data-l="vi">Bảng shot và nút “gửi sang Video FX” là bản demo trên trang này, chưa thành tính năng trong Cockpit.</li><li data-l="en">The shot board and “send to Video FX” are a demo on this page, not yet a Cockpit feature.</li></ul></div>
+</div>
+<footer><span data-l="vi">Greenbox Studio · demo quy trình AI Drama · khung previz lấy từ Play test (thành phố + mỏ Bulldozer).</span><span data-l="en">Greenbox Studio · AI Drama workflow demo · previz frames from Play test (the city + the Bulldozer quarry).</span></footer>
+</main>
+<script>
+const IMG = ['{{shot1.webp}}', '{{shot2.webp}}', '{{shot3.webp}}', '{{shot4.webp}}', '{{shot5.webp}}']
+const T = { gb: ['t-gb', 'Greenbox'], cl: ['t-cl', 'Claude'], hf: ['t-hf', 'Higgsfield'], dc: ['t-dc', 'DramaClaw'] }
+const STEPS = [
+  ['cl', 'Kịch bản → shot', 'Script → shots', 'Claude viết kịch bản, chia 5 shot: nhân vật, góc máy, thoại, số giây.', 'Claude writes the script and splits it into 5 shots: cast, camera, lines, seconds.'],
+  ['gb', 'Bảng shot', 'Shot board', 'Mỗi shot một ô: prompt, ảnh previz, video, thoại.', 'One card per shot: prompt, previz, video, lines.'],
+  ['gb', 'Khung tham chiếu', 'Reference frames', 'Mỗi shot một khung hình: chụp từ Play test, từ video có sẵn hoặc ảnh của bạn.', 'One frame per shot: grabbed from Play test, an existing video or your own picture.'],
+  ['hf', 'Tạo video', 'Generate', 'Claude mở Higgsfield, đưa khung previz + prompt, tạo video từng shot, tải về.', 'Claude opens Higgsfield, gives it the previz frame + prompt, makes each shot, downloads it.'],
+  ['gb', 'Dựng', 'Edit', 'Video FX: nối shot + chuyển cảnh, SFX theo va chạm, phụ đề từ thoại, bộ đếm tiền.', 'Video FX: join shots + transitions, SFX on hits, subtitles from the lines, money counter.'],
+  ['dc', 'Lưu DramaClaw', 'Save to DramaClaw', 'Đẩy ảnh / video vào canvas dự án để team xem và dùng lại.', 'Push the pictures / videos to the project canvas for the team.'],
+  ['gb', 'Xuất', 'Export', 'MP4 9:16 (hoặc 16:9) + end card.', 'MP4 9:16 (or 16:9) + end card.']
+]
+const SHOTS = [
+  { s: 3, cam: ['Sau lưng, đi theo', 'Behind, following'], act: ['Minh rời thành phố, đi về phía mỏ.', 'Minh leaves the city, heading for the quarry.'], vo: ['“Ngày đầu đi làm, mình chỉ có một chiếc xe ủi cũ.”', '“First day on the job, and all I have is an old bulldozer.”'], sfx: 'footsteps',
+    p: 'Cinematic vertical 9:16. A young miner with spiky black hair and a blue jacket walks down a sunny low-poly city street toward the hills; the camera follows from behind; soft morning light; stylized 3D animation; keep the character, street and camera of the reference frame.' },
+  { s: 3, cam: ['Trên cao, chéo', 'High angle'], act: ['Toàn cảnh mỏ: bức tường quặng, thùng bán, ô nâng cấp.', 'The quarry: the ore wall, the sell skip, the upgrade pad.'], vo: ['“Cả một bức tường đá… và đâu đó là ngọc.”', '“A whole wall of rock… and gems somewhere inside.”'], sfx: 'wind',
+    p: 'Aerial establishing shot of an open-pit quarry: a wall of dark rock blocks veined with purple amethyst and blue crystal, floodlight masts, orange barriers, a small yellow bulldozer in front; slow push-in; stylized 3D; same layout as the reference frame.' },
+  { s: 4, cam: ['Thấp, sau xe', 'Low, behind the vehicle'], act: ['Xe khoan vào quặng đồng, đá và ngọc văng vào thùng.', 'The vehicle drills the copper ore; rocks and gems fly into its bin.'], vo: ['', ''], sfx: 'drill · rock break',
+    p: 'A yellow roller crusher drills into a copper ore block; rock chips and glowing orange gems burst out and arc into its bin; camera low behind the vehicle; dust and a little shake; stylized 3D game look; keep the vehicle from the reference frame.' },
+  { s: 3, cam: ['Ngang, bên hông', 'Side'], act: ['Đổ ngọc vào thùng bán, tiền nhảy +$60.', 'Gems poured into the skip; +$60 pops up.'], vo: ['', ''], sfx: 'coins', money: true,
+    p: 'The bulldozer unloads glowing gems into a green builder\'s skip; coins pop out; bright, satisfying game-ad moment; stylized 3D; keep the skip and vehicle of the reference frame.' },
+  { s: 4, cam: ['Trên cao, cận dần', 'High, pushing in'], act: ['Xe tiến hoá thành máy khoan đỏ, đào vào thạch anh tím.', 'The vehicle evolves into a red drill and bores into the amethyst.'], vo: ['“Giờ thì không bức tường nào cản được.”', '“Now no wall can stop me.”'], sfx: 'power-up · drill',
+    p: 'The vehicle transforms into a red drill crusher with sparks and a glow burst, then bores into a purple amethyst wall; dramatic push-in; stylized 3D game ad; end on a clean frame for the end card.' }
+]
+const L = () => document.documentElement.lang === 'en' ? 1 : 0
+const chip = k => `<span class="chip ${T[k][0]}"><i></i>${T[k][1]}</span>`
+let stage = 0 // how many workflow steps are done (0..7)
+function draw () {
+  const l = L()
+  document.getElementById('steps').innerHTML = STEPS.map((s, i) => `<div class="step${i < stage ? ' done' : ''}${i === stage - 1 ? ' on' : ''}"><div class="n">${i + 1}${i < stage ? (i === 3 ? (l ? ' · waiting' : ' · chờ') : ' ✓') : ''}</div><b>${s[1 + l]}</b>${chip(s[0])}<p>${s[3 + l]}</p></div>`).join('')
+  document.getElementById('script').innerHTML = `<p><b>${l ? 'A first day at the quarry' : 'Ngày đầu ở mỏ'}</b> · ${l ? 'vertical 9:16 · 17 s · game ad drama' : 'dọc 9:16 · 17 giây · drama quảng cáo game'}</p>` +
+    SHOTS.map((s, i) => `<p><span class="sc">SHOT ${i + 1} · ${s.s}s · ${s.cam[l]}</span><br>${s.act[l]}${s.vo[l] !== '' ? `<br><i>VO: ${s.vo[l]}</i>` : ''}<br><span class="meta">SFX: ${s.sfx}</span></p>`).join('')
+  const st = i => { const a = [[l ? 'shot' : 'shot', 1], ['previz', 3], ['prompt', 1], ['Higgsfield', 4], [l ? 'edit' : 'dựng', 5], ['DramaClaw', 6]]; return a.map(([n, k]) => `<span class="${stage >= k ? (k === 4 ? 'wait' : 'ok') : ''}">${n}${stage >= k ? (k === 4 ? (l ? ' · waiting' : ' · chờ') : ' ✓') : ''}</span>`).join('') }
+  document.getElementById('board').innerHTML = SHOTS.map((s, i) => `<div class="shot" data-i="${i}"><div class="pair"><figure><img src="${IMG[i]}" alt="previz ${i + 1}"><figcaption>Greenbox previz</figcaption></figure><figure><div class="empty">${l ? 'Higgsfield video<br>not generated (demo)' : 'Video Higgsfield<br>chưa tạo (demo)'}</div><figcaption>Higgsfield</figcaption></figure></div>
+    <div class="body"><b>Shot ${i + 1}</b> <span class="meta">· ${s.s}s · ${s.cam[l]}</span><div>${s.act[l]}</div>${s.vo[l] !== '' ? `<div class="vo">${s.vo[l]}</div>` : ''}
+    <div class="prompt" title="prompt">${s.p}</div>
+    <div class="row"><button class="mini" data-copy="${i}">${l ? 'Copy prompt' : 'Chép prompt'}</button><a class="mini" href="https://higgsfield.ai" target="_blank" rel="noopener" style="text-decoration:none">Higgsfield ↗</a></div>
+    <div class="st">${st(i)}</div></div></div>`).join('')
+  document.querySelectorAll('[data-copy]').forEach(b => { b.onclick = async () => { try { await navigator.clipboard.writeText(SHOTS[+b.dataset.copy].p); b.textContent = l ? 'Copied ✓' : 'Đã chép ✓' } catch { b.textContent = '✕' } } })
+  // timeline
+  const total = SHOTS.reduce((a, s) => a + s.s, 0)
+  document.getElementById('tv').innerHTML = SHOTS.map((s, i) => `<div style="flex:${s.s}">S${i + 1}</div>`).join('')
+  document.getElementById('ta').innerHTML = SHOTS.map(s => `<div style="flex:${s.s}">${s.vo[l] !== '' ? 'VO' : ''}</div>`).join('')
+  document.getElementById('ts').innerHTML = SHOTS.map(s => `<div style="flex:${s.s}">${s.sfx}</div>`).join('')
+  document.getElementById('tc').textContent = `${t.toFixed(1)} / ${total} s`
+}
+// animatic
+const screen = document.getElementById('screen')
+IMG.forEach((src, i) => { const im = new Image(); im.src = src; im.alt = ''; im.dataset.i = i; screen.insertBefore(im, screen.firstChild) })
+let t = 0, playing = false, last = 0, cur = -1
+function show (i) {
+  if (i === cur) return; cur = i
+  screen.querySelectorAll('img').forEach(im => { im.classList.toggle('on', +im.dataset.i === i); if (+im.dataset.i === i) { im.style.animation = 'none'; void im.offsetWidth; im.style.animation = '' } })
+  const s = SHOTS[i]; document.getElementById('badge').textContent = `Shot ${i + 1} · ${s.cam[L()]}`
+  document.getElementById('sub').textContent = s.vo[L()].replace(/[“”]/g, '')
+  const m = document.getElementById('money'); m.classList.remove('go'); if (s.money) { void m.offsetWidth; m.classList.add('go') }
+  document.querySelectorAll('.shot').forEach(c => c.classList.toggle('on', +c.dataset.i === i))
+}
+function at (time) { let a = 0; for (let i = 0; i < SHOTS.length; i++) { a += SHOTS[i].s; if (time < a) return i } return SHOTS.length - 1 }
+function tick (now) {
+  if (!playing) return
+  t += (now - last) / 1000; last = now
+  const total = SHOTS.reduce((a, s) => a + s.s, 0)
+  if (t >= total) { t = total; playing = false }
+  show(at(Math.min(t, total - 0.001)))
+  document.getElementById('head').style.left = (t / total * 100) + '%'
+  document.getElementById('tc').textContent = `${t.toFixed(1)} / ${total} s`
+  if (playing) requestAnimationFrame(tick)
+}
+document.getElementById('play').onclick = () => { if (t >= 16.99) t = 0; playing = true; last = performance.now(); cur = -1; requestAnimationFrame(tick) }
+// workflow run: one step every 0.9 s
+let runner = 0
+const MSG = [['Claude chia kịch bản thành 5 shot', 'Claude splits the script into 5 shots'], ['Bảng shot được tạo trong Greenbox', 'The shot board is made in Greenbox'], ['5 khung tham chiếu (từ Play test)', '5 reference frames (from Play test)'], ['Higgsfield: chờ bạn đăng nhập + duyệt credit (demo dừng ở đây)', 'Higgsfield: waiting for your sign-in + credit approval (the demo pauses here)'], ['Dựng trong Video FX (dùng previz làm animatic)', 'Edited in Video FX (previz as the animatic)'], ['Đã đẩy lên canvas DramaClaw (khi API :8780 đang chạy)', 'Pushed to the DramaClaw canvas (when the :8780 API runs)'], ['Xuất MP4 9:16', 'Exported MP4 9:16']]
+document.getElementById('run').onclick = () => {
+  clearInterval(runner); stage = 0; draw()
+  runner = setInterval(() => { stage++; draw(); document.getElementById('runmsg').textContent = MSG[stage - 1][L()]; if (stage >= 7) clearInterval(runner) }, 900)
+}
+document.getElementById('reset').onclick = () => { clearInterval(runner); stage = 0; t = 0; playing = false; cur = -1; document.getElementById('runmsg').textContent = ''; document.getElementById('head').style.left = '0'; draw(); show(0) }
+document.querySelectorAll('[data-set]').forEach(b => { b.onclick = () => { document.documentElement.lang = b.dataset.set; document.querySelectorAll('[data-set]').forEach(x => x.classList.toggle('on', x === b)); try { localStorage.setItem('gb.drama.lang', b.dataset.set) } catch {} ; const k = cur; cur = -1; draw(); show(Math.max(0, k)) } })
+try { const s = localStorage.getItem('gb.drama.lang'); if (s === 'en') document.querySelector('[data-set="en"]').click() } catch {}
+// inside the Greenbox Cockpit: follow its language (vi / en; ko shows English)
+addEventListener('message', e => { const g = e.data && e.data.gbLang; if (typeof g === 'string') document.querySelector(`[data-set="${g === 'vi' ? 'vi' : 'en'}"]`)?.click() })
+try { if (window.parent !== window) { const g = parent.localStorage.getItem('gbc.lang'); if (g) document.querySelector(`[data-set="${g === 'vi' ? 'vi' : 'en'}"]`)?.click() } } catch {}
+draw(); show(0)
+</script>
+</body>
+</html>
